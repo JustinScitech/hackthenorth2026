@@ -128,6 +128,28 @@ export function same(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+/**
+ * Runs one case, turning a thrown error into a failed result. `check` returns
+ * the list of problems; an empty list passes.
+ */
+export function attempt(name: string, check: () => string[], note?: string): CaseResult {
+  try {
+    const problems = check();
+    return { name, passed: problems.length === 0, detail: problems.join("; ") || undefined, note };
+  } catch (error) {
+    return { name, passed: false, detail: `threw ${error instanceof Error ? error.message : String(error)}`, note };
+  }
+}
+
+export async function attemptAsync(name: string, check: () => Promise<string[]>, note?: string): Promise<CaseResult> {
+  try {
+    const problems = await check();
+    return { name, passed: problems.length === 0, detail: problems.join("; ") || undefined, note };
+  } catch (error) {
+    return { name, passed: false, detail: `threw ${error instanceof Error ? error.message : String(error)}`, note };
+  }
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -17,8 +17,23 @@ export function initMonitoring() {
   });
 }
 
+/** Strips anything that could carry submission text before an event leaves the process. */
+export function scrubEvent<T extends Record<string, unknown>>(_event: T): T {
+  throw new Error("scrubEvent is not implemented yet");
+}
+
+/** The only thing Sentry learns about an error: its class, never its message. */
+export function agentErrorMessage(error: unknown): string {
+  return `Agent error: ${error instanceof Error ? error.name : "UnknownError"}`;
+}
+
+/** Log attributes safe to ship: identifiers, counts, statuses; never free text. */
+export function redactForLog(_detail: Record<string, unknown>): Record<string, string | number | boolean> {
+  throw new Error("redactForLog is not implemented yet");
+}
+
 export function captureAgentError(error: unknown) {
-  if (process.env.SENTRY_DSN) Sentry.captureMessage(`Agent error: ${error instanceof Error ? error.name : "UnknownError"}`);
+  if (process.env.SENTRY_DSN) Sentry.captureMessage(agentErrorMessage(error));
 }
 
 export function recordExtractionMetrics(attempts: ModelAttempt[]) {
