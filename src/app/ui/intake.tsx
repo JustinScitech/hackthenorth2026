@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, CircleAlert, FilePlus2 } from "lucide-react";
+import { CaretDown, Check, FilePlus, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 
 type FormState = { insuredName: string; state: string; tiv: string; yearBuilt: string; losses: string; brokerNotes: string; publicSourceUrl: string };
 const emptyForm: FormState = { insuredName: "", state: "", tiv: "", yearBuilt: "", losses: "", brokerNotes: "", publicSourceUrl: "" };
@@ -109,7 +109,7 @@ function SamplePicker({ value, onChange }: { value: string; onChange: (id: strin
         }}
       >
         <span id="sample-selected-value">{sampleOptions[selectedIndex]?.label ?? "Custom submission"}</span>
-        <ChevronDown size={16} aria-hidden="true" />
+        <CaretDown size={16} aria-hidden="true" />
       </button>
       {open && <div id="sample-scenario-menu" className="sample-select-menu popup" role="menu" aria-labelledby="sample-scenario-label" onKeyDown={handleMenuKeyDown}>
         {sampleOptions.map((option, index) => <button
@@ -170,7 +170,7 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
       <div className="page-title-row">
         <div><h1 className="page-title">New submission</h1><p className="subtle" style={{ marginTop: 6 }}>Start a durable review. The agent extracts facts, checks demo guidelines, and pauses for the broker when information is missing.</p></div>
       </div>
-      {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error}</div>}
+      {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
       <form className="card" onSubmit={createCase}>
         <div className="form-section sample-picker">
           <div className="form-section-title"><h2>Sample submission</h2></div>
@@ -195,7 +195,7 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
         </div>
         <div className="form-footer">
           <span className="subtle">Fictional demo rules. A final decision requires underwriter review.</span>
-          <button className="primary-button" disabled={submitting} type="submit"><FilePlus2 size={16} />{submitting ? "Starting case..." : "Start analysis"}</button>
+          <button className="primary-button" disabled={submitting} type="submit"><FilePlus size={16} />{submitting ? "Starting case..." : "Start analysis"}</button>
         </div>
       </form>
     </main>

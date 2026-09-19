@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Info } from "lucide-react";
+import { Info } from "@phosphor-icons/react/dist/ssr";
 
 export const metadata: Metadata = { title: "Docs and API reference", description: "How Astra Risk cases move, how to run it, and the HTTP API the workspace uses." };
 

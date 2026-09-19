@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
 import { Wordmark } from "../ui/logo";
 
 export function SiteHeader() {

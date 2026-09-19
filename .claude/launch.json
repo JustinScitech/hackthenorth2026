@@ -11,15 +11,10 @@
       "port": 3003
     },
     {
-      "name": "next-start-3004",
+      "name": "next-dev-3013",
       "runtimeExecutable": "npx",
-      "runtimeArgs": [
-        "next",
-        "start",
-        "-p",
-        "3004"
-      ],
-      "port": 3004
+      "runtimeArgs": ["next", "dev", "-p", "3013"],
+      "port": 3013
     }
   ]
 }

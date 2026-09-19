@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CircleAlert, FilePlus2, RotateCw, Search } from "lucide-react";
+import { ArrowClockwise, ArrowRight, FilePlus, MagnifyingGlass, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import { Status } from "./status";
 import { useCases } from "./use-cases";
 
@@ -18,14 +18,14 @@ export function CaseList() {
       <div className="page-title-row">
         <h1 className="page-title">Cases</h1>
         <div className="actions">
-          <button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh cases" title="Refresh cases"><RotateCw size={16} /></button>
-          <Link className="primary-button" href="/cases/new"><FilePlus2 size={16} />New submission</Link>
+          <button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh cases" title="Refresh cases"><ArrowClockwise size={16} /></button>
+          <Link className="primary-button" href="/cases/new"><FilePlus size={16} />New submission</Link>
         </div>
       </div>
-      {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error}</div>}
+      {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
       <div className="card">
         <div className="card-header">
-          <div className="search-field" style={{ flex: "1 1 320px", maxWidth: 420 }}><Search size={15} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter by insured, state, or status" aria-label="Filter cases" /></div>
+          <div className="search-field" style={{ flex: "1 1 320px", maxWidth: 420 }}><MagnifyingGlass size={15} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter by insured, state, or status" aria-label="Filter cases" /></div>
           <span className="count">{rows.length}</span>
         </div>
         {loading ? <p className="empty-state">Loading cases...</p> : rows.length === 0 ? <p className="empty-state">{cases.length === 0 ? "No submissions yet. Create a case to begin." : "No cases match that filter."}</p> : (

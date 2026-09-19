@@ -3,33 +3,33 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
+  ArrowCounterClockwise,
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
+  ArrowsIn,
+  ArrowsOut,
+  Buildings,
+  CaretRight,
   Check,
-  CheckCheck,
-  ChevronRight,
+  Checks,
+  ClockCounterClockwise,
+  CornersOut,
+  Drop,
   FileText,
-  Layers3,
-  MapPin,
-  Maximize2,
-  Play,
-  RotateCcw,
-  ScanLine,
-  ShieldCheck,
-  X,
-  Plus,
-  Minus,
-  Expand,
-  Shrink,
-  Building2,
-  Droplets,
-  Flame,
+  Fire,
   HardHat,
-  History,
+  MapPin,
+  Minus,
+  Play,
+  Plus,
+  Scan,
+  ShieldCheck,
+  Stack,
+  StackSimple,
   Warehouse,
-  Layers,
-} from "lucide-react";
+  X,
+} from "@phosphor-icons/react/dist/ssr";
 import { Mark } from "../../ui/logo";
 import {
   DEMO_DURATION,
@@ -61,8 +61,8 @@ const PropertyScene = dynamic(() => import("./property-scene"), {
       {/* A small, locally rendered poster paints before the 3D bundle loads. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/models/northline-poster.webp"
-        alt="Northline commercial property digital twin"
+        src="/models/engineering-7-poster.webp"
+        alt="Photo-informed digital twin of Waterloo Engineering 7"
         className={styles.scenePoster}
         fetchPriority="high"
       />
@@ -286,7 +286,7 @@ export function AstraHome() {
             </Link>
           </nav>
           <div className={ui.navActions}>
-            <Link href="/overview" className={`${ui.pill} ${ui.pillPrimary} ${ui.pillSm}`}>
+            <Link href="/overview" className={`${ui.btn} ${ui.btnPrimary} ${ui.btnSm}`}>
               Open workspace
               <ArrowUpRight size={14} />
             </Link>
@@ -296,29 +296,25 @@ export function AstraHome() {
 
       <section className={`${ui.container} ${ui.hero}`} id="experience" aria-labelledby="hero-title">
         <div className={ui.heroCopy}>
-          <span className={ui.eyebrow} style={{ "--i": 0 } as React.CSSProperties}>
-            <span className={ui.liveDot} />
-            Intelligence, grounded in reality
-          </span>
           <h1 id="hero-title" style={{ "--i": 1 } as React.CSSProperties}>
-            AI underwriting{" "}
+            Underwriting that{" "}
             <br />
-            that sees the <span>whole risk.</span>
+            sees the <em>whole risk.</em>
           </h1>
           <p className={ui.intro} style={{ "--i": 2 } as React.CSSProperties}>
-            Astra reads the submission, investigates the property, checks
-            appetite, and shows its work.
+            Astra reads the submission, walks the property, checks it
+            against appetite, and shows every line of its work.
           </p>
           <div className={ui.heroActions} style={{ "--i": 3 } as React.CSSProperties}>
             <button
               type="button"
-              className={`${ui.pill} ${ui.pillPrimary}`}
+              className={`${ui.btn} ${ui.btnPrimary}`}
               onClick={replay}
             >
-              <ScanLine size={16} />
+              <Scan size={16} />
               Run Astra
             </button>
-            <a className={ui.pill} href="#underwriting">
+            <a className={ui.btn} href="#underwriting">
               How it works
               <ArrowDown size={15} className={ui.iconDown} />
             </a>
@@ -330,13 +326,13 @@ export function AstraHome() {
               <FileText size={18} />
             </span>
             <span className={ui.submissionText}>
-              <strong>Northline_Fabrication.pdf</strong>
+              <strong>Waterloo_E7_Demo.pdf</strong>
               <span>Submission · ACORD + schedule + loss runs</span>
             </span>
             <span
               className={`${ui.documentStatus} ${elapsed > 1200 ? ui.documentDone : ""}`}
             >
-              {elapsed > 1200 ? <CheckCheck size={16} /> : <ArrowRight size={16} />}
+              {elapsed > 1200 ? <Checks size={16} /> : <ArrowRight size={16} />}
             </span>
           </div>
         </div>
@@ -365,11 +361,11 @@ export function AstraHome() {
           <div className={styles.sceneTopline}>
             <span>
               <span className={styles.liveDot} />
-              LIVE RISK INTELLIGENCE
+              Live risk survey
+              <small>Engineering 7, University of Waterloo</small>
             </span>
-            <span className={styles.demoTag}>ILLUSTRATIVE DEMO</span>
+            <span className={styles.demoTag}>Illustrative demo</span>
           </div>
-          <div className={styles.coordinate}>SITE 01 / 43.65° N · 79.38° W</div>
           <div className={styles.sceneViewport}>
             <PropertyScene
               elapsed={elapsed}
@@ -392,12 +388,12 @@ export function AstraHome() {
             {(
               [
                 { id: "roof", label: "Roof", Icon: HardHat },
-                { id: "flood", label: "Flood", Icon: Droplets },
-                { id: "fire", label: "Fire", Icon: Flame },
-                { id: "construction", label: "Structure", Icon: Building2 },
+                { id: "flood", label: "Flood", Icon: Drop },
+                { id: "fire", label: "Fire", Icon: Fire },
+                { id: "construction", label: "Structure", Icon: Buildings },
                 { id: "hazards", label: "Neighbors", Icon: Warehouse },
-                { id: "business", label: "Operations", Icon: ScanLine },
-                { id: "claims", label: "Loss runs", Icon: History },
+                { id: "business", label: "Operations", Icon: Scan },
+                { id: "claims", label: "Loss runs", Icon: ClockCounterClockwise },
               ] as const
             ).map(({ id, label, Icon }) => (
               <button
@@ -415,7 +411,7 @@ export function AstraHome() {
           </div>
           <div className={styles.analysisHud} aria-live="polite">
             <span className={styles.hudIcon}>
-              <ScanLine size={14} />
+              <Scan size={14} />
             </span>
             <span>
               {inspection
@@ -427,18 +423,18 @@ export function AstraHome() {
                     : "Connecting site observations to source evidence"}
               <small>
                 {inspection
-                  ? "SELECTED INVESTIGATION"
+                  ? "Selected investigation"
                   : complete
-                    ? "SELECT A RISK ABOVE OR EXPLORE THE PROPERTY"
-                    : "AUTONOMOUS SITE SURVEY · DEMO"}
+                    ? "Select a risk above or explore the property"
+                    : "Autonomous site survey · demo"}
               </small>
             </span>
           </div>
           <div className={styles.siteName}>
             <MapPin size={13} />
             <span>
-              Northline Fabrication
-              <small>Commercial property · $3.2M TIV</small>
+              Waterloo Engineering 7
+              <small>Photo-informed model · simulated assessment</small>
             </span>
           </div>
           <div
@@ -447,7 +443,7 @@ export function AstraHome() {
           >
             <Mark size={22} />
             <span>
-              ASTRA AI
+              Astra
               <small>
                 {!ready
                   ? "Connecting to site"
@@ -470,7 +466,7 @@ export function AstraHome() {
                 expanded ? "Exit expanded view (Esc)" : "Expand property viewer"
               }
             >
-              {expanded ? <Shrink size={16} /> : <Expand size={16} />}
+              {expanded ? <ArrowsIn size={16} /> : <ArrowsOut size={16} />}
             </button>
             <button
               type="button"
@@ -483,7 +479,7 @@ export function AstraHome() {
               title="Reset camera"
               aria-label="Reset camera"
             >
-              <Maximize2 size={15} />
+              <CornersOut size={15} />
             </button>
             <button
               type="button"
@@ -493,7 +489,7 @@ export function AstraHome() {
               title="Toggle risk signals"
               aria-label="Toggle risk signals"
             >
-              <Layers3 size={15} />
+              <Stack size={15} />
             </button>
             <button
               type="button"
@@ -501,7 +497,7 @@ export function AstraHome() {
               title="Replay investigation"
               aria-label="Replay investigation"
             >
-              <RotateCcw size={15} />
+              <ArrowCounterClockwise size={15} />
             </button>
           </div>
           <div className={styles.cameraBar} aria-label="Camera views">
@@ -511,13 +507,20 @@ export function AstraHome() {
                   ["site", "Site"],
                   ["roof", "Roof"],
                   ["street", "Street"],
+                  ["atrium", "Atrium"],
                   ["plan", "Plan"],
                 ] as const
               ).map(([id, label]) => (
                 <button
                   type="button"
                   key={id}
-                  onClick={() => cameraAction(id)}
+                  onClick={() => {
+                    if (id === "atrium") {
+                      setExpanded(true);
+                      setSelected("business");
+                    }
+                    cameraAction(id);
+                  }}
                   disabled={!sceneAvailable}
                   aria-label={`Camera: ${label}`}
                   className={
@@ -547,7 +550,7 @@ export function AstraHome() {
             >
               <Plus size={14} />
             </button>
-            <small>DRAG TO ORBIT · SHIFT + DRAG TO PAN · SCROLL TO ZOOM</small>
+            <small>Drag to orbit · Shift-drag to pan · Scroll to zoom</small>
           </div>
 
           <aside
@@ -556,10 +559,10 @@ export function AstraHome() {
           >
             <div className={styles.panelHeading}>
               <span className={styles.liveDot} />
-              UNDERWRITING SNAPSHOT<span>01</span>
+              Underwriting snapshot<span>№ 01</span>
             </div>
             <div className={styles.panelProperty}>
-              Northline Fabrication<span>Commercial property</span>
+              Waterloo Engineering 7<span>Teaching & research</span>
             </div>
             <div className={styles.scoreRow}>
               <span>Risk score</span>
@@ -569,7 +572,7 @@ export function AstraHome() {
               </strong>
             </div>
             <div className={styles.appetiteRow}>
-              <span>APPETITE MATCH</span>
+              <span>Appetite match</span>
               <strong>
                 {elapsed >= 5900
                   ? Math.min(92, Math.round(((elapsed - 5900) / 700) * 92))
@@ -588,17 +591,17 @@ export function AstraHome() {
               />
             </div>
             <div className={styles.panelFindings}>
-              <span>KEY FINDINGS</span>
+              <span>Key findings</span>
               <p>
                 <Check size={11} />
                 {count >= 4
-                  ? "Construction within appetite"
+                  ? "Construction evidence linked"
                   : "Reading property schedule…"}
               </p>
               <p>
                 <span className={styles.amberDot} />
                 {count >= 3
-                  ? "Roof & flood review flagged"
+                  ? "Roof & drainage records needed"
                   : "Investigating site exposure…"}
               </p>
             </div>
@@ -625,7 +628,7 @@ export function AstraHome() {
             >
               <div className={styles.evidenceHeader}>
                 <span className={styles.microLabel}>
-                  EVIDENCE /{" "}
+                  Evidence №{" "}
                   {String(RISK_SIGNALS.indexOf(evidence) + 1).padStart(2, "0")}
                 </span>
                 <button
@@ -677,7 +680,7 @@ export function AstraHome() {
                   </div>
                   <p>
                     {waterLevel > 0.65
-                      ? "Scenario reaches the eastern service yard. Building elevation needs verification."
+                      ? "Scenario reaches the campus service area. Building elevation needs verification."
                       : "Water remains near the drainage edge. A low setting does not establish safety."}
                   </p>
                 </div>
@@ -693,7 +696,7 @@ export function AstraHome() {
                     aria-pressed={cutaway}
                     disabled={!sceneAvailable}
                   >
-                    <Layers size={14} />
+                    <StackSimple size={14} />
                     <span>
                       {selected === "roof"
                         ? cutaway
@@ -723,7 +726,7 @@ export function AstraHome() {
                 ))}
               </ol>
               <div className={styles.nextAction}>
-                <span>ASTRA'S NEXT ACTION</span>
+                <span>Astra's next action</span>
                 <p>{inspection.nextAction}</p>
               </div>
               <button
@@ -741,7 +744,7 @@ export function AstraHome() {
                   {sourceOpen ? "Hide source excerpt" : "Read source excerpt"}
                   <small>{inspection.sourceKind}</small>
                 </span>
-                <ChevronRight size={13} />
+                <CaretRight size={13} />
               </button>
               {sourceOpen && (
                 <blockquote
@@ -749,7 +752,7 @@ export function AstraHome() {
                   className={styles.sourceExcerpt}
                 >
                   {inspection.sourceExcerpt}
-                  <cite>{inspection.sourceKind} · illustrative document</cite>
+                  <cite>{inspection.sourceKind}</cite>
                 </blockquote>
               )}
               <button
@@ -770,7 +773,7 @@ export function AstraHome() {
       <div className={ui.container}>
       <div className={ui.statusBar}>
         <div className={ui.statusState} role="status" aria-live="polite">
-          <span className={ui.liveDot} />
+          <span className={`${ui.statusMark} ${running && ready ? ui.statusMarkLive : ""}`} />
           {!ready
             ? "Initializing"
             : complete
@@ -790,7 +793,7 @@ export function AstraHome() {
               )}
               {step.label}
               {index < WORKFLOW.length - 1 && (
-                <ChevronRight size={12} className={ui.stepArrow} />
+                <CaretRight size={12} className={ui.stepArrow} />
               )}
             </span>
           ))}
@@ -798,9 +801,9 @@ export function AstraHome() {
         <button
           type="button"
           onClick={complete ? replay : skip}
-          className={`${ui.pill} ${ui.pillSm} ${ui.statusTime}`}
+          className={`${ui.btn} ${ui.btnSm} ${ui.statusTime}`}
         >
-          {complete ? <RotateCcw size={12} /> : <Play size={11} />}
+          {complete ? <ArrowCounterClockwise size={12} /> : <Play size={11} />}
           {complete ? "Replay" : "Skip to result"}
           <span>{(elapsed / 1000).toFixed(1)}s</span>
         </button>
@@ -833,10 +836,6 @@ export function AstraHome() {
       <section id="underwriting" className={`${ui.container} ${ui.band}`} data-astra-reveal>
         <div className={ui.bandHead}>
           <div>
-            <span className={ui.eyebrow}>
-              <span className={ui.liveDot} />
-              How it works
-            </span>
             <h2>
               Every angle.
               <br />
@@ -853,10 +852,10 @@ export function AstraHome() {
             <span>
               <Mark size={18} />
               Underwriting workspace
-              <ChevronRight size={12} />
-              <strong>Northline Fabrication</strong>
+              <CaretRight size={12} />
+              <strong>Waterloo Engineering 7</strong>
             </span>
-            <span className={ui.monoPill}>Sample case</span>
+            <span className={ui.tag}>Sample case</span>
           </div>
           <div className={ui.workspaceBody}>
             <nav className={ui.stageNav} aria-label="Explore underwriting stages">
@@ -883,13 +882,13 @@ export function AstraHome() {
                     )}
                   </span>
                   {step.label}
-                  <ChevronRight size={14} />
+                  <CaretRight size={14} />
                 </button>
               ))}
             </nav>
             <div className={ui.stageContent} key={activeStep}>
               <span className={ui.eyebrow}>
-                0{activeStep + 1} / {WORKFLOW[activeStep].label}
+                Stage 0{activeStep + 1} · {WORKFLOW[activeStep].label}
               </span>
               <h3>{WORKFLOW[activeStep].title}</h3>
               <p>{WORKFLOW[activeStep].description}</p>
@@ -947,7 +946,7 @@ export function AstraHome() {
                   <small>2 conditions to resolve</small>
                 </span>
               </div>
-              <Link href="/cases/new?sample=1" className={ui.pill}>
+              <Link href="/cases/new?sample=1" className={ui.btn}>
                 Open a sample case
                 <ArrowUpRight size={14} />
               </Link>
@@ -960,12 +959,11 @@ export function AstraHome() {
         <div className={ui.closingMark}>
           <Mark size={44} />
         </div>
-        <span className={ui.eyebrow}>Less chasing. More underwriting.</span>
         <h2>
           A clearer view.
           <br />A more confident decision.
         </h2>
-        <Link href="/cases/new" className={`${ui.pill} ${ui.pillPrimary}`}>
+        <Link href="/cases/new" className={`${ui.btn} ${ui.btnPrimary}`}>
           Start a submission
           <ArrowUpRight size={16} />
         </Link>
@@ -977,7 +975,7 @@ export function AstraHome() {
             <Mark size={20} />
             Astra<small>Risk</small>
           </Link>
-          <span>Intelligence, grounded in reality.</span>
+          <span>Every decision, shown with its evidence.</span>
           <nav aria-label="Footer navigation">
             <Link href="/quote">
               Get an estimate

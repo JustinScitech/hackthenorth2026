@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronRight, FolderKanban, Globe, Home, Inbox, ListOrdered, LogOut, Menu, Moon, Plus, Receipt, Settings, Sun, X } from "lucide-react";
+import { BookOpen, Briefcase, CaretRight, Globe, List, ListNumbers, Moon, Plus, Receipt, SignOut, Sliders, SquaresFour, Sun, Tray, X } from "@phosphor-icons/react/dist/ssr";
 import { useTheme } from "./theme";
 import { Wordmark } from "./logo";
 import { authClient } from "@/lib/auth-client";
@@ -65,27 +65,27 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
     <div className="app-frame" data-nav-open={open ? "true" : "false"}>
       <aside className="sidebar" id="app-sidebar" aria-label="Primary">
         <Brand />
-        <div className="workspace"><FolderKanban size={18} /><span>Commercial property<small>Demo workspace</small></span></div>
+        <div className="workspace"><Briefcase size={18} /><span>Commercial property<small>Demo workspace</small></span></div>
         <nav className="nav-group" aria-label="Workspace">
-          <NavLink href="/overview" active={pathname === "/overview"}><Home size={17} />Overview</NavLink>
+          <NavLink href="/overview" active={pathname === "/overview"}><SquaresFour size={17} />Overview</NavLink>
           <div className="nav-row">
-            <NavLink href="/cases" active={isCases}><Inbox size={17} />Cases</NavLink>
+            <NavLink href="/cases" active={isCases}><Tray size={17} />Cases</NavLink>
             <Link className="nav-add" href="/cases/new" aria-label="Create case" title="Create case"><Plus size={15} /></Link>
           </div>
           <div className="nav-sub">
             <NavLink href="/cases/new" active={isNewCase}><Plus size={14} />Create case</NavLink>
           </div>
           <NavLink href="/quotes" active={pathname.startsWith("/quotes")}><Receipt size={17} />Quotes</NavLink>
-          <NavLink href="/triage" active={pathname.startsWith("/triage")}><ListOrdered size={17} />Federato triage<span className="nav-badge">LIVE</span></NavLink>
+          <NavLink href="/triage" active={pathname.startsWith("/triage")}><ListNumbers size={17} />Federato triage<span className="nav-badge">live</span></NavLink>
         </nav>
         <div className="nav-divider" />
         <nav className="nav-group" aria-label="Preferences">
-          <NavLink href="/settings" active={pathname.startsWith("/settings")}><Settings size={17} />Settings<ChevronRight className="chevron" size={15} /></NavLink>
+          <NavLink href="/settings" active={pathname.startsWith("/settings")}><Sliders size={17} />Settings<CaretRight className="chevron" size={14} /></NavLink>
         </nav>
         <div className="sidebar-bottom">
           <NavLink href="/docs" active={false}><BookOpen size={17} />Docs and API reference</NavLink>
           <NavLink href="/" active={false}><Globe size={17} />Astra Risk home</NavLink>
-          <div className="sidebar-user"><span className="avatar" aria-hidden="true">{(user.name || user.email).slice(0, 1).toUpperCase()}</span><span className="sidebar-user-details"><strong>{user.name || user.email}</strong><small>{user.email}</small></span><button className="icon-button" type="button" onClick={() => void signOut()} disabled={signingOut} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button></div>
+          <div className="sidebar-user"><span className="avatar" aria-hidden="true">{(user.name || user.email).slice(0, 1).toUpperCase()}</span><span className="sidebar-user-details"><strong>{user.name || user.email}</strong><small>{user.email}</small></span><button className="icon-button" type="button" onClick={() => void signOut()} disabled={signingOut} aria-label="Sign out" title="Sign out"><SignOut size={16} /></button></div>
           {signOutError && <p className="sidebar-auth-error" role="alert">Could not sign out. Try again.</p>}
         </div>
       </aside>
@@ -96,7 +96,7 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
           <div className="topbar-actions">
             <ThemeQuickToggle />
             <button className="icon-button" type="button" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="app-sidebar" onClick={() => setOpen((value) => !value)}>
-              {open ? <X size={18} /> : <Menu size={18} />}
+              {open ? <X size={18} /> : <List size={18} />}
             </button>
           </div>
         </header>

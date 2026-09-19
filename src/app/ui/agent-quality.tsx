@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CircleAlert, RotateCw } from "lucide-react";
+import { ArrowClockwise, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import type { AgentMetrics } from "@/lib/agent-metrics";
 
 type DisplayMetrics = AgentMetrics & { evalTimeLabel: string | null };
@@ -33,9 +33,9 @@ export function AgentQuality() {
   return <section aria-labelledby="agent-quality-title">
     <div className="panel-head">
       <div><h2 id="agent-quality-title">Agent quality</h2><p className="subtle">Past 30 days · local case and audit records{metrics?.sentryExportEnabled ? " · Sentry export active" : ""}</p></div>
-      <button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh agent metrics" title="Refresh agent metrics"><RotateCw size={16} /></button>
+      <button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh agent metrics" title="Refresh agent metrics"><ArrowClockwise size={16} /></button>
     </div>
-    {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />Agent metrics are unavailable.</div>}
+    {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />Agent metrics are unavailable.</div>}
     <div className="stat-row">
       <Metric label="Submissions" hint="Cases created in the past 30 days" value={metrics?.submissions ?? "…"} />
       <Metric label="Model extractions" hint="Extraction runs completed by a model" value={metrics?.modelExtractions ?? "…"} />
