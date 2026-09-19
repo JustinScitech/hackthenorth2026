@@ -1,5 +1,5 @@
 import Browserbase from "@browserbasehq/sdk";
-import { chromium } from "playwright-core";
+import type { Browser } from "playwright-core";
 import { publicSourceUrl } from "./public-source-url";
 
 export type PublicEvidence = { url: string; title: string; excerpt: string };
@@ -8,8 +8,11 @@ export async function browsePublicSource(value: string): Promise<PublicEvidence>
   const url = publicSourceUrl(value);
   const browserbase = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY, timeout: 30_000, maxRetries: 1 });
   const session = await browserbase.sessions.create({ api_timeout: 120 });
-  let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined;
+  let browser: Browser | undefined;
   try {
+    // Loaded here rather than at module scope so that a missing browser asset can only fail this
+    // optional step, not every route that imports the job queue (Vercel traces the package lazily).
+    const { chromium } = await import("playwright-core");
     browser = await chromium.connectOverCDP(session.connectUrl, { timeout: 30_000 });
     const context = browser.contexts()[0];
     await context.route("**/*", (route) => {
