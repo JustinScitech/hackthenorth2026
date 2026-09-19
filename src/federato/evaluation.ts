@@ -9,7 +9,8 @@ const plan = planQuery({ Policy: { type: "object", fields } });
 const base = { account_name: "Evaluation property", primary_risk_state: "CA", business_type: "new", line_of_business: "property", tiv: 75_000_000, premium: 85_000, year_built: 2015, acceptable_construction_percent: 75, five_year_loss_value: 0, effective_date: "2026-01-01", expiration_date: "2027-01-01" };
 
 export const underwritingEvaluationCases = [
-  { name: "target renewal", row: { ...base, id: 1, business_type: "renewal" }, expected: "Review for acceptance" },
+  { name: "out of appetite renewal", row: { ...base, id: 1, business_type: "renewal" }, expected: "Refer for appetite exceptions" },
+  { name: "acceptable new business", row: { ...base, id: 6 }, expected: "Review for acceptance" },
   { name: "out of appetite state", row: { ...base, id: 2, primary_risk_state: "NY" }, expected: "Refer for appetite exceptions" },
   { name: "missing premium", row: { ...base, id: 3, premium: null }, expected: "Investigate missing or ambiguous data" },
   { name: "loss threshold boundary", row: { ...base, id: 4, five_year_loss_value: 100_000 }, expected: "Investigate missing or ambiguous data" },

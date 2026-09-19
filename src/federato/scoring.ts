@@ -16,7 +16,7 @@ export function scoreSubmission(row: Record<string, unknown>, mapping: Mapping, 
     criteria.push({ concept: key, factor, maximum, status, points: status === "target" ? maximum : status === "acceptable" ? maximum * 0.8 : 0, detail, source: mapping[key] ?? "No unambiguous schema field" });
   }
   const business = normalized(value("business"));
-  add("business", "Submission type", 10, business === null ? "unknown" : ["renewal", "renewal business"].includes(business) ? "target" : ["new", "new business"].includes(business) ? "acceptable" : "unknown", `New business is acceptable and renewal business is the target; observed ${business ?? "missing"}.`);
+  add("business", "Submission type", 10, business === null ? "unknown" : ["renewal", "renewal business"].includes(business) ? "outside" : ["new", "new business"].includes(business) ? "acceptable" : "unknown", `New business is acceptable; renewal business is not acceptable. Observed ${business ?? "missing"}.`);
   const line = normalized(value("line"));
   add("line", "Line of business", 10, line === null ? "unknown" : ["property", "commercial property"].includes(line) ? "acceptable" : "outside", `Property required; observed ${line ?? "missing"}.`);
   const state = typeof value("state") === "string" ? String(value("state")).trim().toUpperCase() : null;
