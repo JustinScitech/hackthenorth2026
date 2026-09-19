@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { ThemeProvider } from "./ui/theme";
 import { DEFAULT_THEME, themeInitScript } from "./ui/theme-config";
 import "./globals.css";
@@ -12,8 +13,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" data-theme={DEFAULT_THEME} suppressHydrationWarning>
       <head>
-        {/* Applies the saved theme before first paint; a client-only React re-mount of this script (dev hot reload) logs a harmless warning. */}
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <Script id="theme-init" strategy="beforeInteractive">{themeInitScript}</Script>
       </head>
       <body>
         <ThemeProvider>{children}</ThemeProvider>
