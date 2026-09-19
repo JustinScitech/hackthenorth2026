@@ -9,11 +9,16 @@ import { browsePublicSource } from "./public-source";
 
 export async function researchPublicSource(caseId: string): Promise<void> {
   const caseRecord = await getCase(caseId);
-  if (!caseRecord?.publicSourceUrl) return;
+  if (!caseRecord) throw new Error(`Case ${caseId} not found`);
+  if (!caseRecord.publicSourceUrl) {
+    await addAudit(caseId, "public_research_skipped", { reason: "No public source URL supplied" }, `research-skipped:${caseId}`);
+    return;
+  }
   if (!process.env.BROWSERBASE_API_KEY) {
     await addAudit(caseId, "public_research_skipped", { reason: "Browserbase is not configured" }, `research-skipped:${caseId}`);
     return;
   }
+  await addAudit(caseId, "public_research_started", {}, `research-started:${caseId}`);
   try {
     const evidence = await browsePublicSource(caseRecord.publicSourceUrl);
     await putMongoEvidence(caseId, evidence);
@@ -29,19 +34,31 @@ export async function extractCase(caseId: string): Promise<void> {
   const caseRecord = await getCase(caseId);
   if (!caseRecord) throw new Error(`Case ${caseId} not found`);
   await db.query("UPDATE cases SET status = 'extracting', error = NULL, updated_at = now() WHERE id = $1", [caseId]);
+  await addAudit(caseId, "extraction_started", { revision: caseRecord.analysisRevision }, `extraction-started:${caseId}:${caseRecord.analysisRevision}`);
   const responseRows = await db.query(
     "SELECT source_key FROM case_actions WHERE case_id = $1 AND kind = 'broker_response' AND processed_at IS NOT NULL ORDER BY created_at",
     [caseId],
   );
   const texts = await Promise.all([caseRecord.sourceKey, ...responseRows.rows.map((row) => String(row.source_key))].map(getText));
-  const extraction = await extractNotes(texts.join("\n\n--- BROKER UPDATE ---\n\n"));
+  const providers = [process.env.OPENAI_API_KEY && "OpenAI", process.env.GEMINI_API_KEY && "Gemini"].filter(Boolean);
+  if (providers.length) await addAudit(caseId, "model_extraction_started", { providers, revision: caseRecord.analysisRevision }, `model-started:${caseId}:${caseRecord.analysisRevision}`);
+  const extraction = await extractNotes(texts.join("\n\n--- BROKER UPDATE ---\n\n"), async (event, attempt) => {
+    await addAudit(caseId, `gemini_model_${event}`, {
+      model: attempt.model, durationMs: attempt.durationMs, errorCode: attempt.errorCode,
+      revision: caseRecord.analysisRevision,
+    }, `gemini:${event}:${caseId}:${caseRecord.analysisRevision}:${attempt.model}`);
+  });
   const facts = buildFacts(caseRecord, extraction.extracted);
+  if (caseRecord.yearBuilt === null && facts.yearBuilt.value !== null) facts.yearBuilt.source = `Broker text via ${extraction.fieldSources.yearBuilt}`;
+  if (caseRecord.losses === null && facts.losses.value !== null) facts.losses.source = `Broker text via ${extraction.fieldSources.losses}`;
   await db.query("UPDATE cases SET facts = $2, extraction_conflicts = $3, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(facts), JSON.stringify(extraction.conflicts)]);
   await addAudit(caseId, "extraction_completed", {
     revision: caseRecord.analysisRevision,
     sources: extraction.sources,
     missing: Object.entries(facts).filter(([, fact]) => fact.value === null).map(([name]) => name),
     conflicts: extraction.conflicts.length,
+    attempts: extraction.attempts.map(({ source, model, status, durationMs, errorCode, attemptCount }) => ({ source, model, status, durationMs, errorCode, attemptCount })),
+    appliedSources: { yearBuilt: facts.yearBuilt.source, losses: facts.losses.source },
   }, `extraction:${caseId}:${caseRecord.analysisRevision}`);
 }
 
@@ -49,6 +66,7 @@ export async function checkCase(caseId: string): Promise<{ needsBroker: boolean 
   const caseRecord = await getCase(caseId);
   if (!caseRecord?.facts) throw new Error(`Extracted facts missing for ${caseId}`);
   await db.query("UPDATE cases SET status = 'checking', updated_at = now() WHERE id = $1", [caseId]);
+  await addAudit(caseId, "guideline_check_started", { revision: caseRecord.analysisRevision }, `check-started:${caseId}:${caseRecord.analysisRevision}`);
   const result = evaluateFacts(caseRecord.facts as Facts);
   for (const [index, conflict] of caseRecord.extractionConflicts.entries()) {
     result.findings.push({ id: `extraction_conflict_${index}`, label: "Extraction conflict", result: "refer", detail: conflict, source: "Independent extraction" });
