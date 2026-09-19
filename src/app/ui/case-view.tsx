@@ -86,8 +86,8 @@ function CaseSidebar({ caseRecord, audit }: { caseRecord: CaseRecord; audit: Aud
   </aside>;
 }
 
-export function CaseView({ id, caseRecord, audit, error, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
-  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; error: string | null;
+export function CaseView({ id, caseRecord, audit, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
+  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
@@ -104,7 +104,7 @@ export function CaseView({ id, caseRecord, audit, error, response, setResponse, 
     {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={18} /> {caseRecord.error ?? "The workflow failed."}</div>}
     <div className="detail-grid">
       <div className="detail-primary">
-        <section className="detail-section"><div className="section-heading"><h2>Review brief</h2><FileText size={18} /></div><p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p></section>
+        <section className="detail-section"><div className="section-heading"><h2>Review brief</h2><FileText size={18} /></div><p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p>{voiceAvailable && caseRecord.brief && <audio className="brief-audio" controls preload="none" src={`/api/cases/${id}/audio`} aria-label="Listen to review brief" />}</section>
         {caseRecord.publicEvidence && <section className="detail-section"><div className="section-heading"><h2>Public-source excerpt</h2></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><a href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><p className="subtle">External source; verify before relying on it.</p></section>}
         <Findings caseRecord={caseRecord} />
         <CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} />

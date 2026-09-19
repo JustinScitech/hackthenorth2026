@@ -1,7 +1,7 @@
 import { NativeConnection, Worker } from "@temporalio/worker";
 import * as activities from "./activities";
 import { TASK_QUEUE } from "./contracts";
-import { captureAgentError, initMonitoring } from "./monitoring";
+import { captureAgentError, initMonitoring, monitorActivities } from "./monitoring";
 
 async function main() {
   initMonitoring();
@@ -9,7 +9,7 @@ async function main() {
   const worker = await Worker.create({
     connection,
     workflowsPath: require.resolve("./workflows"),
-    activities,
+    activities: monitorActivities(activities),
     taskQueue: TASK_QUEUE,
   });
   console.log(`Worker listening on ${TASK_QUEUE}`);

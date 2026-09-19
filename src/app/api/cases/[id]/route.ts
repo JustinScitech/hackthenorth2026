@@ -7,7 +7,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   try {
     const caseRecord = await getCase(id);
     if (!caseRecord) return NextResponse.json({ error: "Case not found." }, { status: 404 });
-    return NextResponse.json({ case: caseRecord, audit: await getAudit(id) });
+    return NextResponse.json({ case: caseRecord, audit: await getAudit(id), voiceAvailable: Boolean(process.env.ELEVENLABS_API_KEY) });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Case is unavailable." }, { status: 503 });
