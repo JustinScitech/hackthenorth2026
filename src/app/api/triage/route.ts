@@ -1,4 +1,3 @@
-import "server-only";
 import { liveConfiguration } from "@/federato/config";
 import { runTriage } from "@/federato/triage";
 import { requireApiSession } from "@/lib/auth-access";

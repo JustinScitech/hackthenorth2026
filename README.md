@@ -20,8 +20,7 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 - Temporal: durable workflow, retries, broker/underwriter signals
 - PostgreSQL or Tiger Data: case records and audit events; Temporal uses PostgreSQL separately
 - MongoDB: broker submissions, replies, and public evidence (local container or Atlas)
-- Optional OpenAI API: structured extraction from unstructured broker notes; deterministic fallback works without a key
-- Optional Gemini API: independent extraction and contradiction checks
+- Optional Gemini API: primary structured extraction from unstructured broker notes; deterministic fallback works without a key or available credits
 - Optional Browserbase: visit an explicitly supplied public source and attach a cited excerpt to the case
 - Optional Sentry: privacy-minimized worker error monitoring
 - Optional ElevenLabs: spoken underwriter review brief
@@ -30,7 +29,7 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 
 - `src/agent/workflows.ts`: deterministic Temporal orchestration, signals, durable waits, and history rotation
 - `src/agent/activities.ts`: retryable I/O and idempotent case/audit transitions
-- `src/agent/analysis.ts` and `model.ts`: fictional guideline checks, dual-model extraction, and conflict detection
+- `src/agent/analysis.ts` and `model.ts`: fictional guideline checks, Gemini extraction, deterministic fallback, and conflict detection
 - `src/agent/public-source.ts`: bounded Browserbase evidence capture; public URL validation is separate
 - `src/agent/contracts.ts`, `client.ts`, and `worker.ts`: shared Temporal names, API client, and worker process
 - `src/lib`: shared case types, PostgreSQL access, and MongoDB documents

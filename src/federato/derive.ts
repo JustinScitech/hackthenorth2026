@@ -34,8 +34,8 @@ export function deriveFacts(row: Record<string, unknown>, plan: Plan, asOf: Date
     // Override inferred year paths from headquarters; explicit overrides are handled in planning.
     set("year", buildings.map((item) => item.year_built), `Oldest unique ${roots.buildings}.year_built`);
     const known = buildings.every((item) => [...acceptableConstruction, ...otherConstruction].includes(text(item.construction_type)));
-    const eligible = total && known ? buildings.reduce((sum, item) => sum + (acceptableConstruction.includes(text(item.construction_type)) ? Number(item.tiv) : 0), 0) / total * 100 : null;
-    set("constructionPercent", eligible, `${roots.buildings}.construction_type weighted by building TIV; weighting is an application assumption, not specified by the guide`);
+    const eligible = known ? buildings.filter((item) => acceptableConstruction.includes(text(item.construction_type))).length / buildings.length * 100 : null;
+    set("constructionPercent", eligible, `${roots.buildings}.construction_type by building count; the guideline says more than 50% but does not specify a TIV weighting`);
   }
   const locations = roots.locations ? objects(row, roots.locations) : null;
   if (locations?.length) {
@@ -45,16 +45,20 @@ export function deriveFacts(row: Record<string, unknown>, plan: Plan, asOf: Date
   }
   let lossLowerBound: number | null = null;
   const claims = roots.claims ? objects(row, roots.claims) : null;
-  if (claims?.length) {
+  if (claims !== null) {
     const start = new Date(asOf); start.setUTCFullYear(start.getUTCFullYear() - 5);
     const amounts = ["paid_indemnity", "paid_expense", "reserve_indemnity", "reserve_expense"];
+    let complete = true;
     lossLowerBound = claims.reduce((sum, claim) => {
       const when = typeof claim.date_of_loss === "string" ? Date.parse(claim.date_of_loss) : NaN;
-      if (!Number.isFinite(when) || when < start.getTime() || when > asOf.getTime() || !amounts.every((key) => numeric(claim[key]))) return sum;
+      if (!Number.isFinite(when) || !amounts.every((key) => numeric(claim[key]))) {
+        if (Number.isFinite(when) && when >= start.getTime() && when <= asOf.getTime()) complete = false;
+        return sum;
+      }
+      if (when < start.getTime() || when > asOf.getTime()) return sum;
       return sum + amounts.reduce((total, key) => total + Number(claim[key]), 0);
     }, 0);
-    // Above-threshold observed claims prove an exception; absence cannot prove five-year completeness.
-    if (lossLowerBound > 100_000) set("lossValue", lossLowerBound, `${roots.claims}: observed incurred losses (paid + reserves) in five years ending ${asOf.toISOString().slice(0, 10)}; lower bound only`);
+    if (complete) set("lossValue", lossLowerBound, `${roots.claims}: incurred losses (paid + reserves) in the five years ending ${asOf.toISOString().slice(0, 10)}; assumes the API claims collection is complete`);
   }
   const currency = roots.currency ? readValues(row, roots.currency)[0] : undefined;
   if (roots.currency && currency !== "USD") {

@@ -27,7 +27,7 @@ FEDERATO_CLIENT_ID=...
 FEDERATO_CLIENT_SECRET=...
 ```
 
-Run `npm run triage`, or `npm run dev` and open `/triage`, then select **Rank live submissions**. This flow does not require PostgreSQL, Temporal, MinIO, OpenAI, or Browserbase. The CLI saves the discovered schema to `data/federato-schema.json` before planning and saves the full report to `data/federato-triage.json`. Both are ignored by Git. Secrets remain server-side and are not included in reports.
+Run `npm run triage`, or `npm run dev` and open `/triage`, then select **Rank live submissions**. This flow does not require PostgreSQL, Temporal, MinIO, Gemini, or Browserbase. The CLI saves the discovered schema to `data/federato-schema.json` before planning and saves the full report to `data/federato-triage.json`. Both are ignored by Git. Secrets remain server-side and are not included in reports.
 
 The live endpoint returned a workflow envelope despite `outputOnly=true` and used `results` for ungrouped query rows; both behaviors are supported alongside the documented unwrapped/grouped forms.
 
@@ -47,8 +47,8 @@ The carrier supplies thresholds, not weights. Application weights: submission ty
 - New business and Property are required. Accepted states: OH, PA, MD, CO, CA, FL, NC, SC, GA, VA, UT; the first six are targets.
 - TIV: up to $150M, target $50M-$100M. Premium: $50K-$175K, target $75K-$100K. Ranges are inclusive.
 - Buildings: newer than 1990, target newer than 2010; use the oldest exposure building. Exactly 1990 is unspecified in the source and requires clarification.
-- Construction: more than 50% eligible JM/non-combustible/steel/masonry non-combustible. Exactly 50% requires clarification. When deriving the mix, weight unique buildings by TIV; this is an explicit application assumption because the source does not state a weighting basis. Unknown codes remain unknown.
-- Loss value: under $100K over five years. Exactly $100K requires clarification. Observed dated claims use incurred dollars (paid indemnity/expense plus reserves) in the five years ending at report time. The source does not specify incurred versus paid or the window anchor; this is an explicit interpretation. Above-threshold observed claims establish an exception; fewer/no linked claims do not prove complete five-year history.
+- Construction: more than 50% eligible JM/non-combustible/steel/masonry non-combustible. Exactly 50% requires clarification. When deriving the mix, count unique buildings; this follows the percentage wording without inventing a TIV weighting basis. Unknown codes remain unknown.
+- Loss value: under $100K over five years. Exactly $100K requires clarification. Observed dated claims use incurred dollars (paid indemnity/expense plus reserves) in the five years ending at report time. The source does not specify incurred versus paid or the window anchor; this is an explicit interpretation. The scorer uses the available claims collection, including an empty collection as $0, and labels that completeness assumption in the evidence source; malformed in-window claims leave the factor unknown.
 - Sum TIV only from complete, unique exposure buildings. Never use policy limit as TIV or headquarters as the primary insured location. Infer primary state only if all exposure locations agree. Missing/foreign currency leaves dollar factors unknown; no invented FX conversion.
 - Required account name and effective/expiration dates must be present and dates ordered. No unsupported expiry preference is added.
 

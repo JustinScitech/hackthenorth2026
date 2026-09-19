@@ -111,8 +111,7 @@ export default function DocsPage() {
           <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL for cases and audit events. Required.</td></tr>
           <tr><td><code>TEMPORAL_ADDRESS</code></td><td>Temporal frontend, for example <code>localhost:7233</code>. Required.</td></tr>
           <tr><td><code>MONGODB_URI</code>, <code>MONGODB_DB</code></td><td>Document store for submissions, replies, and public evidence. Required.</td></tr>
-          <tr><td><code>OPENAI_API_KEY</code>, <code>OPENAI_MODEL</code></td><td>Structured extraction from broker notes. Without a key, a deterministic extractor runs.</td></tr>
-          <tr><td><code>GEMINI_API_KEY</code>, <code>GEMINI_MODEL</code></td><td>Independent second extraction and contradiction check.</td></tr>
+          <tr><td><code>GEMINI_API_KEY</code>, <code>GEMINI_MODEL</code></td><td>Primary structured extraction from broker notes. Without a key or available credits, the deterministic extractor runs and facts remain source-labeled.</td></tr>
           <tr><td><code>BROWSERBASE_API_KEY</code></td><td>Visit an explicitly supplied public URL and attach a cited excerpt.</td></tr>
           <tr><td><code>SENTRY_DSN</code></td><td>Privacy-minimized worker error monitoring.</td></tr>
           <tr><td><code>ELEVENLABS_API_KEY</code>, <code>ELEVENLABS_VOICE_ID</code></td><td>Spoken review brief.</td></tr>
