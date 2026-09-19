@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CircleAlert } from "lucide-react";
-import type { AuditEvent, CaseRecord } from "@/lib/types";
+import type { AuditEvent, CaseRecord, WorkflowStatus } from "@/lib/types";
 import { CaseView } from "./case-view";
 
-type Payload = { case: CaseRecord; audit: AuditEvent[]; voiceAvailable: boolean };
+type Payload = { case: CaseRecord; audit: AuditEvent[]; workflowStatus: WorkflowStatus; voiceAvailable: boolean };
 
 export function CaseDetail({ id }: { id: string }) {
   const [data, setData] = useState<Payload | null>(null);
@@ -16,6 +16,7 @@ export function CaseDetail({ id }: { id: string }) {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const actionRef = useRef<{ signature: string; id: string } | null>(null);
+  const pollInterval = !data || ["received", "extracting", "checking"].includes(data.case.status) ? 1000 : 3000;
 
   const refresh = useCallback(async () => {
     try {
@@ -32,10 +33,15 @@ export function CaseDetail({ id }: { id: string }) {
   }, [id]);
 
   useEffect(() => {
-    void refresh();
-    const timer = setInterval(() => void refresh(), 3000);
-    return () => clearInterval(timer);
-  }, [refresh]);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      await refresh();
+      if (!cancelled) timer = setTimeout(() => void poll(), pollInterval);
+    }
+    void poll();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [refresh, pollInterval]);
 
   async function sendAction(kind: "broker_response" | "approve" | "decline") {
     const body = kind === "broker_response" ? { kind, response } : { kind, reason };
@@ -65,7 +71,7 @@ export function CaseDetail({ id }: { id: string }) {
   if (!data) return <main className="shell shell-narrow"><Link className="back-link" href="/cases"><ArrowLeft size={15} /> Cases</Link><div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error ?? "Case not found."}</div></main>;
 
   return <CaseView
-    id={id} caseRecord={data.case} audit={data.audit} error={error} voiceAvailable={data.voiceAvailable}
+    id={id} caseRecord={data.case} audit={data.audit} workflowStatus={data.workflowStatus} error={error} voiceAvailable={data.voiceAvailable}
     response={response} setResponse={setResponse} reason={reason} setReason={setReason}
     submitting={submitting} onResponse={() => void sendAction("broker_response")}
     onDecision={(kind) => void sendAction(kind)}
