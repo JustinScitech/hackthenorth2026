@@ -1,0 +1,47 @@
+# Codex CLI project configuration for Astra Risk.
+# Project-scoped settings override ~/.codex/config.toml when Codex runs from this repo.
+
+model = "gpt-5-codex"
+model_reasoning_effort = "high"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+# AGENTS.md at the repo root is picked up automatically; keep the instruction
+# budget generous so the Next.js migration notes are never truncated.
+project_doc_max_bytes = 65536
+
+[sandbox_workspace_write]
+# The worker and migrations read .env via --env-file; the sandbox must be able
+# to reach Docker-hosted Postgres, Mongo, and Temporal on localhost.
+network_access = true
+writable_roots = [".next", "data"]
+
+[shell_environment_policy]
+inherit = "core"
+include_only = ["PATH", "HOME", "USERPROFILE", "NODE_*", "NPM_*", "DATABASE_URL", "MONGODB_URI", "TEMPORAL_*"]
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = ["agent-turn-complete", "approval-requested"]
+
+[features]
+web_search_request = true
+
+[mcp_servers.temporal]
+command = "npx"
+args = ["-y", "@temporalio/mcp-server"]
+env = { TEMPORAL_ADDRESS = "localhost:7233" }
+
+[profiles.review]
+# Read-only review sessions: no edits, no approvals needed.
+model = "gpt-5-codex"
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
+
+[profiles.triage]
+# Federato triage runs need network for the live API but nothing outside the workspace.
+model_reasoning_effort = "medium"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
