@@ -20,7 +20,7 @@ The original Temporal case-review workflow remains a separate, explicitly fictio
 
 ## Running
 
-Use Node 22+ and install dependencies with `npm ci`. Put organizer-issued credentials in ignored `.env.local`:
+Use Node 22+ and install dependencies with `npm ci`. Put organizer-issued credentials in ignored `.env`:
 
 ```dotenv
 FEDERATO_CLIENT_ID=...

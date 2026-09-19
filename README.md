@@ -6,7 +6,7 @@ The original case-review workflow uses **fictional demo rules**. The separate Fe
 
 ## Federato challenge triage
 
-Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Copy `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` from `.env.sponsors.example` into `.env.local` to enable this live integration. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local database and Temporal stack.
+Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` to enable this live integration. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local database and Temporal stack.
 
 The live schema currently selects `Policy` because it contains more appetite fields; the report explicitly identifies that scope. It is not yet a reconciled queue of standalone Submission records. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
 
@@ -35,7 +35,7 @@ The live schema currently selects `Policy` because it contains more appetite fie
 ## Run locally
 
 1. Start Docker Desktop.
-2. Copy `.env.example` to `.env.local` and adjust values if necessary.
+2. Copy `.env.example` to `.env` if needed, then adjust values. Keep it out of Git.
 3. Run `docker compose up -d`.
 4. Run `npm install` and `npm run db:migrate`.
 5. In one terminal, run `npm run worker`.
@@ -45,7 +45,7 @@ Temporal UI is at http://localhost:8080. The core demo needs no sponsor API keys
 
 MongoDB starts with `docker compose up -d` and is the only document store. For the Atlas prize, use an actual Atlas connection string instead; a local container is only a development substitute. `DATABASE_URL` can point to a Tiger Data PostgreSQL instance for case/audit state, but merely changing the hostname does not establish prize eligibility.
 
-Copy only the integrations you want from `.env.sponsors.example` into `.env.local`: `BROWSERBASE_API_KEY` enables public-source visits, `SENTRY_DSN` enables worker monitoring, `GEMINI_API_KEY` enables an independent extraction check, and `ELEVENLABS_API_KEY` enables audio briefs. All are optional. The public-source field accepts an explicit HTTPS URL; it does not discover or profile people. External page text is displayed as evidence, not treated as a verified underwriting fact or used to approve coverage.
+Set only the integrations you want in `.env` (see `.env.sponsors.example`): `BROWSERBASE_API_KEY` enables public-source visits, `SENTRY_DSN` enables worker monitoring, `GEMINI_API_KEY` enables an independent extraction check, and `ELEVENLABS_API_KEY` enables audio briefs. All are optional. The public-source field accepts an explicit HTTPS URL; it does not discover or profile people. External page text is displayed as evidence, not treated as a verified underwriting fact or used to approve coverage.
 
 ## Durable case lifecycle
 
