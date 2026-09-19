@@ -6,10 +6,10 @@ RUN npm ci
 COPY . .
 
 # Build-time placeholders; runtime credentials come from .env.production.
-ENV DATABASE_URL=postgres://build:build@localhost:5432/build
-ENV BETTER_AUTH_URL=https://example.invalid
-ENV BETTER_AUTH_SECRET=build-only-secret-never-used-in-runtime
-RUN npm run build
+RUN DATABASE_URL=postgres://build:build@localhost:5432/build \
+    BETTER_AUTH_URL=https://example.invalid \
+    BETTER_AUTH_SECRET=build-only-secret-never-used-in-runtime \
+    npm run build
 
 ENV NODE_ENV=production
 EXPOSE 3000

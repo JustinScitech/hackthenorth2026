@@ -12,7 +12,7 @@ This is a small fictional-data demo, not production insurance infrastructure. Th
 4. Copy `.env.production.example` to `.env.production`. Set `DOMAIN` and `BETTER_AUTH_URL` to the same public host, create fresh random `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`, and use the same PostgreSQL password in `DATABASE_URL`. Set Google OAuth credentials and approved email addresses. Set `GEMINI_API_KEY` to enable model extraction; without it, the deterministic parser runs.
 5. In Google Cloud, add `https://<your-domain>/api/auth/callback/google` as an authorized redirect URI for that OAuth client. Add approved accounts as test users while the consent screen is in Testing mode.
 
-Keep `.env.production` on the VM only. It is ignored by Git and excluded from the Docker build context. The container image contains only build-time placeholder values; Compose supplies real values at runtime.
+Keep `.env.production` on the VM only. It is ignored by Git and excluded from the Docker build context. The build uses inert placeholder values; Compose supplies real values at runtime.
 
 ## Deploy
 
