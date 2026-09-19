@@ -13,10 +13,6 @@
     "test:e2e": "node --env-file=.env --import tsx scripts/e2e-prepare.ts && npm run build && node --env-file=.env ./node_modules/.bin/playwright test",
     "eval:agent": "node --env-file=.env --import tsx scripts/eval-agent.ts",
     "triage": "node --env-file=.env --import tsx scripts/federato-triage.ts"
-    "eval:agent": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/eval-agent.ts",
-    "test": "node --import tsx --test src/agent/*.test.ts src/federato/*.test.ts src/app/api/triage/*.test.ts",
-    "test:e2e": "npm run build && node --import tsx scripts/e2e.ts",
-    "triage": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/federato-triage.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.20.0",

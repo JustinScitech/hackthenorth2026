@@ -16,9 +16,9 @@ export function scoreSubmission(row: Record<string, unknown>, mapping: Mapping, 
     criteria.push({ concept: key, factor, maximum, status, points: status === "target" ? maximum : status === "acceptable" ? maximum * 0.8 : 0, detail, source: mapping[key] ?? "No unambiguous schema field" });
   }
   const business = normalized(value("business"));
-  add("business", "Submission type", 10, business === null ? "unknown" : ["new", "new business"].includes(business) ? "target" : ["renewal", "renewal business"].includes(business) ? "outside" : "unknown", `New business required; observed ${business ?? "missing"}.`);
+  add("business", "Submission type", 10, business === null ? "unknown" : ["renewal", "renewal business"].includes(business) ? "target" : ["new", "new business"].includes(business) ? "acceptable" : "unknown", `New business is acceptable and renewal business is the target; observed ${business ?? "missing"}.`);
   const line = normalized(value("line"));
-  add("line", "Line of business", 10, line === null ? "unknown" : ["property", "commercial property"].includes(line) ? "target" : "outside", `Property required; observed ${line ?? "missing"}.`);
+  add("line", "Line of business", 10, line === null ? "unknown" : ["property", "commercial property"].includes(line) ? "acceptable" : "outside", `Property required; observed ${line ?? "missing"}.`);
   const state = typeof value("state") === "string" ? String(value("state")).trim().toUpperCase() : null;
   add("state", "Primary risk state", 15, state === null ? "unknown" : targetStates.includes(state) ? "target" : acceptableStates.includes(state) ? "acceptable" : "outside", `Target ${targetStates.join("/")}; also acceptable NC/SC/GA/VA/UT. Observed ${state ?? "missing"}.`);
   const tiv = number(value("tiv"));
@@ -32,7 +32,7 @@ export function scoreSubmission(row: Record<string, unknown>, mapping: Mapping, 
   const year = oldestKnown !== null && (oldestKnown < 1990 || validYears.length === years.length) ? oldestKnown : null;
   add("year", "Building age", 15, year === null || year === 1990 ? "unknown" : year < 1990 ? "outside" : year > 2010 ? "target" : "acceptable", `Newer than 1990; target newer than 2010. Oldest supplied building: ${year ?? "missing/invalid"}. Exactly 1990 needs clarification because the guide leaves that boundary undefined.`);
   const construction = number(value("constructionPercent"));
-  add("constructionPercent", "Construction mix", 10, construction === null || construction > 100 || construction === 50 ? "unknown" : construction > 50 ? "target" : "outside", `More than 50% JM, non-combustible/steel, or masonry non-combustible required. Eligible share: ${construction === null ? "missing" : `${construction}%`}. Exactly 50% needs clarification; percentages must use 0-100 units.`);
+  add("constructionPercent", "Construction mix", 10, construction === null || construction > 100 || construction === 50 ? "unknown" : construction > 50 ? "acceptable" : "outside", `More than 50% JM, non-combustible/steel, or masonry non-combustible is acceptable. Eligible share: ${construction === null ? "missing" : `${construction}%`}. Exactly 50% needs clarification; percentages must use 0-100 units.`);
   const loss = number(value("lossValue"));
   add("lossValue", "Five-year loss value", 10, loss === null || loss === 100_000 ? "unknown" : loss < 100_000 ? "target" : "outside", `Five-year loss dollars under $100K required. Observed ${loss === null ? "missing" : `$${loss.toLocaleString("en-US")}`}. Exactly $100K needs clarification; loss counts do not establish loss value.`);
   const missingData: string[] = [];
