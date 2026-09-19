@@ -11,7 +11,7 @@ test("public pages are accessible and protected pages require sign-in", async ({
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("button", { name: /Google/ })).toBeDisabled();
 
-  for (const path of ["/api/cases", `/api/cases/${randomUUID()}`]) {
+  for (const path of ["/api/cases", `/api/cases/${randomUUID()}`, "/api/metrics"]) {
     const response = await request.get(path);
     expect(response.status()).toBe(401);
   }
@@ -26,6 +26,8 @@ test("overview, case list, search, and navigation use real session and case data
   const id = await seedCase({ insuredName: name, status: "waiting_for_broker" });
   await page.goto("/overview");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Agent quality" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Agent quality" }).getByText("Past 30 days", { exact: false })).toBeVisible();
   await expect(page.getByRole("link", { name: /Cases/ }).first()).toBeVisible();
   await page.goto("/cases");
   await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
@@ -37,6 +39,17 @@ test("overview, case list, search, and navigation use real session and case data
   await page.getByRole("link", { name: new RegExp(name) }).click();
   await expect(page).toHaveURL(new RegExp(`/cases/${id}$`));
   await expect(page.getByRole("heading", { name })).toBeVisible();
+});
+
+test("overview and metrics API show the latest persisted eval", async ({ authenticatedPage: page, seedEvalRun }) => {
+  await seedEvalRun(3, 4);
+  await page.goto("/overview");
+  const quality = page.getByRole("region", { name: "Agent quality" });
+  await expect(quality.getByText("3/4")).toBeVisible();
+  await expect(quality.getByText("fixture-model", { exact: false })).toBeVisible();
+  const response = await page.request.get("/api/metrics");
+  expect(response.status()).toBe(200);
+  expect((await response.json()).latestEval).toMatchObject({ passed: 3, total: 4, model: "fixture-model" });
 });
 
 test("sample picker fills intake, supports keyboard selection, and sends the expected submission", async ({ authenticatedPage: page }) => {
@@ -193,6 +206,9 @@ test("authenticated APIs enforce origin, input, and case state", async ({ authen
   const cases = await api.get("/api/cases");
   expect(cases.status()).toBe(200);
   expect((await cases.json()).cases.some((record: { id: string }) => record.id === id)).toBe(true);
+  const metrics = await api.get("/api/metrics");
+  expect(metrics.status()).toBe(200);
+  expect((await metrics.json()).submissions).toBeGreaterThanOrEqual(1);
   expect((await api.get("/api/cases/not-a-uuid")).status()).toBe(400);
   expect((await api.get(`/api/cases/${randomUUID()}`)).status()).toBe(404);
   expect((await api.post("/api/cases", { data: {} })).status()).toBe(403);

@@ -45,6 +45,14 @@ async function main() {
       created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS case_actions_case_id_idx ON case_actions(case_id, created_at);
+    CREATE TABLE IF NOT EXISTS agent_eval_runs (
+      id uuid PRIMARY KEY,
+      total integer NOT NULL,
+      passed integer NOT NULL,
+      duration_ms integer NOT NULL,
+      model text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_source_url text;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_evidence jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS extraction_conflicts jsonb NOT NULL DEFAULT '[]'::jsonb;

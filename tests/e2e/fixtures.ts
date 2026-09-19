@@ -7,6 +7,7 @@ type CaseStatus = "received" | "extracting" | "checking" | "waiting_for_broker" 
 type Fixtures = {
   authenticatedPage: Page;
   seedCase: (options?: { insuredName?: string; status?: CaseStatus }) => Promise<string>;
+  seedEvalRun: (passed: number, total: number) => Promise<void>;
 };
 
 async function withDatabase<T>(run: (client: Client) => Promise<T>): Promise<T> {
@@ -49,6 +50,20 @@ export const test = base.extend<Fixtures>({
         await db.query("DELETE FROM audit_events WHERE case_id = $1", [id]);
         await db.query("DELETE FROM cases WHERE id = $1", [id]);
       }
+    });
+  },
+  seedEvalRun: async ({}, use) => {
+    const ids: string[] = [];
+    await use(async (passed, total) => {
+      const id = randomUUID();
+      ids.push(id);
+      await withDatabase((db) => db.query(
+        "INSERT INTO agent_eval_runs (id, passed, total, duration_ms, model, created_at) VALUES ($1, $2, $3, 1200, 'fixture-model', now() + interval '1 second')",
+        [id, passed, total],
+      ).then(() => undefined));
+    });
+    await withDatabase(async (db) => {
+      for (const id of ids) await db.query("DELETE FROM agent_eval_runs WHERE id = $1", [id]);
     });
   },
 });
