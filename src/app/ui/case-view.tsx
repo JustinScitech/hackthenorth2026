@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, ChevronDown, CircleAlert, ClipboardList, Clock3, FilePlus2, FileText, ShieldCheck, Send, X } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, ClipboardList, Clock3, ExternalLink, FileText, ShieldCheck, Send, X } from "lucide-react";
 import type { AuditEvent, CaseRecord, Fact } from "@/lib/types";
 import { Status } from "./status";
 
@@ -12,8 +12,8 @@ function FactRow<T>({ label, fact, format = String }: { label: string; fact: Fac
 
 function Findings({ caseRecord }: { caseRecord: CaseRecord }) {
   if (!caseRecord.findings) return null;
-  return <section className="detail-section">
-    <div className="section-heading"><h2>Demo guideline checks</h2><span className="count">{caseRecord.findings.length}</span></div>
+  return <section className="detail-section" aria-labelledby="findings-title">
+    <div className="section-heading"><h2 id="findings-title">Demo guideline checks</h2><span className="count">{caseRecord.findings.length}</span></div>
     <div className="findings">{caseRecord.findings.map((finding) => (
       <div className="finding" key={finding.id}>
         <span className={`finding-mark finding-${finding.result}`} aria-hidden="true">
@@ -102,39 +102,39 @@ function AnalysisTrace({ audit }: { audit: AuditEvent[] }) {
   </details>;
 }
 
-export function CaseView({ id, caseRecord, audit, history, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
-  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; history: CaseRecord[]; error: string | null; voiceAvailable: boolean;
+export function CaseView({ id, caseRecord, audit, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
+  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
 }) {
   const active = ["received", "extracting", "checking"].includes(caseRecord.status);
-  return <main className="case-workspace">
-    <aside className="case-navigation" aria-label="Case navigation">
-      <Link className="new-case-link" href="/"><FilePlus2 size={17} /> New submission</Link>
-      <p className="nav-caption">Recent cases</p>
-      <nav className="case-history">{history.map((item) => <Link key={item.id} href={`/cases/${item.id}`} aria-current={item.id === id ? "page" : undefined} className={item.id === id ? "selected" : ""}><span>{item.insuredName}</span><small>{item.state} · {item.status.replaceAll("_", " ")}</small></Link>)}</nav>
-      <Link className="nav-footer-link" href="/triage"><ClipboardList size={16} /> Federato triage</Link>
-    </aside>
-    <div className="case-main-area">
-      <div className="case-toolbar"><Link href="/" className="back-link"><ArrowLeft size={16} /> Queue</Link><span className="case-id-label">Case {id.slice(0, 8)}</span><Status value={caseRecord.status} /></div>
-      <div className="conversation">
-        {error && <div className="alert" role="alert">{error}</div>}
-        <div className="conversation-message request-message"><div className="message-avatar requester-avatar"><FileText size={16} aria-hidden="true" /></div><div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state} property · ${caseRecord.tiv.toLocaleString()} total insured value</p><time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div></div>
-        <div className="conversation-message agent-message"><div className="message-avatar agent-avatar"><ShieldCheck size={20} /></div><div className="message-content">
-          <p className="message-label">Underwriting agent</p>
-          {active && <p className="progress-line"><Clock3 size={17} /> {caseRecord.status === "received" ? "Queued for analysis" : caseRecord.status === "extracting" ? "Extracting submission facts" : "Checking guidelines"}</p>}
-          {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={18} /> {caseRecord.error ?? "The workflow failed."}</div>}
-          <p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p>
-          {voiceAvailable && caseRecord.brief && <audio className="brief-audio" controls preload="none" src={`/api/cases/${id}/audio`} aria-label="Listen to review brief" />}
-          <AnalysisTrace audit={audit} />
-          {caseRecord.facts && <section className="detail-section"><div className="section-heading"><h2>Extracted facts</h2><FileText size={17} /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
-          <Findings caseRecord={caseRecord} />
-          {caseRecord.publicEvidence && <section className="detail-section"><div className="section-heading"><h2>Public-source evidence</h2></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><a href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><p className="subtle">External source; verify before relying on it.</p></section>}
-        </div></div>
-        <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} /></div>
-        <p className="demo-note">Demo guidelines only. A review decision does not quote or bind coverage.</p>
+  return <main className="shell shell-narrow conversation">
+    <div className="case-toolbar">
+      <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><Link href="/cases">Cases</Link><span className="sep">/</span><span className="current">{caseRecord.insuredName}</span></p>
+      <span className="case-id-label">case {id.slice(0, 8)}</span>
+      <Status value={caseRecord.status} />
+    </div>
+    {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error}</div>}
+    <div className="conversation-message request-message">
+      <div className="message-avatar requester-avatar"><FileText size={16} aria-hidden="true" /></div>
+      <div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state} property · ${caseRecord.tiv.toLocaleString()} total insured value</p><time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div>
+    </div>
+    <div className="conversation-message agent-message">
+      <div className="message-avatar agent-avatar"><ShieldCheck size={18} aria-hidden="true" /></div>
+      <div className="message-content">
+        <p className="message-label">Underwriting agent</p>
+        {active && <div className="progress-line" role="status"><Clock3 size={16} aria-hidden="true" />{caseRecord.status === "received" ? "Queued for analysis" : caseRecord.status === "extracting" ? "Extracting submission facts" : "Checking guidelines"} · this page updates automatically</div>}
+        {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={17} aria-hidden="true" />{caseRecord.error ?? "The workflow failed."}</div>}
+        <p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p>
+        {voiceAvailable && caseRecord.brief && <audio className="brief-audio" controls preload="none" src={`/api/cases/${id}/audio`} aria-label="Listen to review brief" />}
+        <AnalysisTrace audit={audit} />
+        {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
+        <Findings caseRecord={caseRecord} />
+        {caseRecord.publicEvidence && <section className="detail-section" aria-labelledby="evidence-title"><div className="section-heading"><h2 id="evidence-title">Public-source evidence</h2><ExternalLink size={16} aria-hidden="true" /></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><div className="source-line"><a className="text-link" href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><span>External source; verify before relying on it.</span></div></section>}
       </div>
     </div>
+    <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} /></div>
+    <p className="demo-note">Demo guidelines only. A review decision does not quote or bind coverage.</p>
   </main>;
 }

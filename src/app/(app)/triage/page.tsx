@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { CircleAlert, Info, ListOrdered } from "lucide-react";
 import type { TriageReport } from "@/federato/triage";
 
@@ -22,11 +23,17 @@ export default function TriagePage() {
   }
   const rows = report ? showAll ? report.ranked : report.topSubmissions : [];
   return <main className="shell">
-    <Link href="/" className="back-link">← Case review demo</Link>
-    <div className="page-heading triage-heading"><div><p className="eyebrow">Federato challenge</p><h1>Submission priorities</h1><p className="subtle">Rank the API queue against the supplied 2025 commercial property appetite.</p></div><button className="primary-button" onClick={run} disabled={loading}>{loading ? "Discovering and scoring…" : "Rank live submissions"}</button></div>
-    <p className="subtle">Scores prioritize human review. Matching guidelines does not approve or bind coverage.</p>
-    <div aria-live="polite">{loading && <p>Discovering available fields and reading the queue. Large queues may take a few minutes.</p>}{error && <p role="alert" className="alert">{error}</p>}</div>
-    {!report && !loading && !error && <p className="empty-state">Run triage to see ranked submissions, per-factor scores, and the reasoning behind each query.</p>}
+    <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><span className="current">Federato triage</span></p>
+    <div className="page-heading triage-heading">
+      <div><p className="eyebrow">Federato challenge</p><h1>Submission priorities</h1><p className="subtle">Rank the API queue against the supplied 2025 commercial property appetite.</p></div>
+      <button className="primary-button" onClick={run} disabled={loading}><ListOrdered size={16} />{loading ? "Discovering and scoring…" : "Rank live submissions"}</button>
+    </div>
+    <p className="lede">Scores prioritize human review. Matching guidelines does not approve or bind coverage.</p>
+    <div aria-live="polite">
+      {loading && <div className="notice"><Info size={17} aria-hidden="true" />Discovering available fields and reading the queue. Large queues may take a few minutes.</div>}
+      {error && <div role="alert" className="alert"><CircleAlert size={17} aria-hidden="true" />{error}</div>}
+    </div>
+    {!report && !loading && !error && <div className="card"><p className="empty-state">Run triage to see ranked submissions, per-factor scores, and the reasoning behind each query.</p></div>}
     {report && <>
       <p className="triage-meta"><span>{report.evaluated} of {report.total} <code>{report.resource}</code> records evaluated</span><span aria-hidden="true">·</span><time dateTime={report.generatedAt}>{new Date(report.generatedAt).toLocaleString()}</time></p>
       {report.truncated && <div className="notice"><Info size={17} aria-hidden="true" />Partial ranking: the 1,000-record limit was reached. Results cover only the evaluated records.</div>}

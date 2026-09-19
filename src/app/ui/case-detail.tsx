@@ -8,7 +8,7 @@ import { CaseView } from "./case-view";
 
 type Payload = { case: CaseRecord; audit: AuditEvent[]; voiceAvailable: boolean };
 
-export function CaseDetail({ id, history }: { id: string; history: CaseRecord[] }) {
+export function CaseDetail({ id }: { id: string }) {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,11 +61,11 @@ export function CaseDetail({ id, history }: { id: string; history: CaseRecord[] 
     }
   }
 
-  if (loading && !data) return <main className="shell detail-shell"><Link className="back-link" href="/"><ArrowLeft size={15} /> Submission queue</Link><div className="card"><p className="empty-state">Loading case...</p></div></main>;
-  if (!data) return <main className="shell detail-shell"><Link className="back-link" href="/"><ArrowLeft size={15} /> Submission queue</Link><div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error ?? "Case not found."}</div></main>;
+  if (loading && !data) return <main className="shell shell-narrow"><Link className="back-link" href="/cases"><ArrowLeft size={15} /> Cases</Link><div className="card"><p className="empty-state">Loading case...</p></div></main>;
+  if (!data) return <main className="shell shell-narrow"><Link className="back-link" href="/cases"><ArrowLeft size={15} /> Cases</Link><div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error ?? "Case not found."}</div></main>;
 
   return <CaseView
-    id={id} caseRecord={data.case} audit={data.audit} history={history} error={error} voiceAvailable={data.voiceAvailable}
+    id={id} caseRecord={data.case} audit={data.audit} error={error} voiceAvailable={data.voiceAvailable}
     response={response} setResponse={setResponse} reason={reason} setReason={setReason}
     submitting={submitting} onResponse={() => void sendAction("broker_response")}
     onDecision={(kind) => void sendAction(kind)}

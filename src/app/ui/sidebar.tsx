@@ -3,55 +3,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronDown, Inbox, ListOrdered, Menu, Moon, Settings, ShieldCheck, Sun, X } from "lucide-react";
+import { BookOpen, ChevronRight, FolderKanban, Globe, Home, Inbox, ListOrdered, Menu, Moon, Plus, Settings, Sun, X } from "lucide-react";
 import { useTheme } from "./theme";
-
-const navigation = [
-  {
-    label: "Workspace",
-    items: [
-      { href: "/", label: "Submission queue", icon: Inbox, match: (path: string) => path === "/" || path.startsWith("/cases") },
-      { href: "/triage", label: "Federato triage", icon: ListOrdered, match: (path: string) => path.startsWith("/triage") },
-    ],
-  },
-  {
-    label: "Reference",
-    items: [
-      { href: "https://github.com/JustinScitech/hackthenorth2026#readme", label: "Project guide", icon: BookOpen, match: () => false, external: true },
-    ],
-  },
-];
+import { Wordmark } from "./logo";
 
 function Brand() {
-  return <Link className="brand" href="/"><span className="brand-mark"><ShieldCheck size={16} strokeWidth={2.2} /></span><span>Underwriting Review</span></Link>;
-}
-
-function ThemeControl() {
-  const { theme, setTheme } = useTheme();
-  return (
-    <div className="segmented" role="group" aria-label="Appearance">
-      <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}><Moon size={14} />Dark</button>
-      <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}><Sun size={14} />Light</button>
-    </div>
-  );
-}
-
-function SettingsPanel() {
-  const [open, setOpen] = useState(false);
-  return (
-    <nav className="nav-group" aria-label="Preferences">
-      <p className="nav-label">Preferences</p>
-      <button className="nav-link nav-button" type="button" aria-expanded={open} aria-controls="settings-panel" onClick={() => setOpen((value) => !value)}>
-        <Settings size={16} strokeWidth={2} />Settings<ChevronDown className="chevron" size={14} />
-      </button>
-      {open && (
-        <div className="settings-panel" id="settings-panel">
-          <div className="settings-row"><span>Appearance</span><ThemeControl /></div>
-          <p className="settings-hint">Your choice is saved in this browser.</p>
-        </div>
-      )}
-    </nav>
-  );
+  return <Wordmark href="/overview" />;
 }
 
 function ThemeQuickToggle() {
@@ -61,6 +18,14 @@ function ThemeQuickToggle() {
     <button className="icon-button" type="button" aria-label={`Switch to ${next} mode`} title={`Switch to ${next} mode`} onClick={() => setTheme(next)}>
       {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
     </button>
+  );
+}
+
+function NavLink({ href, active, children, external = false }: { href: string; active: boolean; children: ReactNode; external?: boolean }) {
+  return (
+    <Link className="nav-link" href={href} aria-current={active ? "page" : undefined} target={external ? "_blank" : undefined} rel={external ? "noopener noreferrer" : undefined}>
+      {children}
+    </Link>
   );
 }
 
@@ -77,30 +42,34 @@ export function AppFrame({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  const isNewCase = pathname === "/cases/new";
+  const isCases = pathname.startsWith("/cases") && !isNewCase;
+
   return (
     <div className="app-frame" data-nav-open={open ? "true" : "false"}>
       <aside className="sidebar" id="app-sidebar" aria-label="Primary">
         <Brand />
-        {navigation.map((group) => (
-          <nav className="nav-group" key={group.label} aria-label={group.label}>
-            <p className="nav-label">{group.label}</p>
-            {group.items.map((item) => {
-              const Icon = item.icon;
-              const active = item.match(pathname);
-              const external = "external" in item && item.external;
-              return (
-                <Link
-                  className="nav-link" key={item.href} href={item.href} aria-current={active ? "page" : undefined}
-                  target={external ? "_blank" : undefined} rel={external ? "noopener noreferrer" : undefined}
-                >
-                  <Icon size={16} strokeWidth={2} />{item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        ))}
-        <SettingsPanel />
-        <div className="sidebar-footer">Demo guidelines only. Every decision requires underwriter review.</div>
+        <div className="workspace"><FolderKanban size={18} /><span>Commercial property<small>Demo workspace</small></span></div>
+        <nav className="nav-group" aria-label="Workspace">
+          <NavLink href="/overview" active={pathname === "/overview"}><Home size={17} />Overview</NavLink>
+          <div className="nav-row">
+            <NavLink href="/cases" active={isCases}><Inbox size={17} />Cases</NavLink>
+            <Link className="nav-add" href="/cases/new" aria-label="Create case" title="Create case"><Plus size={15} /></Link>
+          </div>
+          <div className="nav-sub">
+            <NavLink href="/cases/new" active={isNewCase}><Plus size={14} />Create case</NavLink>
+          </div>
+          <NavLink href="/triage" active={pathname.startsWith("/triage")}><ListOrdered size={17} />Federato triage<span className="nav-badge">LIVE</span></NavLink>
+        </nav>
+        <div className="nav-divider" />
+        <nav className="nav-group" aria-label="Preferences">
+          <NavLink href="/settings" active={pathname.startsWith("/settings")}><Settings size={17} />Settings<ChevronRight className="chevron" size={15} /></NavLink>
+        </nav>
+        <div className="sidebar-bottom">
+          <NavLink href="/docs" active={false}><BookOpen size={17} />Docs and API reference</NavLink>
+          <NavLink href="/" active={false}><Globe size={17} />Astra Risk home</NavLink>
+          <div className="sidebar-user"><span className="avatar">U</span><span>Demo underwriter</span></div>
+        </div>
       </aside>
       <button className="sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setOpen(false)} tabIndex={-1} />
       <div className="content">

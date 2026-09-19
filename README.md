@@ -12,7 +12,7 @@ The live schema currently selects `Policy` because it contains more appetite fie
 
 ## Interface
 
-The web UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default. Open **Settings** in the sidebar (or the sun/moon button on narrow screens) to switch to light mode; the choice is saved in the browser.
+The product is branded **Astra Risk**; the logo files live in `public/brand`. The site has a marketing homepage at `/`, in-site docs and an API reference at `/docs`, and the workspace under `/overview`, `/cases`, `/cases/new`, `/triage`, and `/settings`. The UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default; switch to light in **Settings** or with the sun/moon button in the header. The choice is saved in the browser.
 
 ## Stack
 

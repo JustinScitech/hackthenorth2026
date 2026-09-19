@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { AppFrame } from "./ui/sidebar";
 import { ThemeProvider } from "./ui/theme";
 import { DEFAULT_THEME, themeInitScript } from "./ui/theme-config";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Underwriting Review",
-  description: "Durable underwriting case review",
+  title: { default: "Astra Risk", template: "%s · Astra Risk" },
+  description: "Durable, human-reviewed commercial property underwriting.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -17,9 +16,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <ThemeProvider>
-          <AppFrame>{children}</AppFrame>
-        </ThemeProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );
