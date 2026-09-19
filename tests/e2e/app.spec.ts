@@ -3,8 +3,8 @@ import { test, expect } from "./fixtures";
 
 test("public pages are accessible and protected pages require sign-in", async ({ page, request }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Underwriting review");
-  await page.getByRole("link", { name: "Read the docs" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("AI underwriting");
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Documentation" }).click();
   await expect(page).toHaveURL(/\/docs$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("API reference");
   await page.goto("/cases");
