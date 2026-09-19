@@ -391,7 +391,9 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 .agent-avatar.is-working { border-color: var(--border); }
 .agent-avatar.is-working::before { content: ""; position: absolute; inset: -1px; padding: 2px; border-radius: inherit; background: conic-gradient(from var(--ring-angle), var(--accent) 0 28%, transparent 34% 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: ring 1.6s linear infinite; }
 .agent-avatar.is-working img { animation: breathe 2.4s ease-in-out infinite; }
-.working { position: relative; overflow: hidden; margin-bottom: 16px; padding: 12px 16px 16px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--card-bg); }
+.working { position: relative; margin-bottom: 16px; padding: 12px 16px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); }
+/* A green segment travels around the panel's outline for as long as the worker holds the case. */
+.working::before { content: ""; position: absolute; inset: -1px; padding: 2px; border-radius: inherit; pointer-events: none; background: conic-gradient(from var(--ring-angle), var(--accent) 0 18%, transparent 26% 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: ring 3.2s linear infinite; }
 .working-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .working-message { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; color: var(--text); }
 .working-ellipsis::after { content: ""; display: inline-block; width: 1.2em; text-align: left; animation: ellipsis 1.5s steps(4, end) infinite; }
@@ -409,8 +411,9 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 .working-rail li[data-state="active"] { color: var(--text); font-weight: 600; }
 .working-rail li[data-state="active"] .working-step { border-color: var(--accent); background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 /* The agent's own commentary: what it is looking for now, and what each step meant. */
-.is-stalled { border-left-color: var(--amber-ink); }
-.is-stalled .working-bar i, .is-stalled .working-spinner img { animation-play-state: paused; }
+.is-stalled { border-color: var(--amber-ink); }
+.is-stalled::before { display: none; }
+.is-stalled .working-spinner img { animation-play-state: paused; }
 .working-stalled { background: var(--amber-tint); color: var(--text); }
 .working-stalled code { padding: 1px 5px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card-bg); }
 .working-focus { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--radius); background: var(--surface); font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
@@ -421,8 +424,6 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 .thinking li p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
 .thinking li:not(.is-current) { opacity: 0.72; }
 .thinking li.is-current::before { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
-.working-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--border-soft); }
-.working-bar i { position: absolute; top: 0; left: 0; width: 36%; height: 100%; background: var(--accent); animation: sweep 1.8s cubic-bezier(0.45, 0, 0.25, 1) infinite; }
 /* Results are revealed as the agent produces them: each section rises in, and its rows follow. */
 .agent-message .brief, .agent-message .detail-section, .agent-message .analysis-trace, .conversation-action > * { animation: reveal 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .agent-message .detail-section .fact-row, .agent-message .detail-section .finding { animation: reveal 0.5s ease both; }
@@ -431,7 +432,6 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 .agent-message .detail-section .fact-row:nth-child(4), .agent-message .detail-section .finding:nth-child(4) { animation-delay: 240ms; }
 .agent-message .detail-section .finding:nth-child(n + 5) { animation-delay: 320ms; }
 @keyframes turn { to { transform: rotate(360deg); } }
-@keyframes sweep { 0% { left: -36%; } 100% { left: 100%; } }
 @keyframes shimmer { 0% { background-position: 120% 0; } 100% { background-position: -100% 0; } }
 @keyframes ring { to { --ring-angle: 360deg; } }
 @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }

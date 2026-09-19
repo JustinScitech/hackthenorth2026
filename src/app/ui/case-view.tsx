@@ -222,14 +222,26 @@ function narrate(event: AuditEvent): { text: string; why?: string } | null {
   }
 }
 
-/** Seconds this page has been watching the run, ticking once a second. Client-side only, so server clock or zone offsets can't skew it. */
-function useElapsedSeconds() {
+/**
+ * Seconds since this browser first saw the run, ticking once a second. The start is kept in
+ * sessionStorage per case so a refresh continues the count; the browser clock is the only clock
+ * involved, so server time zones can't skew it. The entry is dropped once the run finishes.
+ */
+function useElapsedSeconds(caseId: string, running: boolean) {
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
-    const started = Date.now();
-    const timer = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    const key = `astra.run-start.${caseId}`;
+    if (!running) { try { sessionStorage.removeItem(key); } catch { /* storage may be unavailable */ } return; }
+    let started = Date.now();
+    try {
+      const saved = Number(sessionStorage.getItem(key));
+      if (saved > 0 && saved <= started) started = saved; else sessionStorage.setItem(key, String(started));
+    } catch { /* storage may be unavailable */ }
+    const tick = () => setSeconds(Math.floor((Date.now() - started) / 1000));
+    tick();
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [caseId, running]);
   return seconds;
 }
 
@@ -238,7 +250,7 @@ const QUEUE_PATIENCE_SECONDS = 45;
 /** Live status while the worker is on the case: the current step, the stage rail, and the agent's running commentary. */
 function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus }) {
   const current = stageIndex(caseRecord.status);
-  const elapsed = useElapsedSeconds();
+  const elapsed = useElapsedSeconds(caseRecord.id, true);
   const stalled = jobStatus === "QUEUED" && elapsed > QUEUE_PATIENCE_SECONDS;
   const thoughts = audit.map((event) => ({ id: event.id, thought: narrate(event) })).filter((entry) => entry.thought).slice(-5);
   return <div className={`working${stalled ? " is-stalled" : ""}`} role="status" aria-live="polite">
@@ -258,7 +270,6 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
         {entry.thought!.why && <p>{entry.thought!.why}</p>}
       </li>)}
     </ol>}
-    <div className="working-bar" aria-hidden="true"><i /></div>
   </div>;
 }
 
@@ -270,6 +281,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
 }) {
   const working = isProcessing(caseRecord, jobStatus);
+  useElapsedSeconds(id, working);
   return <main className="shell shell-narrow conversation">
     <div className="case-toolbar">
       <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><Link href="/cases">Cases</Link><span className="sep">/</span><span className="current">{caseRecord.insuredName}</span></p>
