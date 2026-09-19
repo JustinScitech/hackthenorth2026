@@ -9,12 +9,12 @@ This is a delivery map, not a claim that every listed sponsor has a confirmed 20
 | Sponsor | Underwriting role | Current status | Live proof needed |
 | --- | --- | --- | --- |
 | Federato | Source submissions, schema, glossary, and appetite rules | Live schema discovery, 113-policy paginated ranking, supplied appetite rules, explanations and query trace at `/triage` | Reconcile standalone submissions with policies; confirm primary state and complete five-year loss history; see [gap assessment](federato-gap-assessment.md) |
-| Rox | Agent handling messy operational data and meaningful actions | Missing-field follow-up and conflict detection; durable job resume | Real messy Federato cases, measured resolutions and actions |
-| OpenAI | Not used; Gemini is the configured extraction provider | Not connected | No OpenAI integration is required for this branch |
+| Rox | Agent handling messy operational data and meaningful actions | Parser + Gemini + OpenAI resolved by agreement with confidence and visible conflicts (`src/agent/resolution.ts`); missing-field follow-up; durable job resume; 31 extraction and 15 resolution evals | Real messy Federato cases, measured resolutions and actions |
+| OpenAI | Independent second extractor for broker facts and quote intake | Coded via Chat Completions with strict JSON schema (`src/agent/providers.ts`); the key in the team `.env` currently returns 401 | Working key, a case showing the OpenAI attempt in the trace, and a Codex usage note for the demo |
 | Tiger Data | Relational case/audit state plus time-series operations analytics | PostgreSQL-compatible schema; no Tiger Data connection yet | Hosted Tiger Data instance and useful metrics dashboard |
 | Gemini | Primary extraction of construction and loss facts | Coded, optional key; parser/Gemini disagreements become review findings | Run a case with a funded Gemini API project and show evidence/uncertainty |
-| Browserbase | Read an explicitly supplied public property/business source | Coded, optional key; URL/excerpt attached to case | Live browser session with cited source |
-| Sentry | Observe worker failures without transmitting submission text | Coded, optional DSN | Test event and worker trace in Sentry |
+| Browserbase | Read an explicitly supplied public property/business source | Coded, optional key; the page becomes cited signals (year built, construction, size, sprinklers, flood zone) and findings that can contradict the broker (`src/agent/enrichment.ts`); 18 evals | Live browser session on a real assessor or listing page during the demo |
+| Sentry | Observe worker failures without transmitting submission text | Errors, tracing spans, metrics, structured logs, and gen_ai spans per model call; scrubbing pinned by 5 telemetry evals | A trace, a log query, and an AI span shown live in Sentry during the demo |
 | Expo | Mobile underwriter triage and decision | Not built | Working Expo app using same case API and human review |
 | GoDaddy | Branded URL for deployed review workspace | Not purchased or configured | Domain registration and deployed app; purchase requires team action |
 | MongoDB Atlas | Immutable broker submissions, replies, and public evidence | Coded; local Mongo roundtrip verified | Atlas URI, live read/write, proof in Atlas collection |
@@ -23,6 +23,8 @@ This is a delivery map, not a claim that every listed sponsor has a confirmed 20
 | Cloudflare Agents SDK | Edge-facing case assistant or deployment | Not connected; PostgreSQL jobs remain workflow owner | Real agent feature on Cloudflare without duplicating orchestration |
 | Linq | Consented iOS broker follow-up messaging | Not connected | Verified sender/recipient, opt-in, sent message and receipt |
 | Solana badge | Event identity or demo access, not underwriting risk | Not built | Only pursue if rules support an identity use case; never infer insurance risk from a person's social profile |
+
+| Intact | Tenant and car quoting via a conversational assistant | `/quote` and `POST /api/quote`; parser floor plus optional model gap-filling; 38 evals; see [docs/quoting.md](quoting.md) | Demo the journey on a phone-width screen |
 
 ## Build order
 

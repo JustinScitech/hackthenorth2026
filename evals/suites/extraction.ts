@@ -50,8 +50,9 @@ export const extractionCases: Case[] = [
 async function extractWith(options: RunOptions, notes: string): Promise<Extracted | null> {
   if (options.extractor === "parser") return parseBrokerNotes(notes);
   const result = await extractNotes(notes);
-  if (options.extractor === "gemini") return result.extracted;
-  const completed = result.attempts.find((attempt) => attempt.status === "completed");
+  if (options.extractor === "pipeline") return result.extracted;
+  const source = options.extractor === "openai-only" ? "OpenAI" : "Gemini";
+  const completed = result.attempts.find((attempt) => attempt.source === source && attempt.status === "completed");
   return completed?.value ?? null;
 }
 

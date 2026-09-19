@@ -1,9 +1,8 @@
-import type { Facts, Finding } from "../lib/types";
-import type { PublicEvidence } from "./public-source";
+import type { EvidenceSignal, Facts, Finding, PublicEvidence } from "../lib/types";
 
-export type SignalKind = "yearBuilt" | "constructionType" | "floodZone" | "sprinklered" | "occupancy" | "squareFeet";
+export type SignalKind = EvidenceSignal["kind"];
 /** A structured fact read from a public page, with the sentence it came from so an underwriter can check it. */
-export type EvidenceSignal = { kind: SignalKind; value: string | number | boolean; quote: string };
+export type { EvidenceSignal };
 
 /** FEMA Special Flood Hazard Area designations; X, B, C, and D are not. */
 const highRiskFloodZones = ["A", "AE", "AH", "AO", "AR", "A99", "V", "VE"];

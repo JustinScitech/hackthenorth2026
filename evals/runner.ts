@@ -18,7 +18,7 @@ export type CaseResult = {
 
 export type RunOptions = {
   /** Which extractor the extraction suite measures. Guideline and appetite suites ignore it. */
-  extractor: "parser" | "gemini" | "gemini-only";
+  extractor: "parser" | "pipeline" | "gemini-only" | "openai-only";
   /** Pause between live model calls to stay under per-minute quotas. */
   modelDelayMs: number;
   log?: (line: string) => void;
@@ -51,7 +51,7 @@ export type Baseline = { knownFailures: Record<string, string[]> };
 export function defaultOptions(overrides: Partial<RunOptions> = {}): RunOptions {
   const extractor = process.env.EVAL_EXTRACTOR;
   return {
-    extractor: extractor === "gemini" || extractor === "gemini-only" ? extractor : "parser",
+    extractor: extractor === "pipeline" || extractor === "gemini-only" || extractor === "openai-only" ? extractor : "parser",
     modelDelayMs: Number(process.env.EVAL_MODEL_DELAY_MS ?? 4000),
     ...overrides,
   };

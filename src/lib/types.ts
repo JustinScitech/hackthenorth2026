@@ -27,6 +27,9 @@ export type Finding = {
   source: string;
 };
 
+export type EvidenceSignal = { kind: "yearBuilt" | "constructionType" | "floodZone" | "sprinklered" | "occupancy" | "squareFeet"; value: string | number | boolean; quote: string };
+export type PublicEvidence = { url: string; title: string; excerpt: string; signals?: EvidenceSignal[] };
+
 export type CaseRecord = {
   id: string;
   insuredName: string;
@@ -36,7 +39,7 @@ export type CaseRecord = {
   losses: number | null;
   sourceKey: string;
   publicSourceUrl: string | null;
-  publicEvidence: { url: string; title: string; excerpt: string } | null;
+  publicEvidence: PublicEvidence | null;
   extractionConflicts: string[];
   status: CaseStatus;
   facts: Facts | null;

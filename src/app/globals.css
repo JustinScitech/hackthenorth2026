@@ -541,3 +541,32 @@ select { width: auto; padding-right: 32px; appearance: none; background-image: l
 @media (max-width: 639px) { .steps, .feature-grid { grid-template-columns: 1fr; } .site-nav { display: none; } .site-header-inner { grid-template-columns: auto 1fr; height: 56px; padding: 0 16px; } .site-footer-inner { padding: 24px 16px; } .hero, .site-section, .docs { padding-left: 16px; padding-right: 16px; } }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } .primary-button:hover, .secondary-button:hover, .icon-button:hover, .tile:hover { transform: none; } }
+
+/* Quote assistant (Intact prototype) */
+.quote-page h1 { margin: 0 0 10px; }
+.quote-shell { display: grid; gap: 18px; }
+.quote-thread { list-style: none; margin: 0; padding: 0; }
+.quote-thread .conversation-message { margin-bottom: 18px; }
+.quote-thread .agent-message .brief { margin: 0; }
+.quote-live { display: grid; gap: 16px; }
+.quote-products { display: flex; flex-wrap: wrap; gap: 10px; }
+.quote-result { display: grid; gap: 16px; padding: 20px 22px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.quote-estimate { display: grid; gap: 6px; }
+.quote-price { margin: 0; font-size: 26px; }
+.quote-price strong { font-weight: 600; font-variant-numeric: tabular-nums; }
+.quote-factors { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.quote-factors li { display: grid; grid-template-columns: minmax(120px, 160px) 1fr; gap: 10px; padding: 6px 10px; border-left: 3px solid var(--border-strong); font-size: 13.5px; }
+.quote-factors li[data-effect="increases"] { border-left-color: var(--amber-ink); }
+.quote-factors li[data-effect="decreases"] { border-left-color: var(--accent); }
+.quote-factors li span { color: var(--text-secondary); }
+.quote-assumptions { margin: 8px 0 0; font-size: 13px; color: var(--text-secondary); }
+.quote-steps { margin: 0; padding-left: 20px; font-size: 14px; color: var(--text-secondary); }
+.quote-questions fieldset { display: grid; gap: 14px; margin: 0; padding: 0; border: 0; }
+.quote-questions legend { padding: 0; margin-bottom: 10px; font-size: 15px; font-weight: 600; }
+.quote-question { display: grid; gap: 6px; }
+.quote-question select { width: 100%; }
+.quote-question small { color: var(--muted); font-size: 12.5px; }
+.quote-questions .primary-button { margin-top: 14px; }
+.quote-composer { display: grid; gap: 10px; }
+.quote-composer .primary-button { justify-self: end; }
+@media (max-width: 640px) { .quote-factors li { grid-template-columns: 1fr; gap: 2px; } }

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { addAudit, db, getCase } from "../lib/db";
+import { logAgentEvent } from "./monitoring";
 import { checkCase, extractCase, failCase, finalizeDecision, recordBrokerFollowUp, recordBrokerResponse, researchPublicSource } from "./activities";
 
 export type JobKind = "analyze" | "broker_response" | "decision" | "broker_follow_up";
@@ -101,6 +102,7 @@ export async function processNextJob(): Promise<boolean> {
        WHERE id = $1 AND lease_token = $2`, [job.id, token, exhausted ? "failed" : "queued", exhausted, message.slice(0, 500)],
     );
     await addAudit(job.case_id, "job_retry", { kind: job.kind, attempt: job.attempts, exhausted, reason: message.slice(0, 160) }, `job-retry:${job.id}:${job.attempts}`);
+    logAgentEvent("job_retry", { caseId: job.case_id, jobId: job.id, kind: job.kind, attempt: job.attempts, exhausted });
     if (exhausted && job.kind !== "broker_follow_up") await failCase(job.case_id, message);
     console.error("Case job failed", job.id, message);
   } finally {

@@ -10,6 +10,10 @@ Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Se
 
 The live schema currently selects `Policy` because it contains more appetite fields; the report explicitly identifies that scope. It is not yet a reconciled queue of standalone Submission records. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
 
+## Quoting assistant
+
+`/quote` is a public, conversational tenant and car insurance estimator built for the Intact challenge. It reads a plain-language request, shows an estimate from the facts it has, and explains every remaining question. See [docs/quoting.md](docs/quoting.md) for the problem, how AI is used, the journey, and the assumptions. Demo rate tables only; nothing binds coverage.
+
 ## Interface
 
 The product is branded **Astra Risk**; the logo files live in `public/brand`. The site has a marketing homepage at `/`, in-site docs and an API reference at `/docs`, and the workspace under `/overview`, `/cases`, `/cases/new`, `/triage`, and `/settings`. The UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default; switch to light in **Settings** or with the sun/moon button in the header. The choice is saved in the browser.
@@ -19,9 +23,9 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 - Next.js: case intake, progress, review, and API
 - PostgreSQL or Tiger Data: case records, durable jobs, retries, and audit events
 - MongoDB: broker submissions, replies, and public evidence (local container or Atlas)
-- Optional Gemini API: primary structured extraction from unstructured broker notes; deterministic fallback works without a key or available credits
-- Optional Browserbase: visit an explicitly supplied public source and attach a cited excerpt to the case
-- Optional Sentry: privacy-minimized worker error monitoring
+- Optional Gemini and OpenAI APIs: independent structured extraction from unstructured broker notes, resolved by agreement with a deterministic parser; the parser alone works without keys
+- Optional Browserbase: visit an explicitly supplied public source, read year built, construction, size, sprinklers, and flood zone from the page, and turn each into a cited finding that corroborates, contradicts, or adds to the broker facts
+- Optional Sentry: privacy-minimized error monitoring plus tracing, metrics, structured logs, and per-model-call AI spans; every event is scrubbed of submission text
 - Optional ElevenLabs: spoken underwriter review brief
 
 ## Code layout
@@ -73,7 +77,7 @@ The recommended low-cost demo runs the web app and worker together on one VM; se
 
 ## Checks
 
-Run `npm run typecheck`, `npm test`, and `npm run build`. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100. Most UI scenarios use fixture responses; one exercises the real PostgreSQL job and MongoDB lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
+Run `npm run typecheck`, `npm test`, and `npm run build`. `npm test` includes the offline agent evals in [evals/](evals/README.md): 183 cases across extraction, multi-source resolution, guidelines, case journeys, public-source enrichment, Federato appetite scoring, queue ranking, quoting, and telemetry privacy, with a baseline ratchet that fails the build on any regression. `npm run eval` prints the scorecard. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100. Most UI scenarios use fixture responses; one exercises the real PostgreSQL job and MongoDB lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
 
 For a live Gemini extraction eval, set `GEMINI_API_KEY` and run `npm run eval:agent`. This checks the model's own year-built and three-year loss-count values across four fictional submissions, then checks the resulting demo guideline decisions. Calls are spaced to reduce per-minute rate-limit errors. The eval fails if Gemini is unavailable or falls back to the parser. It does not measure document ingestion, coverage decisions, or the separate Federato triage flow.
 

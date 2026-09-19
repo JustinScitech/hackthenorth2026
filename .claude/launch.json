@@ -9,6 +9,17 @@
         "dev"
       ],
       "port": 3003
+    },
+    {
+      "name": "next-start-3004",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "start",
+        "-p",
+        "3004"
+      ],
+      "port": 3004
     }
   ]
 }

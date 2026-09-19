@@ -91,6 +91,12 @@ export async function recordEvalMetric(passed: number, total: number) {
   await Sentry.flush(2000);
 }
 
+/** Sentry AI agent monitoring: one gen_ai span per model call, carrying only the model name and outcome. */
+export function traceModelCall<T>(system: "gemini" | "openai", model: string, call: () => Promise<T>): Promise<T> {
+  if (!process.env.SENTRY_DSN) return call();
+  return Sentry.startSpan({ name: `${system} ${model}`, op: "gen_ai.generate_content", attributes: { "gen_ai.system": system, "gen_ai.request.model": model } }, call);
+}
+
 export function monitorActivities<T extends object>(activities: T): T {
   if (!process.env.SENTRY_DSN) return activities;
   return Object.fromEntries((Object.entries(activities) as [string, Activity][]).map(([name, activity]) => [

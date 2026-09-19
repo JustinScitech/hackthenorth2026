@@ -6,7 +6,8 @@ Offline, deterministic evals for the underwriting agent's decision logic. They r
 npm run eval                       # scorecard + ratchet check against evals/baseline.json
 npm run eval -- --suite extraction # one suite
 npm run eval:update                # rewrite the baseline from a full run (only after confirming an improvement)
-EVAL_EXTRACTOR=gemini npm run eval -- --suite extraction   # measure the live Gemini pipeline instead of the parser
+EVAL_EXTRACTOR=pipeline npm run eval -- --suite extraction     # live Gemini + OpenAI + parser, resolved
+EVAL_EXTRACTOR=gemini-only npm run eval -- --suite extraction  # or openai-only: one model on its own
 ```
 
 `data/eval-scorecard.json` holds the latest full result (ignored by Git).
@@ -33,7 +34,7 @@ EVAL_EXTRACTOR=gemini npm run eval -- --suite extraction   # measure the live Ge
 | Rox | messy, incomplete, conflicting sources; decisions under uncertainty | `extraction`, `resolution`, `guidelines` |
 | Intact | car/tenant quoting via AI; estimate or next step; accessibility | `quote` |
 | Browserbase | Browserbase meaningfully powers the experience with real web data | `enrichment` (live fetch is exercised by E2E, not here) |
-| OpenAI | OpenAI API powers the experience | `resolution`; `EVAL_EXTRACTOR=openai` on `extraction` |
+| OpenAI | OpenAI API powers the experience | `resolution`; `EVAL_EXTRACTOR=openai-only` on `extraction` |
 | Sentry | two products beyond errors, data that shaped the build | `telemetry` (privacy invariants) |
 
 ## The ratchet
@@ -49,4 +50,4 @@ Known failures are the upgrade backlog. Each carries a `note` explaining why the
 
 Add to the `*Cases` array in the relevant suite. Expected values are what a careful underwriter would take from the input: only explicitly stated facts, `null` when the input does not establish the fact. If the new case fails today, run `npm run eval:update` in the same commit so the baseline records it as a known failure rather than a regression.
 
-Live model runs (`EVAL_EXTRACTOR=gemini` or `gemini-only`) are informational and never update the baseline; `scripts/eval-agent.ts` remains the persisted live eval shown on `/overview`.
+Live model runs (`EVAL_EXTRACTOR=pipeline`, `gemini-only`, or `openai-only`) are informational and never update the baseline; `scripts/eval-agent.ts` remains the persisted live eval shown on `/overview`.

@@ -7,8 +7,8 @@ import { suites } from "./suites";
  * `npm run eval` prints the scorecard and checks the ratchet against evals/baseline.json.
  * `npm run eval:update` rewrites the baseline from the current run; only do that after
  * confirming each change is an improvement, since it is what future runs regress against.
- * `EVAL_EXTRACTOR=gemini npm run eval -- --suite extraction` measures the live model instead
- * of the parser; live results are reported but never ratcheted.
+ * `EVAL_EXTRACTOR=pipeline|gemini-only|openai-only npm run eval -- --suite extraction` measures
+ * the live models instead of the parser; live results are reported but never ratcheted.
  */
 async function main() {
   const { values } = parseArgs({ options: { suite: { type: "string", multiple: true }, "update-baseline": { type: "boolean" }, quiet: { type: "boolean" } } });

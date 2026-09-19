@@ -74,6 +74,8 @@ const eventLabels: Record<string, string> = {
   model_extraction_started: "Model extraction started", extraction_completed: "Facts extracted",
   gemini_model_started: "Gemini model started", gemini_model_completed: "Gemini model completed",
   gemini_model_failed: "Gemini model unavailable",
+  openai_model_started: "OpenAI model started", openai_model_completed: "OpenAI model completed",
+  openai_model_failed: "OpenAI model unavailable",
   public_research_started: "Public source visit started",
   public_research_skipped: "Public research skipped", public_research_completed: "Public source reviewed",
   public_research_failed: "Public research unavailable", guideline_check_started: "Checking demo guidelines",
@@ -83,10 +85,10 @@ const eventLabels: Record<string, string> = {
 };
 
 function traceDetail(event: AuditEvent): string | null {
-  if (event.eventType.startsWith("gemini_model_")) {
-    const model = String(event.detail.model ?? "Gemini");
-    if (event.eventType === "gemini_model_started") return model;
-    if (event.eventType === "gemini_model_completed") return `${model} · ${(Number(event.detail.durationMs ?? 0) / 1000).toFixed(1)}s`;
+  if (/^(?:gemini|openai)_model_/.test(event.eventType)) {
+    const model = String(event.detail.model ?? "Model");
+    if (event.eventType.endsWith("_started")) return model;
+    if (event.eventType.endsWith("_completed")) return `${model} · ${(Number(event.detail.durationMs ?? 0) / 1000).toFixed(1)}s`;
     return `${model}${event.detail.errorCode ? ` · HTTP ${event.detail.errorCode}` : " · invalid or empty response"}`;
   }
   if (event.eventType === "model_extraction_started") {
@@ -110,7 +112,10 @@ function traceDetail(event: AuditEvent): string | null {
     return `Deterministic demo rules · ${event.detail.pass} passed · ${event.detail.refer} referred · ${event.detail.unknown} unknown`;
   }
   if (event.eventType === "public_research_skipped") return String(event.detail.reason ?? "Public research was skipped");
-  if (event.eventType === "public_research_completed") return "Public source saved as evidence";
+  if (event.eventType === "public_research_completed") {
+    const signals = Array.isArray(event.detail.signals) ? event.detail.signals as string[] : [];
+    return signals.length ? `Public source saved as evidence · ${signals.length} signal${signals.length === 1 ? "" : "s"}: ${signals.join(", ")}` : "Public source saved as evidence";
+  }
   if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; no message was sent";
   return null;
 }
@@ -132,8 +137,8 @@ function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobS
   if (processing && jobStatus === "RUNNING") {
     const providers = Array.isArray(latest?.detail.providers) ? latest.detail.providers.join(" and ") : "Model";
     return latest?.eventType === "model_extraction_started" ? `${providers} extracting broker facts`
-      : latest?.eventType === "gemini_model_started" ? `Extracting with ${String(latest.detail.model ?? "Gemini")}`
-        : latest?.eventType === "gemini_model_failed" ? `${String(latest.detail.model ?? "Gemini")} unavailable; continuing extraction`
+      : latest?.eventType === "gemini_model_started" || latest?.eventType === "openai_model_started" ? `Extracting with ${String(latest.detail.model ?? "the model")}`
+        : latest?.eventType === "gemini_model_failed" || latest?.eventType === "openai_model_failed" ? `${String(latest.detail.model ?? "Model")} unavailable; continuing extraction`
       : latest?.eventType === "public_research_started" ? "Reviewing the supplied public source"
         : latest?.eventType === "guideline_check_started" ? "Checking demo guidelines"
           : caseRecord.status === "received" ? "Analysis started" : "Reading the submission";
