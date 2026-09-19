@@ -58,18 +58,19 @@ async function main() {
   for (const [index, fixture] of fixtures.entries()) {
     if (index > 0) await new Promise((resolve) => setTimeout(resolve, 12_000));
     const result = await extractNotes(fixture.notes);
-    const gemini = result.attempts.find((attempt) => attempt.source === "Gemini");
+    const geminiAttempts = result.attempts.filter((attempt) => attempt.source === "Gemini");
+    const gemini = geminiAttempts.find((attempt) => attempt.status === "completed");
     const modelCorrect = gemini?.status === "completed"
       && gemini.value?.yearBuilt === fixture.expected.yearBuilt
       && gemini.value?.losses === fixture.expected.losses;
-    const provenanceCorrect = (fixture.expected.yearBuilt === null || result.fieldSources.yearBuilt === "Gemini")
-      && (fixture.expected.losses === null || result.fieldSources.losses === "Gemini");
+    const provenanceCorrect = (fixture.expected.yearBuilt === null || result.fieldSources.yearBuilt === `Gemini ${gemini?.model}`)
+      && (fixture.expected.losses === null || result.fieldSources.losses === `Gemini ${gemini?.model}`);
     const checks = evaluateFacts(buildFacts(fixture.intake, result.extracted));
     const guidelineCorrect = checks.findings.filter((finding) => finding.result === "refer").length === fixture.expectedReferrals
       && Boolean(checks.question) === fixture.needsBroker;
     const ok = Boolean(modelCorrect && provenanceCorrect && guidelineCorrect);
     if (ok) passed++;
-    console.log(`${ok ? "PASS" : "FAIL"} ${fixture.name}: Gemini ${gemini?.model ?? "unavailable"} ${gemini?.status ?? "missing"}${gemini?.errorCode ? ` (HTTP ${gemini.errorCode})` : ""} ${gemini?.durationMs ?? 0}ms, ${gemini?.attemptCount ?? 0} attempt(s), extracted ${JSON.stringify(gemini?.value ?? null)}, expected ${JSON.stringify(fixture.expected)}`);
+    console.log(`${ok ? "PASS" : "FAIL"} ${fixture.name}: ${geminiAttempts.map((attempt) => `${attempt.model} ${attempt.status}${attempt.errorCode ? ` (HTTP ${attempt.errorCode})` : ""}`).join(" -> ")}, selected ${gemini?.model ?? "none"} ${gemini?.durationMs ?? 0}ms, extracted ${JSON.stringify(gemini?.value ?? null)}, expected ${JSON.stringify(fixture.expected)}`);
     if (!guidelineCorrect) console.log(`  Guideline result: ${checks.findings.filter((finding) => finding.result === "refer").length} referrals, broker question ${Boolean(checks.question)}`);
     if (!provenanceCorrect) console.log(`  Extraction sources: ${JSON.stringify(result.fieldSources)}`);
   }

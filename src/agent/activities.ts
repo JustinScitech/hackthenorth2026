@@ -42,7 +42,12 @@ export async function extractCase(caseId: string): Promise<void> {
   const texts = await Promise.all([caseRecord.sourceKey, ...responseRows.rows.map((row) => String(row.source_key))].map(getText));
   const providers = [process.env.OPENAI_API_KEY && "OpenAI", process.env.GEMINI_API_KEY && "Gemini"].filter(Boolean);
   if (providers.length) await addAudit(caseId, "model_extraction_started", { providers, revision: caseRecord.analysisRevision }, `model-started:${caseId}:${caseRecord.analysisRevision}`);
-  const extraction = await extractNotes(texts.join("\n\n--- BROKER UPDATE ---\n\n"));
+  const extraction = await extractNotes(texts.join("\n\n--- BROKER UPDATE ---\n\n"), async (event, attempt) => {
+    await addAudit(caseId, `gemini_model_${event}`, {
+      model: attempt.model, durationMs: attempt.durationMs, errorCode: attempt.errorCode,
+      revision: caseRecord.analysisRevision,
+    }, `gemini:${event}:${caseId}:${caseRecord.analysisRevision}:${attempt.model}`);
+  });
   const facts = buildFacts(caseRecord, extraction.extracted);
   if (caseRecord.yearBuilt === null && facts.yearBuilt.value !== null) facts.yearBuilt.source = `Broker text via ${extraction.fieldSources.yearBuilt}`;
   if (caseRecord.losses === null && facts.losses.value !== null) facts.losses.source = `Broker text via ${extraction.fieldSources.losses}`;

@@ -71,6 +71,8 @@ function CaseActions({ caseRecord, response, setResponse, reason, setReason, sub
 const eventLabels: Record<string, string> = {
   case_created: "Submission received", extraction_started: "Reading submission",
   model_extraction_started: "Model extraction started", extraction_completed: "Facts extracted",
+  gemini_model_started: "Gemini model started", gemini_model_completed: "Gemini model completed",
+  gemini_model_failed: "Gemini model unavailable",
   public_research_started: "Public source visit started",
   public_research_skipped: "Public research skipped", public_research_completed: "Public source reviewed",
   public_research_failed: "Public research unavailable", guideline_check_started: "Checking demo guidelines",
@@ -80,6 +82,12 @@ const eventLabels: Record<string, string> = {
 };
 
 function traceDetail(event: AuditEvent): string | null {
+  if (event.eventType.startsWith("gemini_model_")) {
+    const model = String(event.detail.model ?? "Gemini");
+    if (event.eventType === "gemini_model_started") return model;
+    if (event.eventType === "gemini_model_completed") return `${model} · ${(Number(event.detail.durationMs ?? 0) / 1000).toFixed(1)}s`;
+    return `${model}${event.detail.errorCode ? ` · HTTP ${event.detail.errorCode}` : " · invalid or empty response"}`;
+  }
   if (event.eventType === "model_extraction_started") {
     const providers = Array.isArray(event.detail.providers) ? event.detail.providers.join(" and ") : "Model";
     return `Calling ${providers} for year built and recent loss count.`;
@@ -124,6 +132,8 @@ function workflowMessage(caseRecord: CaseRecord, audit: AuditEvent[], workflowSt
   if (processing && workflowStatus === "RUNNING") {
     const providers = Array.isArray(latest?.detail.providers) ? latest.detail.providers.join(" and ") : "Model";
     return latest?.eventType === "model_extraction_started" ? `${providers} extracting broker facts`
+      : latest?.eventType === "gemini_model_started" ? `Extracting with ${String(latest.detail.model ?? "Gemini")}`
+        : latest?.eventType === "gemini_model_failed" ? `${String(latest.detail.model ?? "Gemini")} unavailable; continuing extraction`
       : latest?.eventType === "public_research_started" ? "Reviewing the supplied public source"
         : latest?.eventType === "guideline_check_started" ? "Checking demo guidelines"
           : caseRecord.status === "received" ? "Temporal workflow queued" : "Reading the submission";
