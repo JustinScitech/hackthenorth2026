@@ -43,6 +43,26 @@ test("overview, case list, search, and navigation use real session and case data
   await expect(page.getByRole("heading", { name })).toBeVisible();
 });
 
+test("workspace matches the landing palette across desktop and mobile", async ({ authenticatedPage: page }, testInfo) => {
+  await page.goto("/overview");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".sidebar .brand-text")).toContainText("AstraRisk");
+  expect(await page.locator("body").evaluate((body) => getComputedStyle(body).backgroundColor)).toBe("rgb(246, 245, 241)");
+  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(81, 69, 182)");
+  await page.screenshot({ path: testInfo.outputPath("overview-desktop.png"), fullPage: true });
+
+  await page.goto("/settings");
+  await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
+  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(170, 160, 244)");
+  await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Light" }).click();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/cases/new");
+  await expect(page.getByRole("heading", { name: /New submission|Create case/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("submission-mobile.png"), fullPage: true });
+});
+
 test("overview and metrics API show the latest persisted eval", async ({ authenticatedPage: page, seedEvalRun }) => {
   await seedEvalRun(3, 4);
   await page.goto("/overview");

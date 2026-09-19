@@ -14,7 +14,7 @@ export function SettingsPanel() {
         <section className="card" aria-labelledby="appearance-title">
           <div className="card-header"><h2 id="appearance-title">Appearance</h2></div>
           <div className="setting-row">
-            <div><strong>Theme</strong><p>Dark is the default. Your choice is saved in this browser only.</p></div>
+            <div><strong>Theme</strong><p>Light is the default. Your choice is saved in this browser only.</p></div>
             <div className="segmented" role="group" aria-label="Theme">
               <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}><Moon size={14} />Dark</button>
               <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}><Sun size={14} />Light</button>
