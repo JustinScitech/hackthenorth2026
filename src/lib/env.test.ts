@@ -43,9 +43,9 @@ test("localhost detection covers the usual spellings", () => {
 });
 
 test("auth base URL follows the environment", () => {
-  assert.equal(authBaseUrl({}), "http://localhost:3000");
+  assert.equal(authBaseUrl({}), "http://localhost:3003");
   assert.equal(authBaseUrl({ BETTER_AUTH_URL: "http://localhost:3003/" }), "http://localhost:3003");
-  assert.equal(authBaseUrl({ VERCEL: "1", VERCEL_ENV: "production", BETTER_AUTH_URL: "http://localhost:3000", VERCEL_PROJECT_PRODUCTION_URL: "astra-risk.vercel.app", VERCEL_URL: "astra-risk-abc123.vercel.app" }), "https://astra-risk.vercel.app");
+  assert.equal(authBaseUrl({ VERCEL: "1", VERCEL_ENV: "production", BETTER_AUTH_URL: "http://localhost:3003", VERCEL_PROJECT_PRODUCTION_URL: "astra-risk.vercel.app", VERCEL_URL: "astra-risk-abc123.vercel.app" }), "https://astra-risk.vercel.app");
   assert.equal(authBaseUrl({ VERCEL: "1", VERCEL_ENV: "preview", VERCEL_URL: "astra-risk-abc123.vercel.app", VERCEL_PROJECT_PRODUCTION_URL: "astra-risk.vercel.app" }), "https://astra-risk-abc123.vercel.app");
   assert.equal(authBaseUrl({ VERCEL: "1", VERCEL_ENV: "production", BETTER_AUTH_URL: "https://underwriting.example.com/" }), "https://underwriting.example.com");
   assert.throws(() => authBaseUrl({ VERCEL: "1" }), /BETTER_AUTH_URL is not set and no Vercel URL/);

@@ -43,11 +43,11 @@ For a single-VM demo deployment without paid workflow hosting, follow [the deplo
 3. Run `docker compose up -d`.
 4. Run `npm install` and `npm run db:migrate`.
 5. In one terminal, run `npm run worker`.
-6. In another terminal, run `npm run dev` and open http://localhost:3000.
+6. In another terminal, run `npm run dev` and open http://localhost:3003.
 
 The core demo needs no sponsor API keys.
 
-For local Google OAuth, register `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI (use your actual dev-server port if different) and set `BETTER_AUTH_URL` to the matching origin. In production, register `https://your-domain/api/auth/callback/google`. Run `npm run db:migrate` after deploying to create the auth tables. Approved Google accounts share the demo workspace; this is authentication and an email allowlist, not tenant isolation or role-based authorization. Do not use real insurance submissions until those controls are added.
+For local Google OAuth, register `http://localhost:3003/api/auth/callback/google` as an authorized redirect URI (use your actual dev-server port if different) and set `BETTER_AUTH_URL` to the matching origin. In production, register `https://your-domain/api/auth/callback/google`. Run `npm run db:migrate` after deploying to create the auth tables. Approved Google accounts share the demo workspace; this is authentication and an email allowlist, not tenant isolation or role-based authorization. Do not use real insurance submissions until those controls are added.
 
 If **Continue with Google** is disabled, check `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_ALLOWED_EMAILS`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL` in the server environment, then restart the web server. Database, MongoDB, and sponsor API keys do not substitute for a Google OAuth web client. The Google Cloud consent screen and the exact callback URL must also be configured there.
 

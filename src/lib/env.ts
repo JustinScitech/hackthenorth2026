@@ -71,13 +71,13 @@ export function mongoUri(env: Env = process.env): string {
 
 /**
  * Public origin used for auth callbacks and cookies. Locally this is BETTER_AUTH_URL or
- * http://localhost:3000. When deployed, a localhost value is ignored and the Vercel
+ * http://localhost:3003. When deployed, a localhost value is ignored and the Vercel
  * production URL (or the deployment URL for previews) is used, so Google's callback
  * always points at the host serving the request.
  */
 export function authBaseUrl(env: Env = process.env): string {
   const configured = env.BETTER_AUTH_URL?.trim().replace(/\/+$/, "") || undefined;
-  if (!isDeployed(env)) return configured ?? "http://localhost:3000";
+  if (!isDeployed(env)) return configured ?? "http://localhost:3003";
   if (configured && !isLocalUrl(configured)) return configured;
   const host = env.VERCEL_ENV === "production" ? env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL : env.VERCEL_URL || env.VERCEL_PROJECT_PRODUCTION_URL;
   if (host) return `https://${host.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
