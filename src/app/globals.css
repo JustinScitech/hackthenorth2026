@@ -412,10 +412,9 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 .working-rail li[data-state="active"] { color: var(--text); font-weight: 600; }
 .working-rail li[data-state="active"] .working-step { border-color: var(--accent); background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 /* The agent's own commentary: what it is looking for now, and what each step meant. */
-.is-stalled { border-color: var(--amber-ink); }
-.is-stalled .working-spinner img { animation-play-state: paused; }
+.is-stalled { border-color: var(--border); }
+.is-stalled .ring i { background: conic-gradient(var(--amber-ink) 0 18%, transparent 26% 100%); animation-duration: 4.8s; }
 .working-stalled { background: var(--amber-tint); color: var(--text); }
-.working-stalled code { padding: 1px 5px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card-bg); }
 .working-focus { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--radius); background: var(--surface); font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
 .thinking { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
 .thinking li { position: relative; padding-left: 18px; font-size: 13.5px; line-height: 1.45; color: var(--text-secondary); transition: opacity 300ms ease; animation: trace-in 0.4s ease both; }

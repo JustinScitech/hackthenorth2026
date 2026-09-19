@@ -254,16 +254,16 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
   const stalled = jobStatus === "QUEUED" && elapsed > QUEUE_PATIENCE_SECONDS;
   const thoughts = audit.map((event) => ({ id: event.id, thought: narrate(event) })).filter((entry) => entry.thought).slice(-5);
   return <div className={`working${stalled ? " is-stalled" : ""}`} role="status" aria-live="polite">
-    {!stalled && <span className="ring" aria-hidden="true"><i /></span>}
+    <span className="ring" aria-hidden="true"><i /></span>
     <div className="working-head">
-      <span className="working-message"><span className="working-spinner" aria-hidden="true"><Mark size={16} /></span>{stalled ? "Waiting for a worker to pick this up" : jobMessage(caseRecord, audit, jobStatus).replace(/\.$/, "")}<span className="working-ellipsis" aria-hidden="true" /></span>
+      <span className="working-message"><span className="working-spinner" aria-hidden="true"><Mark size={16} /></span>{stalled ? "Waiting for the analysis service" : jobMessage(caseRecord, audit, jobStatus).replace(/\.$/, "")}<span className="working-ellipsis" aria-hidden="true" /></span>
       <time className="working-clock" dateTime={`PT${elapsed}S`}>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</time>
     </div>
     <ol className="working-rail" aria-label="Analysis stages">
       {STAGES.map((stage, index) => <li key={stage.label} data-state={index < current ? "done" : index === current ? "active" : "todo"}><span className="working-step" aria-hidden="true">{index < current && <Check size={10} weight="bold" />}</span>{stage.label}</li>)}
     </ol>
     {stalled
-      ? <p className="working-focus working-stalled">The case is queued but nothing has started on it. The analysis runs in a separate worker process — start one with <code>npm run worker</code> and this page will pick up from here.</p>
+      ? <p className="working-focus working-stalled">This case is in the queue and will start automatically as soon as the analysis service is free. Nothing is needed from you; this page keeps checking on its own.</p>
       : <p className="working-focus">{stageFocus(caseRecord)}</p>}
     {thoughts.length > 0 && <ol className="thinking" aria-label="What the agent is doing">
       {thoughts.map((entry, index) => <li key={entry.id} className={index === thoughts.length - 1 ? "is-current" : undefined}>
