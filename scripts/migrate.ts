@@ -15,6 +15,7 @@ async function main() {
       source_key text NOT NULL,
       public_source_url text,
       public_evidence jsonb,
+      extraction_conflicts jsonb NOT NULL DEFAULT '[]'::jsonb,
       status text NOT NULL DEFAULT 'received',
       facts jsonb,
       findings jsonb,
@@ -47,6 +48,7 @@ async function main() {
     CREATE INDEX IF NOT EXISTS case_actions_case_id_idx ON case_actions(case_id, created_at);
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_source_url text;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_evidence jsonb;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS extraction_conflicts jsonb NOT NULL DEFAULT '[]'::jsonb;
   `);
   console.log("Database ready");
 }

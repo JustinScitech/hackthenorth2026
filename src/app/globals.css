@@ -62,6 +62,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 50px; padding-top: 24px; }
 .detail-section { border-bottom: 1px solid #dbe2e0; padding: 0 0 26px; margin-bottom: 28px; }
 .brief { margin: 0; font-size: 15px; color: #415150; }
+.brief-audio { display: block; width: min(100%, 320px); margin-top: 16px; }
 .findings { border-top: 1px solid #e2e7e4; }
 .finding { display: flex; align-items: flex-start; gap: 13px; padding: 16px 0; border-bottom: 1px solid #e2e7e4; }
 .finding-mark { display: inline-grid; flex: 0 0 28px; height: 28px; place-items: center; border-radius: 4px; }

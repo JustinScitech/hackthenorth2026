@@ -35,6 +35,7 @@ export type CaseRecord = {
   sourceKey: string;
   publicSourceUrl: string | null;
   publicEvidence: { url: string; title: string; excerpt: string } | null;
+  extractionConflicts: string[];
   status: CaseStatus;
   facts: Facts | null;
   findings: Finding[] | null;

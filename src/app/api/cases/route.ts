@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       "INSERT INTO cases (id, insured_name, state, tiv, year_built, losses, source_key, public_source_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
       [id, parsed.data.insuredName, parsed.data.state, parsed.data.tiv, parsed.data.yearBuilt, parsed.data.losses, sourceKey, parsed.data.publicSourceUrl],
     );
-    await addAudit(id, "case_created", { source: "intake_form" }, `created:${id}`);
+    await addAudit(id, "case_created", { source: "intake_form", documentStore: process.env.MONGODB_URI ? "mongodb" : "s3" }, `created:${id}`);
     const temporal = await temporalClient();
     await temporal.workflow.start(WORKFLOW_TYPE, { workflowId: id, taskQueue: TASK_QUEUE, args: [id] });
     return NextResponse.json({ id }, { status: 201 });
