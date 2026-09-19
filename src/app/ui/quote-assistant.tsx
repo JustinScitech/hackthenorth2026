@@ -66,12 +66,15 @@ export function QuoteAssistant() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nextId = useRef(1);
+  // One id per conversation so the workspace sees a single evolving quote, not one row per turn.
+  const quoteId = useRef<string | null>(null);
 
   async function ask(body: { product: Product | null; text?: string; answers: Answers }, said?: string) {
     setBusy(true); setError(null);
     if (said) setMessages((current) => [...current, { id: nextId.current++, role: "you", text: said }]);
+    quoteId.current ??= crypto.randomUUID();
     try {
-      const response = await fetch("/api/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const response = await fetch("/api/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, quoteId: quoteId.current }) });
       const reply = await response.json() as Reply;
       if (!response.ok) throw new Error(reply.error ?? "Something went wrong.");
       setProduct(reply.product); setResult(reply.result); setModel(reply.model); setPending({});

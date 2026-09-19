@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { Client } from "pg";
+import { e2eDatabaseUrl } from "../../scripts/e2e-env";
 import { test, expect } from "./fixtures";
 
 // The E2E environment blanks every model key, so these exercise the parser floor and the real rate tables.
@@ -85,4 +88,46 @@ test("case page shows public-source signals as cited findings", async ({ authent
   await expect(trace).toContainText("OpenAI model completed");
   await expect(trace).toContainText("2 signals: yearBuilt, floodZone");
   await expect(page.getByRole("heading", { name: "Public-source evidence" })).toBeVisible();
+});
+
+test("a public quote conversation appears in the workspace quotes list", async ({ authenticatedPage: page, request }) => {
+  const quoteId = randomUUID();
+  const origin = { origin: "http://localhost:3100" };
+  const first = await request.post("/api/quote", { headers: origin, data: { quoteId, text: "Renters insurance for a condo in Halifax, my belongings are worth about $30,000, no claims." } });
+  expect(first.status()).toBe(200);
+  expect((await first.json()).quoteId).toBe(quoteId);
+  const second = await request.post("/api/quote", { headers: origin, data: { quoteId, product: "tenant", answers: { province: "NS", contentsValue: 30000, priorClaims: 0, deductible: 2500 } } });
+  expect((await second.json()).result.status).toBe("estimate");
+
+  await page.goto("/quotes");
+  await expect(page.getByRole("heading", { name: "Quote requests" })).toBeVisible();
+  const row = page.getByRole("article", { name: `Quote ${quoteId.slice(0, 8)}` });
+  await expect(row).toContainText("Tenant insurance · NS");
+  await expect(row).toContainText("Estimate shown");
+  await expect(row).toContainText("2 turns");
+  await expect(row).toContainText("parser only");
+  await expect(row.getByRole("definition").filter({ hasText: "$2,500" })).toBeVisible();
+  await expect(row).not.toContainText("Halifax");
+
+  const list = await page.request.get("/api/quotes");
+  expect(list.status()).toBe(200);
+  const saved = (await list.json()).quotes.find((quote: { id: string }) => quote.id === quoteId);
+  expect(saved).toMatchObject({ product: "tenant", status: "estimate", province: "NS", turns: 2, heard: { contentsValue: 30000, deductible: 2500 } });
+  expect(JSON.stringify(saved)).not.toContain("Halifax");
+
+  await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Quotes" }).click();
+  await expect(page).toHaveURL(/\/quotes$/);
+
+  const db = new Client({ connectionString: e2eDatabaseUrl() });
+  await db.connect();
+  try { await db.query("DELETE FROM quotes WHERE id = $1", [quoteId]); } finally { await db.end(); }
+});
+
+test("landing page and site chrome lead to the public assistant", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Get an estimate" }).click();
+  await expect(page).toHaveURL(/\/quote$/);
+  await page.getByRole("navigation", { name: "Site" }).getByRole("link", { name: "Get an estimate" }).click();
+  await expect(page).toHaveURL(/\/quote$/);
+  expect((await page.request.get("/api/quotes")).status()).toBe(401);
 });

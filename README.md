@@ -12,11 +12,11 @@ The live schema currently selects `Policy` because it contains more appetite fie
 
 ## Quoting assistant
 
-`/quote` is a public, conversational tenant and car insurance estimator built for the Intact challenge. It reads a plain-language request, shows an estimate from the facts it has, and explains every remaining question. See [docs/quoting.md](docs/quoting.md) for the problem, how AI is used, the journey, and the assumptions. Demo rate tables only; nothing binds coverage.
+`/quote` is a public, conversational tenant and car insurance estimator built for the Intact challenge. It reads a plain-language request, shows an estimate from the facts it has, and explains every remaining question. Every conversation is saved (facts only, never the text) and appears under **Quotes** in the workspace, so an advisor can pick up referrals. See [docs/quoting.md](docs/quoting.md) for the problem, how AI is used, the journey, and the assumptions. Demo rate tables only; nothing binds coverage.
 
 ## Interface
 
-The product is branded **Astra Risk**; the logo files live in `public/brand`. The site has a marketing homepage at `/`, in-site docs and an API reference at `/docs`, and the workspace under `/overview`, `/cases`, `/cases/new`, `/triage`, and `/settings`. The UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default; switch to light in **Settings** or with the sun/moon button in the header. The choice is saved in the browser.
+The product is branded **Astra Risk**; the logo files live in `public/brand`. The site has a marketing homepage at `/`, in-site docs and an API reference at `/docs`, and the workspace under `/overview`, `/cases`, `/cases/new`, `/quotes`, `/triage`, and `/settings`. The UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default; switch to light in **Settings** or with the sun/moon button in the header. The choice is saved in the browser.
 
 ## Stack
 

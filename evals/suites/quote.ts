@@ -83,6 +83,7 @@ const intakeCases: { name: string; text: string; expected: { product: "tenant" |
   { name: "age is not mistaken for a vehicle year or mileage", text: "Renters insurance, I'm 30 years old in Halifax with $15k of belongings.", expected: { product: "tenant", tenant: { province: "NS", contentsValue: 15_000 }, auto: { driverAge: 30, vehicleYear: null, annualKm: null } } },
   { name: "at-fault accident and conviction counts", text: "Auto quote for Winnipeg, 2018 Ford Escape, age 52, one at-fault accident and one speeding ticket in the last three years.", expected: { product: "auto", auto: { province: "MB", vehicleYear: 2018, driverAge: 52, atFaultAccidents: 1, convictions: 1 } } },
   { name: "nothing usable", text: "hello there", expected: { product: null, tenant: {}, auto: {} } },
+  { name: "belongings are worth phrasing", text: "Renters insurance for a condo in Halifax, my belongings are worth about $30,000, no claims.", expected: { product: "tenant", tenant: { province: "NS", contentsValue: 30_000, buildingType: "condo", priorClaims: 0 } } },
   { name: "winter tires and full coverage", text: "Full coverage for a 2022 Hyundai Kona in Ontario, I'm 33, winter tires installed.", expected: { product: "auto", auto: { province: "ON", vehicleYear: 2022, driverAge: 33, coverage: "full", winterTires: true } } },
 ];
 

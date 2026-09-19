@@ -3,6 +3,7 @@ import { z } from "zod";
 import { parseQuoteRequest } from "@/quote/intake";
 import { mergeModelFacts, modelIntakeAvailable, modelQuoteFacts } from "@/quote/model-intake";
 import { quoteAuto, quoteTenant } from "@/quote/rating";
+import { saveQuote } from "@/lib/quotes";
 import type { AutoQuoteInput, QuoteRequest, TenantQuoteInput } from "@/quote/types";
 
 export const runtime = "nodejs";
@@ -31,6 +32,7 @@ const answersSchema = z.object({
   winterTires: nullable(z.boolean()),
 });
 const bodySchema = z.object({
+  quoteId: nullable(z.uuid()),
   product: nullable(z.enum(["tenant", "auto"])),
   text: nullable(z.string().max(4000)),
   answers: answersSchema.optional(),
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
   if (!origin || origin !== new URL(request.url).origin) return NextResponse.json({ error: "Use the quote page on this site." }, { status: 403 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Check the details and try again." }, { status: 400 });
-  const { product: chosen, text, answers = {} } = parsed.data;
+  const { quoteId, product: chosen, text, answers = {} } = parsed.data;
 
   let intake: QuoteRequest = text?.trim() ? parseQuoteRequest(text) : { product: null, tenant: {}, auto: {} };
   let model: string | null = null;
@@ -59,11 +61,9 @@ export async function POST(request: Request) {
   const auto: AutoQuoteInput = { ...intake.auto, ...defined };
   const product = chosen ?? intake.product;
   const result = product === "tenant" ? quoteTenant(tenant) : product === "auto" ? quoteAuto(auto) : null;
-  return NextResponse.json({
-    product,
-    // Everything understood so far, flat, so the page can carry it into the next turn.
-    heard: Object.fromEntries(Object.entries(product === "tenant" ? tenant : product === "auto" ? auto : { ...tenant, ...auto }).filter(([, value]) => value !== null && value !== undefined)),
-    result,
-    model,
-  }, { headers: { "Cache-Control": "no-store" } });
+  // Everything understood so far, flat, so the page can carry it into the next turn.
+  const heard = Object.fromEntries(Object.entries(product === "tenant" ? tenant : product === "auto" ? auto : { ...tenant, ...auto }).filter(([, value]) => value !== null && value !== undefined)) as Record<string, string | number | boolean>;
+  // Persisting is for the workspace; a database hiccup must never stop a person getting an estimate.
+  if (quoteId) await saveQuote({ id: quoteId, product: product ?? null, heard, result, model }).catch((error) => console.error("Quote not saved", error instanceof Error ? error.name : "UnknownError"));
+  return NextResponse.json({ quoteId: quoteId ?? null, product, heard, result, model }, { headers: { "Cache-Control": "no-store" } });
 }

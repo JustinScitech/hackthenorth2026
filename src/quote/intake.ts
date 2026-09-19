@@ -41,7 +41,7 @@ export function parseQuoteRequest(text: string): QuoteRequest {
   const where = province(text);
   if (where) { tenant.province = where; auto.province = where; }
 
-  const contents = text.match(new RegExp(`(${MONEY})\\s+(?:worth\\s+)?(?:of\\s+)?(?:stuff|belongings|contents|furniture|things|possessions)|(?:stuff|belongings|contents|possessions)\\s+(?:worth|valued at|of about|of)\\s+(?:about\\s+)?(${MONEY})`, "i"));
+  const contents = text.match(new RegExp(`(${MONEY})\\s+(?:worth\\s+)?(?:of\\s+)?(?:stuff|belongings|contents|furniture|things|possessions)|(?:stuff|belongings|contents|possessions)\\s+(?:(?:are|is)\\s+)?(?:worth|valued at|of about|of)\\s+(?:about\\s+)?(${MONEY})`, "i"));
   if (contents) tenant.contentsValue = money(contents[1] ?? contents[2]);
   const building = lower.match(/\b(apartment|condo|basement|house)\b/);
   if (building) tenant.buildingType = building[1] as TenantQuoteInput["buildingType"];

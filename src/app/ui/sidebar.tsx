@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronRight, FolderKanban, Globe, Home, Inbox, ListOrdered, LogOut, Menu, Moon, Plus, Settings, Sun, X } from "lucide-react";
+import { BookOpen, ChevronRight, FolderKanban, Globe, Home, Inbox, ListOrdered, LogOut, Menu, Moon, Plus, Receipt, Settings, Sun, X } from "lucide-react";
 import { useTheme } from "./theme";
 import { Wordmark } from "./logo";
 import { authClient } from "@/lib/auth-client";
@@ -75,6 +75,7 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
           <div className="nav-sub">
             <NavLink href="/cases/new" active={isNewCase}><Plus size={14} />Create case</NavLink>
           </div>
+          <NavLink href="/quotes" active={pathname.startsWith("/quotes")}><Receipt size={17} />Quotes</NavLink>
           <NavLink href="/triage" active={pathname.startsWith("/triage")}><ListOrdered size={17} />Federato triage<span className="nav-badge">LIVE</span></NavLink>
         </nav>
         <div className="nav-divider" />

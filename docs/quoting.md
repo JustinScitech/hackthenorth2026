@@ -2,6 +2,11 @@
 
 `/quote` is a public, conversational way to get a tenant or car insurance estimate. It is a functional prototype built during Hack the North 2026 on top of the Astra Risk underwriting agent; it shares the agent's extraction, resolution, and telemetry code and is held to the same offline evals.
 
+## Where to find it
+
+- **Public:** `/quote`, linked as "Get an estimate" from the landing page navigation and footer and from the site header and footer on every other public page. No account.
+- **Workspace:** `/quotes` ("Quotes" in the sidebar) lists every conversation as one evolving record: product, province, status, the estimate or referral, how many turns it took, which model read the message, and the facts heard. `GET /api/quotes` returns the same list to signed-in users.
+
 ## The problem
 
 Getting a personal-lines quote today means a long form that asks for everything up front, in the insurer's vocabulary, before showing a price. Most people know a few things (where they live, roughly what their belongings are worth, what car they drive) and not the rest. The prototype flips that: say what you know, get an estimate immediately from the facts you gave, and see exactly why each remaining question is being asked.
@@ -31,21 +36,25 @@ No model sets a price. The rate tables are fictional and deterministic, so the s
 
 ## API
 
-`POST /api/quote` (same-origin, no session): `{ product?: "tenant" | "auto", text?: string, answers?: {...} }` returns `{ product, heard, result, model }` where `result` is a `QuoteResult` (`estimate`, `needs_info`, or `refer`). See `src/quote/types.ts`.
+`POST /api/quote` (same-origin, no session): `{ quoteId?: uuid, product?: "tenant" | "auto", text?: string, answers?: {...} }` returns `{ quoteId, product, heard, result, model }` where `result` is a `QuoteResult` (`estimate`, `needs_info`, or `refer`). See `src/quote/types.ts`.
+
+## What is stored
+
+Each conversation gets a client-generated `quoteId`. `POST /api/quote` upserts a row in the `quotes` table with the product, status, province, estimate, the structured facts heard, the count of open questions, any referral reason, the model used, and a turn counter. The person's free text is never stored; only what the assistant understood from it. Saving is best-effort: a database problem is logged and the person still gets their estimate.
 
 ## Assumptions and limitations
 
 - Rates are demo values chosen to make the journey legible, not filed rates. Ranges are ±10% around the demo premium.
 - Only Canadian provinces and territories are supported; cities map to provinces through a small table.
 - Auto quoting covers one driver and one vehicle; tenant quoting covers contents and liability only.
-- Nothing is stored. There is no account, no binding, and no payment.
+- No account, no binding, and no payment. Stored records hold structured facts only.
 
 ## Future improvements
 
 - Replace the demo tables with a real rating service and add the province-specific mandatory coverages.
 - Add document upload (a lease or a vehicle registration) as another source, resolved with the same agreement rules the underwriting flow uses.
-- Persist a quote so a person can return to it or hand it to an advisor.
+- Let a person resume a saved quote by reference, and let an advisor claim a referral from the workspace list.
 
 ## Evals
 
-`npm run eval -- --suite quote` runs 38 cases: required facts, referrals, monotonic pricing (a higher deductible is always cheaper, a claim always costs more), public-insurer provinces, explained factors, and conversational intake. See `evals/README.md`.
+`npm run eval -- --suite quote` runs 39 cases: required facts, referrals, monotonic pricing (a higher deductible is always cheaper, a claim always costs more), public-insurer provinces, explained factors, and conversational intake. See `evals/README.md`.

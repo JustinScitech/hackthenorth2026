@@ -570,3 +570,17 @@ select { width: auto; padding-right: 32px; appearance: none; background-image: l
 .quote-composer { display: grid; gap: 10px; }
 .quote-composer .primary-button { justify-self: end; }
 @media (max-width: 640px) { .quote-factors li { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Quote requests (workspace) */
+.quote-rows { display: block; }
+.quote-row { display: grid; gap: 8px; padding: 14px 22px; border-bottom: 1px solid var(--border-soft); }
+.quote-row:last-child { border-bottom: 0; }
+.quote-row-main { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.quote-row-outcome { display: grid; gap: 2px; font-size: 14px; }
+.quote-row-outcome small { color: var(--faint); font-size: 12px; }
+.status-quote-estimate { color: var(--accent-ink); } .status-quote-estimate .status-dot { background: var(--accent); }
+.status-quote-refer { color: var(--amber-ink); } .status-quote-refer .status-dot { background: var(--amber-ink); }
+.quote-heard { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 0; font-size: 12.5px; }
+.quote-heard div { display: inline-flex; gap: 5px; }
+.quote-heard dt { color: var(--muted); }
+.quote-heard dd { margin: 0; color: var(--text-secondary); }
