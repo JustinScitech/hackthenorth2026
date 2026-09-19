@@ -37,6 +37,12 @@ export async function extractCase(caseId: string): Promise<void> {
   const extraction = await extractNotes(texts.join("\n\n--- BROKER UPDATE ---\n\n"));
   const facts = buildFacts(caseRecord, extraction.extracted);
   await db.query("UPDATE cases SET facts = $2, extraction_conflicts = $3, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(facts), JSON.stringify(extraction.conflicts)]);
+  await addAudit(caseId, "extraction_completed", {
+    revision: caseRecord.analysisRevision,
+    sources: extraction.sources,
+    missing: Object.entries(facts).filter(([, fact]) => fact.value === null).map(([name]) => name),
+    conflicts: extraction.conflicts.length,
+  }, `extraction:${caseId}:${caseRecord.analysisRevision}`);
 }
 
 export async function checkCase(caseId: string): Promise<{ needsBroker: boolean }> {
@@ -53,7 +59,12 @@ export async function checkCase(caseId: string): Promise<{ needsBroker: boolean 
     "UPDATE cases SET status = $2, findings = $3, question = $4, brief = $5, updated_at = now() WHERE id = $1",
     [caseId, status, JSON.stringify(result.findings), result.question, result.brief],
   );
-  await addAudit(caseId, "analysis_completed", { revision: caseRecord.analysisRevision, status }, `analysis:${caseId}:${caseRecord.analysisRevision}`);
+  await addAudit(caseId, "analysis_completed", {
+    revision: caseRecord.analysisRevision, status,
+    pass: result.findings.filter((finding) => finding.result === "pass").length,
+    refer: result.findings.filter((finding) => finding.result === "refer").length,
+    unknown: result.findings.filter((finding) => finding.result === "unknown").length,
+  }, `analysis:${caseId}:${caseRecord.analysisRevision}`);
   return { needsBroker: Boolean(result.question) };
 }
 

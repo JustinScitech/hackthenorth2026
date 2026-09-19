@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, CircleAlert, Clock3, FileText, Send, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, CircleAlert, ClipboardList, Clock3, FilePlus2, FileText, ShieldCheck, Send, X } from "lucide-react";
 import type { AuditEvent, CaseRecord, Fact } from "@/lib/types";
 import { Status } from "./status";
 
@@ -13,7 +13,7 @@ function FactRow<T>({ label, fact, format = String }: { label: string; fact: Fac
 function Findings({ caseRecord }: { caseRecord: CaseRecord }) {
   if (!caseRecord.findings) return null;
   return <section className="detail-section">
-    <div className="section-heading"><h2>Guideline checks</h2><span className="count">{caseRecord.findings.length}</span></div>
+    <div className="section-heading"><h2>Demo guideline checks</h2><span className="count">{caseRecord.findings.length}</span></div>
     <div className="findings">{caseRecord.findings.map((finding) => (
       <div className="finding" key={finding.id}>
         <span className={`finding-mark finding-${finding.result}`}>
@@ -68,49 +68,73 @@ function CaseActions({ caseRecord, response, setResponse, reason, setReason, sub
   return null;
 }
 
-function CaseSidebar({ caseRecord, audit }: { caseRecord: CaseRecord; audit: AuditEvent[] }) {
-  return <aside className="detail-aside">
-    <section className="aside-section">
-      <h2>Extracted facts</h2>
-      {caseRecord.facts ? <div className="fact-list">
-        <FactRow label="State" fact={caseRecord.facts.state} />
-        <FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} />
-        <FactRow label="Year built" fact={caseRecord.facts.yearBuilt} />
-        <FactRow label="Loss count" fact={caseRecord.facts.losses} />
-      </div> : <p className="subtle">Awaiting extraction.</p>}
-    </section>
-    <section className="aside-section">
-      <h2>Activity</h2>
-      <ol className="timeline">{audit.map((event) => <li key={event.id}><span>{event.eventType.replaceAll("_", " ")}</span><time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time></li>)}</ol>
-    </section>
-  </aside>;
+const eventLabels: Record<string, string> = {
+  case_created: "Submission received", extraction_completed: "Facts extracted",
+  public_research_skipped: "Public research skipped", public_research_completed: "Public source reviewed",
+  public_research_failed: "Public research unavailable", analysis_completed: "Guidelines checked",
+  broker_response_received: "Broker response received", broker_follow_up_due: "Broker follow-up due",
+  approved: "Review approved", declined: "Review declined", workflow_failed: "Workflow failed",
+};
+
+function traceDetail(event: AuditEvent): string | null {
+  if (event.eventType === "extraction_completed") {
+    const sources = Array.isArray(event.detail.sources) ? event.detail.sources.join(", ") : "Broker submission";
+    const missing = Array.isArray(event.detail.missing) && event.detail.missing.length ? ` · Missing: ${event.detail.missing.join(", ")}` : "";
+    return `${sources}${missing}`;
+  }
+  if (event.eventType === "analysis_completed") {
+    if (typeof event.detail.pass !== "number") return String(event.detail.status ?? "Analysis complete").replaceAll("_", " ");
+    return `${event.detail.pass} passed · ${event.detail.refer} referred · ${event.detail.unknown} unknown`;
+  }
+  if (event.eventType === "public_research_skipped") return "Browserbase is not configured";
+  if (event.eventType === "public_research_completed") return "Public source saved as evidence";
+  if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; no message was sent";
+  return null;
 }
 
-export function CaseView({ id, caseRecord, audit, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
-  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; error: string | null; voiceAvailable: boolean;
+function AnalysisTrace({ audit }: { audit: AuditEvent[] }) {
+  return <details className="analysis-trace">
+    <summary><span><ClipboardList size={16} /> Activity trace <small>{audit.length} recorded steps</small></span><ChevronDown size={16} aria-hidden="true" /></summary>
+    <ol className="trace-list">{audit.map((event) => <li key={event.id}>
+      <div className="trace-heading"><strong>{eventLabels[event.eventType] ?? event.eventType.replaceAll("_", " ")}</strong><time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time></div>
+      {traceDetail(event) && <p>{traceDetail(event)}</p>}
+    </li>)}</ol>
+  </details>;
+}
+
+export function CaseView({ id, caseRecord, audit, history, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
+  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; history: CaseRecord[]; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
 }) {
   const active = ["received", "extracting", "checking"].includes(caseRecord.status);
-  return <main className="shell detail-shell">
-    <Link className="back-link" href="/"><ArrowLeft size={17} /> Submission queue</Link>
-    <div className="detail-heading">
-      <div><p className="eyebrow">Case {id.slice(0, 8)}</p><h1>{caseRecord.insuredName}</h1><p className="subtle">{caseRecord.state} · ${caseRecord.tiv.toLocaleString()} total insured value</p></div>
-      <Status value={caseRecord.status} />
-    </div>
-    {error && <div className="alert" role="alert">{error}</div>}
-    {active && <div className="progress-line"><Clock3 size={18} /> The worker is processing this case. This page updates automatically.</div>}
-    {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={18} /> {caseRecord.error ?? "The workflow failed."}</div>}
-    <div className="detail-grid">
-      <div className="detail-primary">
-        <section className="detail-section"><div className="section-heading"><h2>Review brief</h2><FileText size={18} /></div><p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p>{voiceAvailable && caseRecord.brief && <audio className="brief-audio" controls preload="none" src={`/api/cases/${id}/audio`} aria-label="Listen to review brief" />}</section>
-        {caseRecord.publicEvidence && <section className="detail-section"><div className="section-heading"><h2>Public-source excerpt</h2></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><a href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><p className="subtle">External source; verify before relying on it.</p></section>}
-        <Findings caseRecord={caseRecord} />
-        <CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} />
+  return <main className="case-workspace">
+    <aside className="case-navigation" aria-label="Case navigation">
+      <Link className="new-case-link" href="/"><FilePlus2 size={17} /> New submission</Link>
+      <p className="nav-caption">Recent cases</p>
+      <nav className="case-history">{history.map((item) => <Link key={item.id} href={`/cases/${item.id}`} aria-current={item.id === id ? "page" : undefined} className={item.id === id ? "selected" : ""}><span>{item.insuredName}</span><small>{item.state} · {item.status.replaceAll("_", " ")}</small></Link>)}</nav>
+      <Link className="nav-footer-link" href="/triage"><ClipboardList size={16} /> Federato triage</Link>
+    </aside>
+    <div className="case-main-area">
+      <div className="case-toolbar"><Link href="/" className="back-link"><ArrowLeft size={16} /> Queue</Link><span className="case-id-label">Case {id.slice(0, 8)}</span><Status value={caseRecord.status} /></div>
+      <div className="conversation">
+        {error && <div className="alert" role="alert">{error}</div>}
+        <div className="conversation-message request-message"><div className="message-avatar requester-avatar"><FileText size={16} aria-hidden="true" /></div><div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state} property · ${caseRecord.tiv.toLocaleString()} total insured value</p><time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div></div>
+        <div className="conversation-message agent-message"><div className="message-avatar agent-avatar"><ShieldCheck size={20} /></div><div className="message-content">
+          <p className="message-label">Underwriting agent</p>
+          {active && <p className="progress-line"><Clock3 size={17} /> {caseRecord.status === "received" ? "Queued for analysis" : caseRecord.status === "extracting" ? "Extracting submission facts" : "Checking guidelines"}</p>}
+          {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={18} /> {caseRecord.error ?? "The workflow failed."}</div>}
+          <p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p>
+          {voiceAvailable && caseRecord.brief && <audio className="brief-audio" controls preload="none" src={`/api/cases/${id}/audio`} aria-label="Listen to review brief" />}
+          <AnalysisTrace audit={audit} />
+          {caseRecord.facts && <section className="detail-section"><div className="section-heading"><h2>Extracted facts</h2><FileText size={17} /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
+          <Findings caseRecord={caseRecord} />
+          {caseRecord.publicEvidence && <section className="detail-section"><div className="section-heading"><h2>Public-source evidence</h2></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><a href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><p className="subtle">External source; verify before relying on it.</p></section>}
+        </div></div>
+        <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} /></div>
+        <p className="demo-note">Demo guidelines only. A review decision does not quote or bind coverage.</p>
       </div>
-      <CaseSidebar caseRecord={caseRecord} audit={audit} />
     </div>
-    <p className="demo-note">Demo guidelines only. Approval here records a review decision; it does not quote or bind coverage.</p>
   </main>;
 }

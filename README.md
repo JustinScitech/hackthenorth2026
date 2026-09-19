@@ -53,6 +53,8 @@ Set only the integrations you want in `.env` (see `.env.sponsors.example`): `BRO
 
 The case ID is the Temporal workflow ID. A broker response and an underwriter decision are durable signals, so a stopped worker can resume after restart. A durable 24-hour timer records when broker follow-up is due; it does not send a message. Activities are bounded and retryable. Submissions and audit data are stored outside workflow history; the workflow passes IDs and small typed results. When Temporal recommends it, the workflow continues as new with a small phase/follow-up checkpoint so long waits do not grow the execution history indefinitely. Changes to an existing submission should create a new case version in a production integration.
 
+The case view shows a persisted activity trace: intake, extraction sources, public research, guideline counts, broker follow-ups, and review actions. It does not display or store a model's private chain-of-thought. The live Federato triage endpoint is currently a separate synchronous request; move its discovery, pagination, and scoring into bounded Temporal activities before treating it as a durable long-running job.
+
 ## Checks
 
 Run `npm run typecheck`, `npm test`, and `npm run build`.
