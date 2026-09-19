@@ -3,7 +3,18 @@ import { z } from "zod";
 const AUTH_URL = "https://auth.product.federato.ai/oauth/token";
 const API_URL = "https://product.federato.ai/integrations-api/handlers/federato-hack-north?outputOnly=true";
 const tokenSchema = z.object({ access_token: z.string().min(1), expires_in: z.number().positive() });
-export type Query = { resource: string; select?: Record<string, unknown>; sort?: { field: string; direction?: "asc" | "desc" }[]; pagination: { limit: number; offset: number } };
+// The handler accepts a Mongo-flavored pipeline. Only resource is required by the API.
+export type Query = {
+  resource: string;
+  where?: Record<string, unknown>;
+  expand?: Record<string, unknown>;
+  unwind?: (string | { path: string; type?: "inner" | "left" })[];
+  filter?: Record<string, unknown>;
+  over?: string[];
+  select?: Record<string, unknown> | (string | Record<string, unknown>)[];
+  sort?: { field: string; direction?: "asc" | "desc" }[];
+  pagination?: { limit?: number; offset?: number };
+};
 export interface DataClient { schema(): Promise<unknown>; query(query: Query): Promise<{ rows: Record<string, unknown>[]; total: number }> }
 
 export class FederatoClient implements DataClient {
