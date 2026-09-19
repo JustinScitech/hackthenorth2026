@@ -58,7 +58,7 @@ async function geminiExtraction(text: string): Promise<Extracted | null> {
   }
 }
 
-export async function extractNotes(text: string): Promise<{ extracted: Extracted; conflicts: string[] }> {
+export async function extractNotes(text: string): Promise<{ extracted: Extracted; conflicts: string[]; sources: string[] }> {
   const parser = parseBrokerNotes(text);
   const [openai, gemini] = await Promise.all([openAIExtraction(text), geminiExtraction(text)]);
   const candidates: Candidate[] = [{ source: "Parser", value: parser }];
@@ -68,5 +68,6 @@ export async function extractNotes(text: string): Promise<{ extracted: Extracted
   return {
     extracted: { yearBuilt: primary.yearBuilt ?? parser.yearBuilt, losses: primary.losses ?? parser.losses },
     conflicts: extractionConflicts(candidates),
+    sources: candidates.map((candidate) => candidate.source),
   };
 }
