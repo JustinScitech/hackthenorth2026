@@ -17,6 +17,8 @@ const labels: Record<string, string> = {
 export function summarizeSubmission(item: RankedSubmission): SubmissionSummary {
   const strengths = item.criteria.filter((criterion) => criterion.status === "target" || criterion.status === "acceptable").map((criterion) => criterion.factor);
   const questions = item.criteria.filter((criterion) => criterion.status === "outside" || criterion.status === "unknown").map((criterion) => criterion.factor);
+  // Required account context (name, policy dates) is missing data too, even when every appetite factor matches.
+  for (const missing of item.missingData ?? []) if (!questions.includes(missing)) questions.push(missing);
   const refer = item.criteria.some((criterion) => criterion.status === "outside");
   const incomplete = questions.length > 0 && !refer;
   const action = refer ? "Refer for an appetite exception" : incomplete ? "Ask for the missing information" : "Review for acceptance";

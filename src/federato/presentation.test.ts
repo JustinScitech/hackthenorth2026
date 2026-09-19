@@ -4,7 +4,7 @@ import { buildSummaryMarkdown, summarizeSubmission } from "./presentation";
 import type { RankedSubmission } from "./scoring";
 
 const item: RankedSubmission = {
-  id: "1", account: "Example Office", score: 69, rawScore: 69, recommendation: "Investigate missing or ambiguous data", missingData: ["Premium"],
+  id: "1", account: "Example Office", score: 69, rawScore: 69, recommendation: "Investigate missing or ambiguous data", missingData: ["Total premium"],
   explanation: "technical detail", criteria: [
     { concept: "state", factor: "Primary risk state", status: "target", points: 15, maximum: 15, detail: "Target state", source: "state" },
     { concept: "premium", factor: "Total premium", status: "unknown", points: 0, maximum: 15, detail: "Missing", source: "premium" },
@@ -45,9 +45,23 @@ test("complete matches do not ask the reviewer for unnecessary follow-up", () =>
     ...item,
     score: 100,
     recommendation: "Review for acceptance",
+    missingData: [],
     criteria: [{ concept: "state", factor: "Primary risk state", status: "target", points: 15, maximum: 15, detail: "Target", source: "state" }],
   });
   assert.equal(result.status, "positive");
   assert.deepEqual(result.questions, []);
   assert.equal(result.action, "Review for acceptance");
+});
+
+test("missing account context is a question even when every appetite factor matches", () => {
+  const result = summarizeSubmission({
+    ...item,
+    score: 69,
+    recommendation: "Investigate missing or ambiguous data",
+    missingData: ["account name", "expiration date"],
+    criteria: [{ concept: "state", factor: "Primary risk state", status: "target", points: 15, maximum: 15, detail: "Target", source: "state" }],
+  });
+  assert.equal(result.status, "caution");
+  assert.equal(result.title, "Needs more information");
+  assert.deepEqual(result.questions, ["account name", "expiration date"]);
 });

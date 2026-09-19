@@ -39,6 +39,12 @@ export const extractionCases: Case[] = [
   { name: "hyphenated labels", notes: "Year built - 2008; losses - 1 (past three years).", expected: { yearBuilt: 2008, losses: 1 } },
   { name: "empty note", notes: "", expected: { yearBuilt: null, losses: null } },
   { name: "future year is not a construction year", notes: "Construction scheduled to complete in 2027; the building is not yet built. No claims.", expected: { yearBuilt: null, losses: 0 }, note: "A building that does not exist yet has no construction year to check." },
+  { name: "deductible per claim is not a count", notes: "Deductible of $5,000 per claim. No losses in the past three years. Built in 2013.", expected: { yearBuilt: 2013, losses: 0 } },
+  { name: "one-year count does not establish the three-year count", notes: "There were 2 claims in the past year. Constructed in 2006.", expected: { yearBuilt: 2006, losses: null }, note: "A twelve-month count is only a lower bound for three years." },
+  { name: "zero over a longer window is still zero", notes: "No losses in the past five years. Built in 2000.", expected: { yearBuilt: 2000, losses: 0 }, note: "Zero claims in five years implies zero in three." },
+  { name: "count of carriers is not a count of claims", notes: "Two prior carriers, no claims. Built in 2016.", expected: { yearBuilt: 2016, losses: 0 } },
+  { name: "updated systems do not correct the construction year", notes: "Year built 1965; updated electrical in 2015. Claims: 0.", expected: { yearBuilt: 1965, losses: 0 } },
+  { name: "claim reference number is not a count", notes: "Claim 2024-001 was closed without payment. Built in 2010.", expected: { yearBuilt: 2010, losses: null }, note: "One claim is mentioned but its window is not stated, so the count stays unknown." },
 ];
 
 async function extractWith(options: RunOptions, notes: string): Promise<Extracted | null> {
