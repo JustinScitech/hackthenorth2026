@@ -9,6 +9,12 @@
         "dev"
       ],
       "port": 3003
+    },
+    {
+      "name": "next-dev-3013",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev", "-p", "3013"],
+      "port": 3013
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpen, CircleAlert, FilePlus2, Inbox, ListOrdered, RotateCw, Settings, Sparkles } from "lucide-react";
+import { ArrowClockwise, ArrowRight, ArrowUpRight, BookOpen, FilePlus, Flask, ListNumbers, SealCheck, Sliders, Tray, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import type { CaseRecord } from "@/lib/types";
 import { Status } from "./status";
 import { useCases } from "./use-cases";
@@ -60,7 +60,7 @@ export function Overview() {
       <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><span className="current">Overview</span></p>
       <div className="page-title-row">
         <h1 className="page-title">Overview</h1>
-        <div className="actions"><button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh" title="Refresh"><RotateCw size={16} /></button></div>
+        <div className="actions"><button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh" title="Refresh"><ArrowClockwise size={16} /></button></div>
       </div>
 
       <div className="stat-row">
@@ -69,19 +69,19 @@ export function Overview() {
         <Stat label="Awaiting broker" hint="Cases paused on a durable wait for broker information"><span className="stat-value">{loading ? "…" : hasLoaded ? waiting : "—"}</span></Stat>
         <Stat label="Ready for review" hint="Cases that need an underwriter decision"><span className="stat-value">{loading ? "…" : hasLoaded ? ready : "—"}</span></Stat>
         <Stat label="System status" hint="Whether the case API returned a valid response">
-          <span className={`system-status${error ? " degraded" : ""}`}>{error ? "Case API unavailable" : loading ? "Checking" : "All systems operational"}</span>
+          <span className={`system-status${error ? " degraded" : ""}`}>{error ? <WarningCircle size={16} /> : <SealCheck size={16} weight={loading ? "regular" : "fill"} />}{error ? "Case API unavailable" : loading ? "Checking" : "All systems operational"}</span>
         </Stat>
       </div>
 
-      {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error}</div>}
+      {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
 
       <div className="tile-grid">
-        <Link className="tile" href="/cases/new"><FilePlus2 size={20} />Create a submission</Link>
-        <Link className="tile" href="/cases/new?sample=1"><Sparkles size={20} />Try the sample case</Link>
-        <Link className="tile" href="/triage"><ListOrdered size={20} />Rank Federato submissions</Link>
-        <Link className="tile" href="/cases"><Inbox size={20} />Browse all cases</Link>
-        <Link className="tile" href="/settings"><Settings size={20} />Appearance and settings</Link>
-        <Link className="tile" href="/docs"><BookOpen size={20} />Go to docs and API reference</Link>
+        <Link className="tile" href="/cases/new"><span className="tile-index">01</span><FilePlus size={20} />Create a submission<ArrowUpRight className="external" size={16} /></Link>
+        <Link className="tile" href="/cases/new?sample=1"><span className="tile-index">02</span><Flask size={20} />Try the sample case<ArrowUpRight className="external" size={16} /></Link>
+        <Link className="tile" href="/triage"><span className="tile-index">03</span><ListNumbers size={20} />Rank Federato submissions<ArrowUpRight className="external" size={16} /></Link>
+        <Link className="tile" href="/cases"><span className="tile-index">04</span><Tray size={20} />Browse all cases<ArrowUpRight className="external" size={16} /></Link>
+        <Link className="tile" href="/settings"><span className="tile-index">05</span><Sliders size={20} />Appearance and settings<ArrowUpRight className="external" size={16} /></Link>
+        <Link className="tile" href="/docs"><span className="tile-index">06</span><BookOpen size={20} />Docs and API reference<ArrowUpRight className="external" size={16} /></Link>
       </div>
 
       <div className="section-divider" />
@@ -91,7 +91,7 @@ export function Overview() {
         <div className="card">
           {loading ? <p className="empty-state">Loading cases...</p> : !hasLoaded ? <p className="empty-state">Cases could not be loaded. Use Refresh to try again.</p> : recent.length === 0 ? (
             <div className="panel-empty">
-              <span className="empty-icon"><Inbox size={20} /></span>
+              <span className="empty-icon"><Tray size={22} /></span>
               <strong>No cases in this workspace yet.</strong>
               <p>Start a submission and the agent will extract facts, check guidelines, and pause for the broker when needed.</p>
               <Link className="primary-button accent" href="/cases/new">Create your first submission</Link>

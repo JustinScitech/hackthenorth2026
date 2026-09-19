@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import {
-  Building2,
-  Droplets,
-  Flame,
+  Buildings,
+  ClockCounterClockwise,
+  Drop,
+  Fire,
   HardHat,
-  History,
-  ScanLine,
+  Scan,
   Warehouse,
-} from "lucide-react";
+} from "@phosphor-icons/react/dist/ssr";
 import { RISK_SIGNALS, type RiskId } from "./demo-data";
 import type { CameraCommand, SceneInspection } from "./inspection-data";
 import { createPropertyEngine } from "./scene-engine";
@@ -29,12 +29,12 @@ type Props = {
 };
 const ICONS = {
   roof: HardHat,
-  flood: Droplets,
-  fire: Flame,
-  construction: Building2,
+  flood: Drop,
+  fire: Fire,
+  construction: Buildings,
   hazards: Warehouse,
-  business: ScanLine,
-  claims: History,
+  business: Scan,
+  claims: ClockCounterClockwise,
 };
 const FALLBACK_POSITIONS = [
   [40, 34],
@@ -99,8 +99,8 @@ export default function PropertyScene(props: Props) {
     <div className={styles.sceneRoot}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/models/northline-poster.webp"
-        alt="Architectural view of Northline Fabrication, its parking area, neighboring warehouse, and drainage canal"
+        src="/models/engineering-7-poster.webp"
+        alt="Architectural interpretation of Waterloo Engineering 7, its patterned glass facade, atrium, road beneath the pedestrian bridge, and attached courtyard wing"
         className={`${styles.scenePoster} ${loaded && !fallback ? styles.posterHidden : ""}`}
         fetchPriority="high"
       />
