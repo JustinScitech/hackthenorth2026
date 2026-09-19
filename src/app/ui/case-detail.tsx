@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CircleAlert } from "lucide-react";
 import type { AuditEvent, CaseRecord } from "@/lib/types";
 import { CaseView } from "./case-view";
 
@@ -61,8 +61,8 @@ export function CaseDetail({ id }: { id: string }) {
     }
   }
 
-  if (loading && !data) return <main className="shell detail-shell"><p className="empty-state">Loading case...</p></main>;
-  if (!data) return <main className="shell detail-shell"><Link className="back-link" href="/"><ArrowLeft size={17} /> Back to cases</Link><div className="alert">{error ?? "Case not found."}</div></main>;
+  if (loading && !data) return <main className="shell detail-shell"><Link className="back-link" href="/"><ArrowLeft size={15} /> Submission queue</Link><div className="card"><p className="empty-state">Loading case...</p></div></main>;
+  if (!data) return <main className="shell detail-shell"><Link className="back-link" href="/"><ArrowLeft size={15} /> Submission queue</Link><div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error ?? "Case not found."}</div></main>;
 
   return <CaseView
     id={id} caseRecord={data.case} audit={data.audit} error={error} voiceAvailable={data.voiceAvailable}

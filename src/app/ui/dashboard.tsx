@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowRight, FilePlus2, RotateCw } from "lucide-react";
+import { ArrowRight, CircleAlert, FilePlus2, RotateCw } from "lucide-react";
 import type { CaseRecord } from "@/lib/types";
 import { Status } from "./status";
 
@@ -72,12 +72,12 @@ export function Dashboard() {
     <main className="shell dashboard">
       <div className="page-heading">
         <div><p className="eyebrow">Workspace</p><h1>Submission queue</h1><p className="subtle">Review active commercial property cases and start a new analysis.</p></div>
-        <button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh cases" title="Refresh cases"><RotateCw size={18} /></button>
+        <button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh cases" title="Refresh cases"><RotateCw size={17} /></button>
       </div>
-      {error && <div className="alert" role="alert">{error}</div>}
+      {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error}</div>}
       <div className="dashboard-grid">
-        <section className="queue-section" aria-labelledby="queue-title">
-          <div className="section-heading"><h2 id="queue-title">Cases</h2><span className="count">{cases.length}</span></div>
+        <section className="queue-section card" aria-labelledby="queue-title">
+          <div className="card-header"><h2 id="queue-title">Cases</h2><span className="count">{cases.length}</span></div>
           {loading ? <p className="empty-state">Loading cases...</p> : cases.length === 0 ? <p className="empty-state">No submissions yet. Create a case to begin.</p> : (
             <div className="case-list">
               {cases.map((caseRecord) => (
@@ -85,16 +85,16 @@ export function Dashboard() {
                   <div className="case-main"><strong>{caseRecord.insuredName}</strong><span>{caseRecord.state} · ${caseRecord.tiv.toLocaleString()} TIV</span></div>
                   <Status value={caseRecord.status} />
                   <time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleDateString()}</time>
-                  <ArrowRight className="row-arrow" size={17} aria-hidden="true" />
+                  <ArrowRight className="row-arrow" size={16} aria-hidden="true" />
                 </Link>
               ))}
             </div>
           )}
         </section>
 
-        <section className="intake-section" aria-labelledby="intake-title">
-          <div className="section-heading"><h2 id="intake-title">New submission</h2><button className="quiet-button" type="button" onClick={() => setForm(sampleForm)}>Load sample</button></div>
-          <form className="intake-form" onSubmit={createCase}>
+        <section className="intake-section card" aria-labelledby="intake-title">
+          <div className="card-header"><h2 id="intake-title">New submission</h2><button className="quiet-button" type="button" onClick={() => setForm(sampleForm)}>Load sample</button></div>
+          <form className="intake-form card-body" onSubmit={createCase}>
             <label>Insured name<input required maxLength={160} value={form.insuredName} onChange={(event) => update("insuredName", event.target.value)} placeholder="Business name" /></label>
             <div className="field-pair">
               <label>State<input required maxLength={2} value={form.state} onChange={(event) => update("state", event.target.value.toUpperCase())} placeholder="PA" /></label>
@@ -106,7 +106,7 @@ export function Dashboard() {
             </div>
             <label>Broker submission<textarea required minLength={10} maxLength={20000} rows={7} value={form.brokerNotes} onChange={(event) => update("brokerNotes", event.target.value)} placeholder="Paste the broker's submission details here..." /></label>
             <label>Public source URL <span className="optional">Optional</span><input type="url" maxLength={2000} value={form.publicSourceUrl} onChange={(event) => update("publicSourceUrl", event.target.value)} placeholder="https://example.com/property" /></label>
-            <button className="primary-button" disabled={submitting} type="submit"><FilePlus2 size={17} />{submitting ? "Starting case..." : "Start analysis"}</button>
+            <button className="primary-button" disabled={submitting} type="submit"><FilePlus2 size={16} />{submitting ? "Starting case..." : "Start analysis"}</button>
           </form>
         </section>
       </div>

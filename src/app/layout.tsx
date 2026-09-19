@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { AppFrame } from "./ui/sidebar";
+import { ThemeProvider } from "./ui/theme";
+import { DEFAULT_THEME, themeInitScript } from "./ui/theme-config";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,15 +11,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme={DEFAULT_THEME} suppressHydrationWarning>
+      <head>
+        {/* Applies the saved theme before first paint; a client-only React re-mount of this script (dev hot reload) logs a harmless warning. */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>
-        <header className="app-header">
-          <div className="header-inner">
-            <Link className="brand" href="/"><ShieldCheck size={21} strokeWidth={2.1} /><span>Underwriting Review</span></Link>
-            <Link className="back-link" style={{ marginBottom: 0 }} href="/triage">Federato triage →</Link>
-          </div>
-        </header>
-        {children}
+        <ThemeProvider>
+          <AppFrame>{children}</AppFrame>
+        </ThemeProvider>
       </body>
     </html>
   );

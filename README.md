@@ -10,6 +10,10 @@ Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Se
 
 The live schema currently selects `Policy` because it contains more appetite fields; the report explicitly identifies that scope. It is not yet a reconciled queue of standalone Submission records. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
 
+## Interface
+
+The web UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default. Open **Settings** in the sidebar (or the sun/moon button on narrow screens) to switch to light mode; the choice is saved in the browser.
+
 ## Stack
 
 - Next.js: case intake, progress, review, and API
