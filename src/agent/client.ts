@@ -8,5 +8,3 @@ export function temporalClient(): Promise<Client> {
     .catch((error) => { clientPromise = undefined; throw error; });
   return clientPromise;
 }
-
-export const TASK_QUEUE = "underwriting-cases";

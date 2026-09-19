@@ -1,8 +1,27 @@
-import { buildFacts, evaluateFacts } from "../lib/analysis";
+import { buildFacts, evaluateFacts } from "./analysis";
 import { addAudit, db, getCase } from "../lib/db";
-import { extractNotes } from "../lib/model";
+import { extractNotes } from "./model";
 import { getText } from "../lib/storage";
 import type { Facts } from "../lib/types";
+import { captureAgentError } from "./monitoring";
+import { browsePublicSource } from "./public-source";
+
+export async function researchPublicSource(caseId: string): Promise<void> {
+  const caseRecord = await getCase(caseId);
+  if (!caseRecord?.publicSourceUrl) return;
+  if (!process.env.BROWSERBASE_API_KEY) {
+    await addAudit(caseId, "public_research_skipped", { reason: "Browserbase is not configured" }, `research-skipped:${caseId}`);
+    return;
+  }
+  try {
+    const evidence = await browsePublicSource(caseRecord.publicSourceUrl);
+    await db.query("UPDATE cases SET public_evidence = $2, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(evidence)]);
+    await addAudit(caseId, "public_research_completed", { url: evidence.url }, `research:${caseId}`);
+  } catch (error) {
+    captureAgentError(error);
+    await addAudit(caseId, "public_research_failed", { reason: error instanceof Error ? error.message.slice(0, 160) : "Unknown error" }, `research-failed:${caseId}`);
+  }
+}
 
 export async function extractCase(caseId: string): Promise<void> {
   const caseRecord = await getCase(caseId);

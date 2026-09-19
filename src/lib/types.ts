@@ -33,6 +33,8 @@ export type CaseRecord = {
   yearBuilt: number | null;
   losses: number | null;
   sourceKey: string;
+  publicSourceUrl: string | null;
+  publicEvidence: { url: string; title: string; excerpt: string } | null;
   status: CaseStatus;
   facts: Facts | null;
   findings: Finding[] | null;

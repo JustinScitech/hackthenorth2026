@@ -13,6 +13,8 @@ async function main() {
       year_built integer,
       losses integer,
       source_key text NOT NULL,
+      public_source_url text,
+      public_evidence jsonb,
       status text NOT NULL DEFAULT 'received',
       facts jsonb,
       findings jsonb,
@@ -43,6 +45,8 @@ async function main() {
       created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS case_actions_case_id_idx ON case_actions(case_id, created_at);
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_source_url text;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_evidence jsonb;
   `);
   console.log("Database ready");
 }

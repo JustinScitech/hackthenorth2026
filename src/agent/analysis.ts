@@ -1,4 +1,4 @@
-import type { Facts, Finding } from "./types";
+import type { Facts, Finding } from "../lib/types";
 
 export type Intake = {
   state: string;

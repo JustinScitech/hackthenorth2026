@@ -6,13 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "worker": "node --env-file=.env.local --import tsx src/worker/index.ts",
+    "worker": "node --env-file=.env.local --import tsx src/agent/worker.ts",
     "db:migrate": "node --env-file=.env.local --import tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/lib/analysis.test.ts"
+    "test": "node --import tsx --test src/agent/*.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.900.0",
+    "@browserbasehq/sdk": "^2.20.0",
+    "@sentry/node": "^10.75.0",
     "@temporalio/client": "^1.24.0",
     "@temporalio/worker": "^1.24.0",
     "@temporalio/workflow": "^1.24.0",
@@ -20,6 +22,7 @@
     "next": "^16.3.5",
     "openai": "^6.0.0",
     "pg": "^8.16.0",
+    "playwright-core": "^1.63.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^4.0.0"

@@ -105,6 +105,7 @@ export function CaseView({ id, caseRecord, audit, error, response, setResponse, 
     <div className="detail-grid">
       <div className="detail-primary">
         <section className="detail-section"><div className="section-heading"><h2>Review brief</h2><FileText size={18} /></div><p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p></section>
+        {caseRecord.publicEvidence && <section className="detail-section"><div className="section-heading"><h2>Public-source excerpt</h2></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><a href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><p className="subtle">External source; verify before relying on it.</p></section>}
         <Findings caseRecord={caseRecord} />
         <CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} />
       </div>
