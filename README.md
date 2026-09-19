@@ -8,20 +8,23 @@ The guideline thresholds in this repository are **fictional demo rules** and mus
 
 - Next.js: case intake, progress, review, and API
 - Temporal: durable workflow, retries, broker/underwriter signals
-- PostgreSQL: case records and audit events
-- MinIO: original broker submission text (S3-compatible object storage)
+- PostgreSQL or Tiger Data: case records and audit events; Temporal uses PostgreSQL separately
+- MongoDB Atlas: broker submissions, replies, and public evidence when configured
+- MinIO: local fallback and legacy broker text (S3-compatible object storage)
 - Optional OpenAI API: structured extraction from unstructured broker notes; deterministic fallback works without a key
+- Optional Gemini API: independent extraction and contradiction checks
 - Optional Browserbase: visit an explicitly supplied public source and attach a cited excerpt to the case
 - Optional Sentry: privacy-minimized worker error monitoring
+- Optional ElevenLabs: spoken underwriter review brief
 
 ## Code layout
 
 - `src/agent/workflows.ts`: deterministic Temporal orchestration, signals, durable waits, and history rotation
 - `src/agent/activities.ts`: retryable I/O and idempotent case/audit transitions
-- `src/agent/analysis.ts` and `model.ts`: fictional guideline checks and optional text extraction
+- `src/agent/analysis.ts` and `model.ts`: fictional guideline checks, dual-model extraction, and conflict detection
 - `src/agent/public-source.ts`: bounded Browserbase evidence capture; public URL validation is separate
 - `src/agent/contracts.ts`, `client.ts`, and `worker.ts`: shared Temporal names, API client, and worker process
-- `src/lib`: shared case types, PostgreSQL access, and S3-compatible storage
+- `src/lib`: shared case types, PostgreSQL access, MongoDB documents, and S3 fallback
 - `src/app`: web UI and HTTP endpoints; it does not execute agent activities
 
 ## Run locally
@@ -35,7 +38,9 @@ The guideline thresholds in this repository are **fictional demo rules** and mus
 
 Temporal UI is at http://localhost:8080 and MinIO console is at http://localhost:9001. The demo does not require an OpenAI key.
 
-Set `BROWSERBASE_API_KEY` to enable public-source visits and `SENTRY_DSN` to enable worker monitoring. Both are optional. The public-source field accepts an explicit HTTPS URL; it does not discover or profile people. External page text is displayed as evidence, not treated as a verified underwriting fact or used to approve coverage.
+For local MongoDB, run `docker compose --profile mongo up -d mongo` and set `MONGODB_URI=mongodb://localhost:27017` in `.env.local` before starting both the web app and worker. For the Atlas prize, use an actual Atlas connection string instead; a local container is only a development substitute. New broker text goes to MongoDB when configured, while existing MinIO objects remain readable. `DATABASE_URL` can point to a Tiger Data PostgreSQL instance for case/audit state, but merely changing the hostname does not establish prize eligibility.
+
+Set `BROWSERBASE_API_KEY` to enable public-source visits, `SENTRY_DSN` to enable worker monitoring, `GEMINI_API_KEY` for an independent extraction check, and `ELEVENLABS_API_KEY` for audio briefs. All are optional. The public-source field accepts an explicit HTTPS URL; it does not discover or profile people. External page text is displayed as evidence, not treated as a verified underwriting fact or used to approve coverage.
 
 ## Durable case lifecycle
 
@@ -49,19 +54,7 @@ Run `npm run typecheck`, `npm test`, and `npm run build`.
 
 ## Sponsor fit and remaining work
 
-The project is an underwriting case investigator, not a bundle of unrelated sponsor demos. Prize eligibility depends on this year's published rules and an actual configured integration, not a placeholder or package dependency.
-
-| Sponsor | Current fit | Next step |
-| --- | --- | --- |
-| Federato | Intake, review queue, sample guideline checks, human decision | Integrate the provided submissions API, schema discovery, and actual sample appetite guidelines when available |
-| Rox / OpenAI | Handles broker text, missing fields, durable follow-up, optional OpenAI extraction | Demonstrate messy/conflicting records and evidence-backed actions with real sample data |
-| Browserbase | Optional public-source browser activity with source URL and excerpt | Configure API key and show a live cited source in the demo |
-| Sentry | Optional worker monitoring | Configure DSN and verify a test event in the dashboard |
-| Tiger Data | PostgreSQL schema is compatible | Use a Tiger Data instance for event analytics if credentials are supplied |
-| Gemini / ElevenLabs | No integration yet | Add a distinct model-validation or spoken-brief workflow only if it improves review |
-| Composio / Linq | No integration yet | Connect an authorized broker follow-up channel with consent and audit trail |
-| Expo / MongoDB Atlas / Cloudflare Agents SDK / GoDaddy | No integration yet | Consider only where a real mobile, data, deployment, or domain need emerges |
-| Solana badge / personal lookup | Outside product scope | Do not use personal social data to infer insurance risk |
+See [the sponsor integration map](docs/sponsor-map.md) for every item from the team brief. Prize eligibility depends on this year's published rules and an actual configured, demonstrable integration, not a placeholder or package dependency.
 
 ## Production work
 

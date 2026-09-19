@@ -15,6 +15,7 @@ function mapCase(row: Record<string, unknown>): CaseRecord {
     losses: row.losses === null ? null : Number(row.losses), sourceKey: String(row.source_key),
     publicSourceUrl: row.public_source_url as string | null,
     publicEvidence: row.public_evidence as CaseRecord["publicEvidence"],
+    extractionConflicts: (row.extraction_conflicts as string[] | null) ?? [],
     status: row.status as CaseRecord["status"], facts: row.facts as CaseRecord["facts"],
     findings: row.findings as CaseRecord["findings"], brief: row.brief as string | null,
     question: row.question as string | null, decision: row.decision as string | null,
