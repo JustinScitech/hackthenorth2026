@@ -14,21 +14,28 @@ const good = { id: 1, account_name: "Example property", primary_risk_state: "CA"
 const plan = planQuery(schema);
 const score = (changes: Record<string, unknown> = {}) => scoreSubmission({ ...good, ...changes }, plan.mapping);
 
-test("supplied appetite target earns 100 with explanations and sources", () => {
+test("supplied appetite submission is fully verified with explanations and sources", () => {
   const result = score();
-  assert.equal(result.score, 100);
+  assert.equal(result.score, 94);
   assert.equal(result.recommendation, "Review for acceptance");
-  assert.equal(result.criteria.length, 8);
+  assert.equal(result.criteria.find((item) => item.factor === "Submission type")?.status, "acceptable");
+  assert.equal(result.criteria.find((item) => item.factor === "Line of business")?.status, "acceptable");
   assert.equal(result.criteria.find((item) => item.factor === "Total insured value")?.source, "tiv");
 });
 
 test("hard exceptions cannot be outweighed by target matches", () => {
-  for (const changes of [{ primary_risk_state: "NY" }, { tiv: 150_000_001 }, { premium: 49_999 }, { premium: 175_001 }, { year_built: 1989 }, { five_year_loss_value: 100_001 }, { business_type: "renewal" }, { acceptable_construction_percent: 49 }, { line_of_business: "auto" }]) {
+  for (const changes of [{ primary_risk_state: "NY" }, { tiv: 150_000_001 }, { premium: 49_999 }, { premium: 175_001 }, { year_built: 1989 }, { five_year_loss_value: 100_001 }, { acceptable_construction_percent: 49 }, { line_of_business: "auto" }]) {
     const result = score(changes);
     assert.ok(result.score <= 49);
     assert.equal(result.recommendation, "Refer for appetite exceptions");
     assert.match(result.explanation, /Exceptions:/);
   }
+});
+
+test("renewals receive the appetite target while new business remains acceptable", () => {
+  assert.equal(score({ business_type: "renewal" }).criteria.find((item) => item.factor === "Submission type")?.status, "target");
+  assert.equal(score({ business_type: "new" }).criteria.find((item) => item.factor === "Submission type")?.status, "acceptable");
+  assert.equal(score({ business_type: "renewal" }).recommendation, "Review for acceptance");
 });
 
 test("inclusive limits, target ranges, and unspecified boundaries follow the PDF", () => {
