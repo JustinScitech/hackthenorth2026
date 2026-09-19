@@ -14,6 +14,7 @@ function ThemeToggle() {
 
 export function SiteHeader() {
   const pathname = usePathname();
+  if (pathname === "/") return null;
   return (
     <header className="site-header">
       <div className="site-header-inner">
@@ -30,6 +31,8 @@ export function SiteHeader() {
 }
 
 export function SiteFooter() {
+  const pathname = usePathname();
+  if (pathname === "/") return null;
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
