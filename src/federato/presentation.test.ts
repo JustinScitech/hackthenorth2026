@@ -26,3 +26,28 @@ test("download summary is readable without technical API details", () => {
   assert.match(markdown, /Recommended next step/);
   assert.doesNotMatch(markdown, /technical detail/);
 });
+
+test("appetite exceptions are explained as a human review decision", () => {
+  const result = summarizeSubmission({
+    ...item,
+    account: "Out of territory warehouse",
+    recommendation: "Refer for appetite exceptions",
+    criteria: [{ concept: "state", factor: "Primary risk state", status: "outside", points: 0, maximum: 15, detail: "Outside", source: "state" }],
+  });
+  assert.equal(result.status, "refer");
+  assert.equal(result.title, "Needs an appetite exception");
+  assert.equal(result.action, "Refer for an appetite exception");
+  assert.match(result.plainExplanation, /does not fit/);
+});
+
+test("complete matches do not ask the reviewer for unnecessary follow-up", () => {
+  const result = summarizeSubmission({
+    ...item,
+    score: 100,
+    recommendation: "Review for acceptance",
+    criteria: [{ concept: "state", factor: "Primary risk state", status: "target", points: 15, maximum: 15, detail: "Target", source: "state" }],
+  });
+  assert.equal(result.status, "positive");
+  assert.deepEqual(result.questions, []);
+  assert.equal(result.action, "Review for acceptance");
+});

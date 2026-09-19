@@ -12,6 +12,9 @@ test("triage UI exposes underwriting recommendation and appetite evidence", asyn
   await expect(page.getByText("Good match for review")).toBeVisible();
   await expect(page.getByText("Target renewal matches the supplied carrier guidelines on the available information.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Print / save PDF" })).toBeVisible();
+  await page.evaluate(() => { window.print = () => { (window as Window & { __printCalled?: boolean }).__printCalled = true; }; });
+  await page.getByRole("button", { name: "Print / save PDF" }).click();
+  await expect.poll(() => page.evaluate(() => (window as Window & { __printCalled?: boolean }).__printCalled)).toBe(true);
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download summary" }).click();
   await expect((await download).suggestedFilename()).toMatch(/^underwriting-summary-\d{4}-\d{2}-\d{2}\.md$/);
