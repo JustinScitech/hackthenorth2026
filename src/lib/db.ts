@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { databaseUrl } from "./env";
 import type { AuditEvent, CaseRecord } from "./types";
 
 const globalForDb = globalThis as unknown as { dbPool?: Pool };
@@ -6,11 +7,11 @@ const globalForDb = globalThis as unknown as { dbPool?: Pool };
 /**
  * Creates the pool on first use rather than at import time. `next build` imports every
  * route module to collect page data, and that must not require a live DATABASE_URL.
+ * The target itself comes from env.ts, which knows local from deployed.
  */
 function pool(): Pool {
   if (globalForDb.dbPool) return globalForDb.dbPool;
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
-  const created = new Pool({ connectionString: process.env.DATABASE_URL });
+  const created = new Pool({ connectionString: databaseUrl() });
   globalForDb.dbPool = created;
   return created;
 }

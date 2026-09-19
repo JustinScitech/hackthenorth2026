@@ -68,6 +68,10 @@ The case ID is the Temporal workflow ID. A broker response and an underwriter de
 
 The case view shows a persisted activity trace: intake, extraction sources, public research, guideline counts, broker follow-ups, and review actions. It does not display or store a model's private chain-of-thought. The live Federato triage endpoint is currently a separate synchronous request; move its discovery, pagination, and scoring into bounded Temporal activities before treating it as a durable long-running job.
 
+## Deploying to Vercel
+
+Vercel hosts the web app only; Temporal and the worker run elsewhere. The app resolves databases from where it runs (`src/lib/env.ts`): locally it uses `DATABASE_URL` and `MONGODB_URI`, and on Vercel it uses `TIGERDATA_DATABASE_URL` and `MONGODB_ATLAS_URI`, refusing any localhost value with a clear error. Push variables from `.env` with `./scripts/vercel-env.sh`, deploy with `vercel --prod`, then set `BETTER_AUTH_URL` to the production origin and redeploy. `.vercelignore` keeps `.env` out of uploads; never rely on `.gitignore` for that.
+
 ## Checks
 
 Run `npm run typecheck`, `npm test`, and `npm run build`. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100 and the `underwriting-cases-e2e` Temporal task queue. Most UI scenarios use fixture responses; one exercises the real Temporal/MongoDB/PostgreSQL lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
