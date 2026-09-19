@@ -2,15 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Moon, Sun } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Wordmark } from "../ui/logo";
-import { useTheme } from "../ui/theme";
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const next = theme === "dark" ? "light" : "dark";
-  return <button className="icon-button" type="button" aria-label={`Switch to ${next} mode`} title={`Switch to ${next} mode`} onClick={() => setTheme(next)}>{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>;
-}
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -20,11 +13,13 @@ export function SiteHeader() {
       <div className="site-header-inner">
         <Wordmark href="/" />
         <nav className="site-nav" aria-label="Site">
-          <Link href="/#how-it-works">How it works</Link>
-          <Link href="/docs" aria-current={pathname.startsWith("/docs") ? "page" : undefined}>Docs</Link>
-          <ThemeToggle />
-          <Link className="primary-button" href="/overview">Open workspace</Link>
+          <Link href="/#experience">Platform</Link>
+          <Link href="/#underwriting">How it works</Link>
+          <Link href="/docs" aria-current={pathname.startsWith("/docs") ? "page" : undefined}>Documentation</Link>
         </nav>
+        <div className="site-actions">
+          <Link className="primary-button" href="/overview">Open workspace<ArrowUpRight size={14} /></Link>
+        </div>
       </div>
     </header>
   );
