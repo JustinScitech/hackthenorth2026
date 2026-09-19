@@ -71,6 +71,10 @@ The case view shows a persisted activity trace: intake, extraction sources, publ
 
 The recommended low-cost demo runs the web app and worker together on one VM; see [the deployment checklist](docs/deployment.md). Vercel can host the web app separately only if the worker reaches the same hosted PostgreSQL and MongoDB databases. The app resolves databases from where it runs (`src/lib/env.ts`): locally it uses `DATABASE_URL` and `MONGODB_URI`, and on Vercel it uses `TIGERDATA_DATABASE_URL` and `MONGODB_ATLAS_URI`, refusing localhost. `./scripts/vercel-env.sh` can push variables to a linked Vercel project. `.vercelignore` keeps `.env` out of uploads; never rely on `.gitignore` for that. Vercel Hobby is limited to personal, non-commercial use.
 
+## Google sign-in troubleshooting
+
+A `redirect_uri_mismatch` from Google means the OAuth client does not list the exact callback the app sends. Run `npm run auth:check` to have Google report which candidate URIs are registered on the configured client; the two ending in `/api/auth/callback/google` must be marked as registered. Pass `--client <id>` to inspect a different client.
+
 ## Checks
 
 Run `npm run typecheck`, `npm test`, and `npm run build`. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100. Most UI scenarios use fixture responses; one exercises the real PostgreSQL job and MongoDB lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
