@@ -139,6 +139,14 @@ test("intake shows a failed create request without losing the submission", async
   await expect(page.getByRole("button", { name: "Start analysis" })).toBeEnabled();
 });
 
+test("intake explains an empty API error response", async ({ authenticatedPage: page }) => {
+  await page.route("**/api/cases", async (route) => route.fulfill({ status: 503, body: "" }));
+  await page.goto("/cases/new?sample=1");
+  await page.getByRole("button", { name: "Start analysis" }).click();
+  await expect(page.locator(".alert[role=alert]")).toContainText("HTTP 503");
+  await expect(page.getByRole("button", { name: "Start analysis" })).toBeEnabled();
+});
+
 test("case trace shows live progress and broker and underwriter actions", async ({ authenticatedPage: page }) => {
   const id = randomUUID();
   let status = "extracting";
