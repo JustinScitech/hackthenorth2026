@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import Link from "next/link";
-import { CircleAlert, FilePlus2 } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, FilePlus2 } from "lucide-react";
 
 type FormState = { insuredName: string; state: string; tiv: string; yearBuilt: string; losses: string; brokerNotes: string; publicSourceUrl: string };
 const emptyForm: FormState = { insuredName: "", state: "", tiv: "", yearBuilt: "", losses: "", brokerNotes: "", publicSourceUrl: "" };
@@ -48,6 +48,81 @@ const sampleCases: { id: string; label: string; form: FormState }[] = [
     },
   },
 ];
+
+const sampleOptions = [{ id: "", label: "Custom submission" }, ...sampleCases];
+
+function SamplePicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const selectedIndex = sampleOptions.findIndex((option) => option.id === value);
+
+  useEffect(() => {
+    if (!open) return;
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (!pickerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [open]);
+
+  function focusOption(index: number) {
+    optionRefs.current[(index + sampleOptions.length) % sampleOptions.length]?.focus();
+  }
+
+  function openMenu(index: number) {
+    setOpen(true);
+    requestAnimationFrame(() => focusOption(index));
+  }
+
+  function handleMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const index = optionRefs.current.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      focusOption(index + (event.key === "ArrowDown" ? 1 : -1));
+    } else if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      focusOption(event.key === "Home" ? 0 : sampleOptions.length - 1);
+    } else if (event.key === "Escape") {
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+  }
+
+  return (
+    <div className="sample-select" ref={pickerRef} onBlur={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false);
+    }}>
+      <span id="sample-scenario-label">Scenario</span>
+      <button
+        ref={triggerRef} className="sample-select-trigger" type="button"
+        aria-labelledby="sample-scenario-label sample-selected-value" aria-haspopup="menu" aria-expanded={open} aria-controls="sample-scenario-menu"
+        onClick={() => open ? setOpen(false) : openMenu(Math.max(selectedIndex, 0))}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            openMenu(event.key === "ArrowDown" ? Math.max(selectedIndex, 0) : sampleOptions.length - 1);
+          } else if (event.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+      >
+        <span id="sample-selected-value">{sampleOptions[selectedIndex]?.label ?? "Custom submission"}</span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      {open && <div id="sample-scenario-menu" className="sample-select-menu popup" role="menu" aria-labelledby="sample-scenario-label" onKeyDown={handleMenuKeyDown}>
+        {sampleOptions.map((option, index) => <button
+          key={option.id || "custom"} ref={(element) => { optionRefs.current[index] = element; }}
+          className="sample-select-option" type="button" role="menuitemradio" aria-checked={option.id === value}
+          onClick={() => { onChange(option.id); setOpen(false); triggerRef.current?.focus(); }}
+        >
+          <span>{option.label}</span>{option.id === value && <Check size={15} aria-hidden="true" />}
+        </button>)}
+      </div>}
+    </div>
+  );
+}
 
 export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean }) {
   const [form, setForm] = useState<FormState>(prefillSample ? sampleCases[1].form : emptyForm);
@@ -99,12 +174,7 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
       <form className="card" onSubmit={createCase}>
         <div className="form-section sample-picker">
           <div className="form-section-title"><h2>Sample submission</h2></div>
-          <label>Scenario
-            <select value={selectedSample} onChange={(event) => loadSample(event.target.value)}>
-              <option value="">Custom submission</option>
-              {sampleCases.map((sample) => <option key={sample.id} value={sample.id}>{sample.label}</option>)}
-            </select>
-          </label>
+          <SamplePicker value={selectedSample} onChange={loadSample} />
         </div>
         <div className="form-section">
           <div className="form-section-title"><h2>Insured</h2><p>Who and what is being covered.</p></div>
