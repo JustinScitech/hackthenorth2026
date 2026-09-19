@@ -11,7 +11,7 @@ The Next.js app includes the HTTP API. Deploy it as one Vercel project. The Temp
 
 ## Render worker
 
-In Render, create a Blueprint from this repository's `render.yaml`. It creates the `astra-risk-agent` background worker, installs dependencies, checks configuration, runs `npm run db:migrate` before deploy, then starts `npm run worker`. A background worker is required: it must keep polling Temporal while the web app is idle. Render prompts for these variables during the initial Blueprint setup:
+In Render, create a Blueprint from this repository's `render.yaml`. It creates the `astra-risk-agent` background worker, installs dependencies, checks configuration, runs `npm run db:migrate` before deploy, then starts `npm run worker`. A background worker is required: it must keep polling Temporal while the web app is idle. Render background workers use a paid compute plan; the Blueprint leaves the plan at Render's default so you can choose a larger one if needed. Render prompts for these variables during the initial Blueprint setup:
 
 | Variable | Value |
 | --- | --- |

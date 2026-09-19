@@ -29,7 +29,8 @@ test("live configuration runs schema discovery and ranks evidence", async () => 
     assert.equal(report.resource, "Policy");
     assert.equal(report.evaluated, 1);
     assert.equal(report.topSubmissions[0].id, "42");
-    assert.equal(report.topSubmissions[0].score, 100);
+    assert.equal(report.topSubmissions[0].score, 94);
+    assert.equal(report.topSubmissions[0].criteria.find((item) => item.factor === "Submission type")?.status, "acceptable");
     const firstQuery = report.trace[0];
     assert.ok(firstQuery);
     assert.ok(firstQuery.query.select?.account_name);
