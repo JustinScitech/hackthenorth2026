@@ -15,7 +15,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <header className="app-header">
           <div className="header-inner">
             <Link className="brand" href="/"><ShieldCheck size={21} strokeWidth={2.1} /><span>Underwriting Review</span></Link>
-            <span className="header-meta">Commercial property · Demo</span>
+            <Link className="back-link" style={{ marginBottom: 0 }} href="/triage">Federato triage →</Link>
           </div>
         </header>
         {children}
