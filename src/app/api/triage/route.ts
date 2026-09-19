@@ -1,8 +1,11 @@
 import { liveConfiguration } from "@/federato/config";
 import { runTriage } from "@/federato/triage";
+import { requireApiSession } from "@/lib/auth-access";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
+  const denied = await requireApiSession(request);
+  if (denied) return denied;
   const origin = request.headers.get("origin");
   if (!origin || origin !== new URL(request.url).origin) return Response.json({ error: "Use the triage page on this site." }, { status: 403 });
   try {

@@ -5,6 +5,7 @@ import { temporalClient } from "@/agent/client";
 import { BROKER_RESPONSE_SIGNAL, REVIEW_DECISION_SIGNAL } from "@/agent/contracts";
 import { db, getCase } from "@/lib/db";
 import { putText } from "@/lib/storage";
+import { requireApiSession } from "@/lib/auth-access";
 
 const actionSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.uuid(), kind: z.literal("broker_response"), response: z.string().trim().min(3).max(10_000) }),
@@ -12,6 +13,10 @@ const actionSchema = z.discriminatedUnion("kind", [
 ]);
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await requireApiSession(request);
+  if (denied) return denied;
+  const origin = request.headers.get("origin");
+  if (!origin || origin !== new URL(request.url).origin) return NextResponse.json({ error: "Use the case page on this site." }, { status: 403 });
   const { id } = await context.params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "Invalid case ID." }, { status: 400 });
   const parsed = actionSchema.safeParse(await request.json().catch(() => null));

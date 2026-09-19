@@ -6,3 +6,5 @@ node_modules/
 data/
 
 .npm-cache/
+test-results/
+playwright-report/

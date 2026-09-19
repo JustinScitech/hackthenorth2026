@@ -38,13 +38,15 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 ## Run locally
 
 1. Start Docker Desktop.
-2. Copy `.env.example` to `.env` if needed, then adjust values. Keep it out of Git.
+2. Copy `.env.example` to `.env` if needed, then adjust values. Keep it out of Git. Google sign-in requires `BETTER_AUTH_URL`, a random `BETTER_AUTH_SECRET`, Google OAuth client ID/secret, and a comma-separated `AUTH_ALLOWED_EMAILS`. Without them, the workspace remains locked.
 3. Run `docker compose up -d`.
 4. Run `npm install` and `npm run db:migrate`.
 5. In one terminal, run `npm run worker`.
 6. In another terminal, run `npm run dev` and open http://localhost:3000.
 
 Temporal UI is at http://localhost:8080. The core demo needs no sponsor API keys.
+
+For local Google OAuth, register `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI (use your actual dev-server port if different) and set `BETTER_AUTH_URL` to the matching origin. In production, register `https://your-domain/api/auth/callback/google`. Run `npm run db:migrate` after deploying to create the auth tables. Approved Google accounts share the demo workspace; this is authentication and an email allowlist, not tenant isolation or role-based authorization. Do not use real insurance submissions until those controls are added.
 
 MongoDB starts with `docker compose up -d` and is the only document store. For the Atlas prize, use an actual Atlas connection string instead; a local container is only a development substitute. `DATABASE_URL` can point to a Tiger Data PostgreSQL instance for case/audit state, but merely changing the hostname does not establish prize eligibility.
 
@@ -60,7 +62,7 @@ The case view shows a persisted activity trace: intake, extraction sources, publ
 
 ## Checks
 
-Run `npm run typecheck`, `npm test`, and `npm run build`.
+Run `npm run typecheck`, `npm test`, and `npm run build`. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100 and the `underwriting-cases-e2e` Temporal task queue. Most UI scenarios use fixture responses; one exercises the real Temporal/MongoDB/PostgreSQL lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
 
 For a live Gemini extraction eval, set `GEMINI_API_KEY` and run `npm run eval:agent`. This checks the model's own year-built and three-year loss-count values across four fictional submissions, then checks the resulting demo guideline decisions. Calls are spaced to reduce per-minute rate-limit errors. The eval fails if Gemini is unavailable or falls back to the parser. It does not measure document ingestion, coverage decisions, or the separate Federato triage flow.
 
