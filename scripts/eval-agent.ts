@@ -1,7 +1,7 @@
 import { buildFacts, evaluateFacts, type Extracted, type Intake } from "../src/agent/analysis";
 import { extractNotes } from "../src/agent/model";
 import { randomUUID } from "node:crypto";
-import { recordEvalMetric } from "../src/agent/monitoring";
+import { initMonitoring, recordEvalRun, startAgentSpan, type EvalCaseResult } from "../src/agent/monitoring";
 
 type Fixture = {
   name: string;
@@ -56,12 +56,16 @@ Correction from the broker: The property was constructed in 2004. There was one 
 async function main() {
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required for the live agent eval");
   delete process.env.OPENAI_API_KEY;
+  initMonitoring("eval");
   const startedAt = Date.now();
   let passed = 0;
   let lastModel: string | null = null;
+  const cases: EvalCaseResult[] = [];
+  await startAgentSpan("underwriting.eval", "agent.eval", { fixtures: fixtures.length }, async () => {
   for (const [index, fixture] of fixtures.entries()) {
     if (index > 0) await new Promise((resolve) => setTimeout(resolve, 12_000));
-    const result = await extractNotes(fixture.notes);
+    const caseStartedAt = Date.now();
+    const result = await startAgentSpan(`underwriting.eval.${fixture.name}`, "agent.eval.case", { fixture: fixture.name }, () => extractNotes(fixture.notes));
     const geminiAttempts = result.attempts.filter((attempt) => attempt.source === "Gemini");
     const gemini = geminiAttempts.find((attempt) => attempt.status === "completed");
     if (gemini) lastModel = gemini.model;
@@ -75,10 +79,12 @@ async function main() {
       && Boolean(checks.question) === fixture.needsBroker;
     const ok = Boolean(modelCorrect && provenanceCorrect && guidelineCorrect);
     if (ok) passed++;
+    cases.push({ name: fixture.name, ok, durationMs: Date.now() - caseStartedAt, model: gemini?.model ?? null });
     console.log(`${ok ? "PASS" : "FAIL"} ${fixture.name}: ${geminiAttempts.map((attempt) => `${attempt.model} ${attempt.status}${attempt.errorCode ? ` (HTTP ${attempt.errorCode})` : ""}`).join(" -> ")}, selected ${gemini?.model ?? "none"} ${gemini?.durationMs ?? 0}ms, extracted ${JSON.stringify(gemini?.value ?? null)}, expected ${JSON.stringify(fixture.expected)}`);
     if (!guidelineCorrect) console.log(`  Guideline result: ${checks.findings.filter((finding) => finding.result === "refer").length} referrals, broker question ${Boolean(checks.question)}`);
     if (!provenanceCorrect) console.log(`  Extraction sources: ${JSON.stringify(result.fieldSources)}`);
   }
+  });
   console.log(`${passed}/${fixtures.length} live Gemini evals passed`);
   if (process.env.DATABASE_URL) {
     const { db } = await import("../src/lib/db");
@@ -89,7 +95,7 @@ async function main() {
       await db.end();
     }
   }
-  await recordEvalMetric(passed, fixtures.length);
+  await recordEvalRun({ passed, total: fixtures.length, durationMs: Date.now() - startedAt, model: lastModel, cases });
   if (passed !== fixtures.length) process.exitCode = 1;
 }
 

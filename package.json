@@ -19,6 +19,7 @@
   "dependencies": {
     "@browserbasehq/sdk": "^2.20.0",
     "@google/genai": "^2.23.0",
+    "@sentry/nextjs": "^10.75.0",
     "@sentry/node": "^10.75.0",
     "better-auth": "^1.7.5",
     "lucide-react": "^0.468.0",
