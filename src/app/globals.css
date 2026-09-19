@@ -577,7 +577,12 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 @media (max-width: 1023px) { .docs { grid-template-columns: 1fr; gap: 24px; } .docs-nav { position: static; max-height: none; display: flex; flex-wrap: wrap; gap: 4px 12px; padding-bottom: 16px; border-left: 0; border-bottom: 1px solid var(--border); } .docs-nav .label-mono { display: none; } .docs-nav a::before { display: none; } .site-header-inner, .site-footer-inner { padding-left: 24px; padding-right: 24px; } .docs { padding-left: 24px; padding-right: 24px; } }
 @media (max-width: 639px) { .site-nav { display: none; } .site-header-inner { grid-template-columns: auto 1fr; height: 56px; padding: 0 16px; } .site-footer-inner { padding: 24px 16px; } .docs { padding-left: 16px; padding-right: 16px; } .docs-content h1 { font-size: 34px; } }
 
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  /* Opacity-only pulses carry no motion, so the agent's live state stays visible (Remote Desktop sessions report reduced motion). */
+  .message-live::before, .working-rail li[data-state="active"] .working-step, .thinking li.is-current::before, .analysis-trace.is-working .trace-list li:last-child::before, .status-received .status-dot, .status-extracting .status-dot, .status-checking .status-dot, .pending-tag::before { animation: pulse 1.4s ease-in-out infinite !important; }
+  .working-ellipsis::after { animation: ellipsis 1.5s steps(4, end) infinite !important; }
+}
 
 /* Sentry telemetry panel on /overview: stat tiles with a detail line, a daily eval chart, and span tables. */
 .stat-detail { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
