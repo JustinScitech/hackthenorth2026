@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { databaseUrl, isLocalUrl, mongoUri, withPgCompat } from "./env";
+import { authBaseUrl, databaseUrl, isLocalUrl, mongoUri, withPgCompat } from "./env";
 
 const tiger = "postgres://user:pw@example.tsdb.cloud.timescale.com:37530/tsdb?sslmode=require";
 const atlas = "mongodb+srv://user:pw@cluster.example.mongodb.net/?appName=x";
@@ -40,4 +40,13 @@ test("pg compatibility flag is added once, only for hosted sslmode URLs", () => 
 test("localhost detection covers the usual spellings", () => {
   for (const url of ["postgres://a:b@localhost:5432/x", "postgres://a:b@127.0.0.1/x", "mongodb://[::1]:27017", "postgres://a:b@0.0.0.0:5432/x"]) assert.equal(isLocalUrl(url), true, url);
   for (const url of [tiger, atlas]) assert.equal(isLocalUrl(url), false, url);
+});
+
+test("auth base URL follows the environment", () => {
+  assert.equal(authBaseUrl({}), "http://localhost:3003");
+  assert.equal(authBaseUrl({ BETTER_AUTH_URL: "http://localhost:3003/" }), "http://localhost:3003");
+  assert.equal(authBaseUrl({ VERCEL: "1", VERCEL_ENV: "production", BETTER_AUTH_URL: "http://localhost:3003", VERCEL_PROJECT_PRODUCTION_URL: "astra-risk.vercel.app", VERCEL_URL: "astra-risk-abc123.vercel.app" }), "https://astra-risk.vercel.app");
+  assert.equal(authBaseUrl({ VERCEL: "1", VERCEL_ENV: "preview", VERCEL_URL: "astra-risk-abc123.vercel.app", VERCEL_PROJECT_PRODUCTION_URL: "astra-risk.vercel.app" }), "https://astra-risk-abc123.vercel.app");
+  assert.equal(authBaseUrl({ VERCEL: "1", VERCEL_ENV: "production", BETTER_AUTH_URL: "https://underwriting.example.com/" }), "https://underwriting.example.com");
+  assert.throws(() => authBaseUrl({ VERCEL: "1" }), /BETTER_AUTH_URL is not set and no Vercel URL/);
 });

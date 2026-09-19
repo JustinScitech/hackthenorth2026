@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3003",
     "build": "next build",
     "start": "next start",
     "worker": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx src/agent/worker.ts",

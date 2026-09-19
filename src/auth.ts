@@ -1,12 +1,13 @@
 import { betterAuth } from "better-auth";
 import { db } from "@/lib/db";
 import { isAllowedEmail } from "@/lib/auth-policy";
+import { authBaseUrl } from "@/lib/env";
 
 const googleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 export const auth = betterAuth({
   database: db,
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: authBaseUrl(),
   secret: process.env.BETTER_AUTH_SECRET,
   socialProviders: googleConfigured ? {
     google: {

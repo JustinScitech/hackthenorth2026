@@ -16,8 +16,8 @@ export function SettingsPanel() {
           <div className="setting-row">
             <div><strong>Theme</strong><p>Light is the default. Your choice is saved in this browser only.</p></div>
             <div className="segmented" role="group" aria-label="Theme">
-              <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}><Moon size={14} />Dark</button>
               <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}><Sun size={14} />Light</button>
+              <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}><Moon size={14} />Dark</button>
             </div>
           </div>
         </section>

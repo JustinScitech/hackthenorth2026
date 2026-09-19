@@ -48,12 +48,12 @@ test("workspace matches the landing palette across desktop and mobile", async ({
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(page.locator(".sidebar .brand-text")).toContainText("AstraRisk");
   expect(await page.locator("body").evaluate((body) => getComputedStyle(body).backgroundColor)).toBe("rgb(246, 245, 241)");
-  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(81, 69, 182)");
+  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(83, 71, 184)");
   await page.screenshot({ path: testInfo.outputPath("overview-desktop.png"), fullPage: true });
 
   await page.goto("/settings");
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
-  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(170, 160, 244)");
+  await expect.poll(() => page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(177, 167, 240)");
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Light" }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });

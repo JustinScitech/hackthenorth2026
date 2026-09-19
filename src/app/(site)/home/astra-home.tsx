@@ -74,7 +74,7 @@ const PropertyScene = dynamic(() => import("./property-scene"), {
   ),
 });
 
-export function AstraHome({ fontClassName = "" }: { fontClassName?: string }) {
+export function AstraHome() {
   const [elapsed, setElapsed] = useState(0);
   const [run, setRun] = useState(0);
   const [ready, setReady] = useState(false);
@@ -260,7 +260,7 @@ export function AstraHome({ fontClassName = "" }: { fontClassName?: string }) {
   return (
     <main
       ref={rootRef}
-      className={`${ui.page} ${fontClassName}`}
+      className={ui.page}
       data-theme={theme}
       suppressHydrationWarning
     >
