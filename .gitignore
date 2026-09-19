@@ -8,3 +8,4 @@ data/
 .npm-cache/
 test-results/
 playwright-report/
+.local/
