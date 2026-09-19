@@ -386,14 +386,15 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 /* ---------- Agent at work: everything here animates only while the worker holds the case ---------- */
 .message-live { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--border-strong); color: var(--accent-ink); }
 .message-live::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; background: var(--accent); vertical-align: 1px; animation: pulse 1.2s ease-in-out infinite; }
-@property --ring-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+/* A green segment travelling around an outline. The ring is a masked overlay clipped to the border; the
+   rotating part is a real element using transform, which every browser interpolates without registration. */
+.ring { position: absolute; inset: -1px; padding: 2px; border-radius: inherit; overflow: hidden; pointer-events: none; -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+.ring i { position: absolute; left: 50%; top: 50%; width: 200%; aspect-ratio: 1 / 1; background: conic-gradient(var(--accent) 0 18%, transparent 26% 100%); transform: translate(-50%, -50%) rotate(0deg); animation: ring 3.2s linear infinite; will-change: transform; }
+.ring-fast i { background: conic-gradient(var(--accent) 0 28%, transparent 34% 100%); animation-duration: 1.6s; }
 .message-avatar { position: relative; }
 .agent-avatar.is-working { border-color: var(--border); }
-.agent-avatar.is-working::before { content: ""; position: absolute; inset: -1px; padding: 2px; border-radius: inherit; background: conic-gradient(from var(--ring-angle), var(--accent) 0 28%, transparent 34% 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: ring 1.6s linear infinite; }
 .agent-avatar.is-working img { animation: breathe 2.4s ease-in-out infinite; }
 .working { position: relative; margin-bottom: 16px; padding: 12px 16px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); }
-/* A green segment travels around the panel's outline for as long as the worker holds the case. */
-.working::before { content: ""; position: absolute; inset: -1px; padding: 2px; border-radius: inherit; pointer-events: none; background: conic-gradient(from var(--ring-angle), var(--accent) 0 18%, transparent 26% 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: ring 3.2s linear infinite; }
 .working-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .working-message { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; color: var(--text); }
 .working-ellipsis::after { content: ""; display: inline-block; width: 1.2em; text-align: left; animation: ellipsis 1.5s steps(4, end) infinite; }
@@ -412,7 +413,6 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 .working-rail li[data-state="active"] .working-step { border-color: var(--accent); background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 /* The agent's own commentary: what it is looking for now, and what each step meant. */
 .is-stalled { border-color: var(--amber-ink); }
-.is-stalled::before { display: none; }
 .is-stalled .working-spinner img { animation-play-state: paused; }
 .working-stalled { background: var(--amber-tint); color: var(--text); }
 .working-stalled code { padding: 1px 5px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card-bg); }
@@ -433,7 +433,7 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 .agent-message .detail-section .finding:nth-child(n + 5) { animation-delay: 320ms; }
 @keyframes turn { to { transform: rotate(360deg); } }
 @keyframes shimmer { 0% { background-position: 120% 0; } 100% { background-position: -100% 0; } }
-@keyframes ring { to { --ring-angle: 360deg; } }
+@keyframes ring { to { transform: translate(-50%, -50%) rotate(360deg); } }
 @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 @keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes ellipsis { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } 100% { content: ""; } }
