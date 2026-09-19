@@ -6,19 +6,64 @@ import { CircleAlert, FilePlus2 } from "lucide-react";
 
 type FormState = { insuredName: string; state: string; tiv: string; yearBuilt: string; losses: string; brokerNotes: string; publicSourceUrl: string };
 const emptyForm: FormState = { insuredName: "", state: "", tiv: "", yearBuilt: "", losses: "", brokerNotes: "", publicSourceUrl: "" };
-const sampleForm: FormState = {
-  insuredName: "Front Range Fabrication", state: "CO", tiv: "3200000", yearBuilt: "2008", losses: "0",
-  brokerNotes: "Commercial property submission for Front Range Fabrication in Colorado. The building was constructed in 2008, is owner occupied and sprinklered, and had no losses in the past three years.",
-  publicSourceUrl: "",
-};
+const sampleCases: { id: string; label: string; form: FormState }[] = [
+  {
+    id: "clean", label: "New York office - clean review",
+    form: {
+      insuredName: "Hudson Square Offices", state: "NY", tiv: "2400000", yearBuilt: "2012", losses: "0",
+      brokerNotes: "Commercial property submission for Hudson Square Offices in New York. The office building was constructed in 2012, is fully sprinklered, and has had no losses in the past three years.",
+      publicSourceUrl: "",
+    },
+  },
+  {
+    id: "colorado", label: "Colorado fabrication - territory referral",
+    form: {
+      insuredName: "Front Range Fabrication", state: "CO", tiv: "3200000", yearBuilt: "2008", losses: "0",
+      brokerNotes: "Commercial property submission for Front Range Fabrication in Colorado. The building was constructed in 2008, is owner occupied and sprinklered, and had no losses in the past three years.",
+      publicSourceUrl: "",
+    },
+  },
+  {
+    id: "warehouse", label: "New Jersey warehouse - value and age referrals",
+    form: {
+      insuredName: "Garden State Distribution", state: "NJ", tiv: "6800000", yearBuilt: "1974", losses: "1",
+      brokerNotes: "Commercial property submission for Garden State Distribution in New Jersey. The warehouse was built in 1974, has $6.8 million in total insured value, and reported one loss in the past three years.",
+      publicSourceUrl: "",
+    },
+  },
+  {
+    id: "retail", label: "Pennsylvania retail - loss referral",
+    form: {
+      insuredName: "Keystone Market Group", state: "PA", tiv: "4100000", yearBuilt: "1999", losses: "4",
+      brokerNotes: "Commercial property submission for Keystone Market Group in Pennsylvania. The retail building was constructed in 1999 and reported four losses in the past three years.",
+      publicSourceUrl: "",
+    },
+  },
+  {
+    id: "follow-up", label: "New York restaurant - broker follow-up",
+    form: {
+      insuredName: "Canal Street Kitchen", state: "NY", tiv: "1750000", yearBuilt: "", losses: "",
+      brokerNotes: "Commercial property submission for Canal Street Kitchen in New York. The restaurant occupies a single leased building. The broker has not yet supplied the construction year or recent loss history.",
+      publicSourceUrl: "",
+    },
+  },
+];
 
 export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean }) {
-  const [form, setForm] = useState<FormState>(prefillSample ? sampleForm : emptyForm);
+  const [form, setForm] = useState<FormState>(prefillSample ? sampleCases[1].form : emptyForm);
+  const [selectedSample, setSelectedSample] = useState(prefillSample ? "colorado" : "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function update(field: keyof FormState, value: string) {
+    setSelectedSample("");
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function loadSample(id: string) {
+    setSelectedSample(id);
+    setForm(sampleCases.find((sample) => sample.id === id)?.form ?? emptyForm);
+    setError(null);
   }
 
   async function createCase(event: FormEvent<HTMLFormElement>) {
@@ -49,10 +94,18 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
       <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><Link href="/cases">Cases</Link><span className="sep">/</span><span className="current">New submission</span></p>
       <div className="page-title-row">
         <div><h1 className="page-title">New submission</h1><p className="subtle" style={{ marginTop: 6 }}>Start a durable review. The agent extracts facts, checks demo guidelines, and pauses for the broker when information is missing.</p></div>
-        <div className="actions"><button className="secondary-button" type="button" onClick={() => setForm(sampleForm)}>Load Colorado sample</button></div>
       </div>
       {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error}</div>}
       <form className="card" onSubmit={createCase}>
+        <div className="form-section sample-picker">
+          <div className="form-section-title"><h2>Sample submission</h2></div>
+          <label>Scenario
+            <select value={selectedSample} onChange={(event) => loadSample(event.target.value)}>
+              <option value="">Custom submission</option>
+              {sampleCases.map((sample) => <option key={sample.id} value={sample.id}>{sample.label}</option>)}
+            </select>
+          </label>
+        </div>
         <div className="form-section">
           <div className="form-section-title"><h2>Insured</h2><p>Who and what is being covered.</p></div>
           <label>Insured name<input required maxLength={160} value={form.insuredName} onChange={(event) => update("insuredName", event.target.value)} placeholder="Business name" /></label>
