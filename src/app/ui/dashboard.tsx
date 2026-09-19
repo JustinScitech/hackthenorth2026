@@ -6,11 +6,12 @@ import { ArrowRight, FilePlus2, RotateCw } from "lucide-react";
 import type { CaseRecord } from "@/lib/types";
 import { Status } from "./status";
 
-type FormState = { insuredName: string; state: string; tiv: string; yearBuilt: string; losses: string; brokerNotes: string };
-const emptyForm: FormState = { insuredName: "", state: "", tiv: "", yearBuilt: "", losses: "", brokerNotes: "" };
+type FormState = { insuredName: string; state: string; tiv: string; yearBuilt: string; losses: string; brokerNotes: string; publicSourceUrl: string };
+const emptyForm: FormState = { insuredName: "", state: "", tiv: "", yearBuilt: "", losses: "", brokerNotes: "", publicSourceUrl: "" };
 const sampleForm: FormState = {
   insuredName: "Harbor Point Works", state: "PA", tiv: "3200000", yearBuilt: "", losses: "",
   brokerNotes: "Commercial property submission for Harbor Point Works. The building was constructed in 1998. Property is owner occupied. Please review for coverage. Loss information will follow from the broker.",
+  publicSourceUrl: "",
 };
 
 export function Dashboard() {
@@ -55,6 +56,7 @@ export function Dashboard() {
           insuredName: form.insuredName, state: form.state, tiv: Number(form.tiv),
           yearBuilt: form.yearBuilt ? Number(form.yearBuilt) : null,
           losses: form.losses ? Number(form.losses) : null, brokerNotes: form.brokerNotes,
+          publicSourceUrl: form.publicSourceUrl.trim() || null,
         }),
       });
       const data = await response.json();
@@ -103,6 +105,7 @@ export function Dashboard() {
               <label>Loss count <span className="optional">Optional</span><input min="0" type="number" value={form.losses} onChange={(event) => update("losses", event.target.value)} placeholder="0" /></label>
             </div>
             <label>Broker submission<textarea required minLength={10} maxLength={20000} rows={7} value={form.brokerNotes} onChange={(event) => update("brokerNotes", event.target.value)} placeholder="Paste the broker's submission details here..." /></label>
+            <label>Public source URL <span className="optional">Optional</span><input type="url" maxLength={2000} value={form.publicSourceUrl} onChange={(event) => update("publicSourceUrl", event.target.value)} placeholder="https://example.com/property" /></label>
             <button className="primary-button" disabled={submitting} type="submit"><FilePlus2 size={17} />{submitting ? "Starting case..." : "Start analysis"}</button>
           </form>
         </section>

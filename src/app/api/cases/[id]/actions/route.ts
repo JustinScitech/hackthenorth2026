@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { temporalClient } from "@/agent/client";
+import { BROKER_RESPONSE_SIGNAL, REVIEW_DECISION_SIGNAL } from "@/agent/contracts";
 import { db, getCase } from "@/lib/db";
 import { putText } from "@/lib/storage";
-import { temporalClient } from "@/lib/temporal";
 
 const actionSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.uuid(), kind: z.literal("broker_response"), response: z.string().trim().min(3).max(10_000) }),
@@ -43,7 +44,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (!saved.rowCount) return NextResponse.json({ error: "This action ID was already used for different content." }, { status: 409 });
     const temporal = await temporalClient();
     const handle = temporal.workflow.getHandle(id);
-    await handle.signal(action.kind === "broker_response" ? "brokerResponse" : "reviewDecision", action.id);
+    await handle.signal(action.kind === "broker_response" ? BROKER_RESPONSE_SIGNAL : REVIEW_DECISION_SIGNAL, action.id);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error(error);
