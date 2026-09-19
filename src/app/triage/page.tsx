@@ -23,7 +23,7 @@ export default function TriagePage() {
   const rows = report ? showAll ? report.ranked : report.topSubmissions : [];
   return <main className="shell">
     <Link href="/" className="back-link">← Case review demo</Link>
-    <div className="page-heading"><div><p className="eyebrow">Federato challenge</p><h1>Submission priorities</h1><p className="subtle">Rank the API queue against the supplied 2025 commercial property appetite.</p></div><button className="primary-button" onClick={run} disabled={loading}>{loading ? "Discovering and scoring…" : "Rank live submissions"}</button></div>
+    <div className="page-heading triage-heading"><div><p className="eyebrow">Federato challenge</p><h1>Submission priorities</h1><p className="subtle">Rank the API queue against the supplied 2025 commercial property appetite.</p></div><button className="primary-button" onClick={run} disabled={loading}>{loading ? "Discovering and scoring…" : "Rank live submissions"}</button></div>
     <p className="subtle">Scores prioritize human review. Matching guidelines does not approve or bind coverage.</p>
     <div aria-live="polite">{loading && <p>Discovering available fields and reading the queue. Large queues may take a few minutes.</p>}{error && <p role="alert" className="alert">{error}</p>}</div>
     {!report && !loading && !error && <p className="empty-state">Run triage to see ranked submissions, per-factor scores, and the reasoning behind each query.</p>}
