@@ -45,6 +45,24 @@ async function main() {
       created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS case_actions_case_id_idx ON case_actions(case_id, created_at);
+    CREATE TABLE IF NOT EXISTS case_jobs (
+      id uuid PRIMARY KEY,
+      case_id uuid NOT NULL REFERENCES cases(id),
+      kind text NOT NULL CHECK (kind IN ('analyze', 'broker_response', 'decision', 'broker_follow_up')),
+      job_key text NOT NULL UNIQUE,
+      payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed')),
+      attempts integer NOT NULL DEFAULT 0,
+      run_at timestamptz NOT NULL DEFAULT now(),
+      lease_until timestamptz,
+      lease_token uuid,
+      last_error text,
+      finished_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS case_jobs_claim_idx ON case_jobs(run_at, created_at) WHERE finished_at IS NULL;
+    CREATE INDEX IF NOT EXISTS case_jobs_case_id_idx ON case_jobs(case_id, created_at);
     CREATE TABLE IF NOT EXISTS agent_eval_runs (
       id uuid PRIMARY KEY,
       total integer NOT NULL,

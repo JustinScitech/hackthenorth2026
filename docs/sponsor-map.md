@@ -2,14 +2,14 @@
 
 ## Product spine
 
-Build an underwriting case investigator for Federato: ingest submissions; discover and normalize the supplied schema; apply the supplied appetite guidelines; investigate missing, conflicting, and public-source facts; rank cases by actionable review priority; and let an underwriter decide. Temporal retains the case across long waits, broker replies, and worker restarts. No model or external source automatically quotes, binds, approves, or declines coverage.
+Build an underwriting case investigator for Federato: ingest submissions; discover and normalize the supplied schema; apply the supplied appetite guidelines; investigate missing, conflicting, and public-source facts; rank cases by actionable review priority; and let an underwriter decide. PostgreSQL jobs retain the case across long waits, broker replies, and worker restarts. No model or external source automatically quotes, binds, approves, or declines coverage.
 
 This is a delivery map, not a claim that every listed sponsor has a confirmed 2026 prize. Confirm exact prize rules and submission limits in the event portal before selecting tracks.
 
 | Sponsor | Underwriting role | Current status | Live proof needed |
 | --- | --- | --- | --- |
 | Federato | Source submissions, schema, glossary, and appetite rules | Live schema discovery, 113-policy paginated ranking, supplied appetite rules, explanations and query trace at `/triage` | Reconcile standalone submissions with policies; confirm primary state and complete five-year loss history; see [gap assessment](federato-gap-assessment.md) |
-| Rox | Agent handling messy operational data and meaningful actions | Missing-field follow-up and conflict detection; Temporal wait/resume | Real messy Federato cases, measured resolutions and actions |
+| Rox | Agent handling messy operational data and meaningful actions | Missing-field follow-up and conflict detection; durable job resume | Real messy Federato cases, measured resolutions and actions |
 | OpenAI | Not used; Gemini is the configured extraction provider | Not connected | No OpenAI integration is required for this branch |
 | Tiger Data | Relational case/audit state plus time-series operations analytics | PostgreSQL-compatible schema; no Tiger Data connection yet | Hosted Tiger Data instance and useful metrics dashboard |
 | Gemini | Primary extraction of construction and loss facts | Coded, optional key; parser/Gemini disagreements become review findings | Run a case with a funded Gemini API project and show evidence/uncertainty |
@@ -20,7 +20,7 @@ This is a delivery map, not a claim that every listed sponsor has a confirmed 20
 | MongoDB Atlas | Immutable broker submissions, replies, and public evidence | Coded; local Mongo roundtrip verified | Atlas URI, live read/write, proof in Atlas collection |
 | ElevenLabs | Spoken review brief for underwriter triage | Coded, optional key | Play generated case brief with configured voice |
 | Composio | Authorized broker email or other external tool action | Not connected | OAuth/tool connection, consented follow-up, audit receipt |
-| Cloudflare Agents SDK | Edge-facing case assistant or deployment | Not connected; Temporal remains workflow owner | Real agent feature on Cloudflare without duplicating orchestration |
+| Cloudflare Agents SDK | Edge-facing case assistant or deployment | Not connected; PostgreSQL jobs remain workflow owner | Real agent feature on Cloudflare without duplicating orchestration |
 | Linq | Consented iOS broker follow-up messaging | Not connected | Verified sender/recipient, opt-in, sent message and receipt |
 | Solana badge | Event identity or demo access, not underwriting risk | Not built | Only pursue if rules support an identity use case; never infer insurance risk from a person's social profile |
 
@@ -28,7 +28,7 @@ This is a delivery map, not a claim that every listed sponsor has a confirmed 20
 
 1. Integrate Federato's provided data, schema discovery, glossary, and appetite guidelines. Replace fictional checks and add case ranking with cited rule/version evidence.
 2. Configure and demonstrate MongoDB Atlas, Gemini, Browserbase, Sentry, and ElevenLabs against synthetic or sponsor-provided data. These support the same case investigation.
-3. Add one real broker follow-up channel through Composio or Linq after consent, sender credentials, and delivery rules are available. Keep the Temporal timer as the trigger and the audit trail as the record.
+3. Add one real broker follow-up channel through Composio or Linq after consent, sender credentials, and delivery rules are available. Keep the scheduled job as the trigger and the audit trail as the record.
 4. Add Tiger Data operational analytics, an Expo triage client, a Cloudflare edge assistant, or a GoDaddy domain only when the core underwriting demo is strong and the current prize rules reward the feature.
 
 ## Evidence checklist

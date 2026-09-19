@@ -1,11 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { temporalClient } from "@/agent/client";
-import { WORKFLOW_TYPE } from "@/agent/contracts";
-import { TASK_QUEUE } from "@/agent/task-queue";
+import { enqueueJob } from "@/agent/jobs";
 import { publicSourceUrl } from "@/agent/public-source-url";
-import { addAudit, db, listCases } from "@/lib/db";
+import { db, listCases } from "@/lib/db";
 import { putText } from "@/lib/storage";
 import { requireApiSession } from "@/lib/auth-access";
 
@@ -46,17 +44,28 @@ export async function POST(request: Request) {
   const sourceKey = `cases/${id}/submission.txt`;
   try {
     await putText(sourceKey, parsed.data.brokerNotes);
-    await db.query(
-      "INSERT INTO cases (id, insured_name, state, tiv, year_built, losses, source_key, public_source_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-      [id, parsed.data.insuredName, parsed.data.state, parsed.data.tiv, parsed.data.yearBuilt, parsed.data.losses, sourceKey, parsed.data.publicSourceUrl],
-    );
-    await addAudit(id, "case_created", { source: "intake_form", documentStore: "mongodb" }, `created:${id}`);
-    const temporal = await temporalClient();
-    await temporal.workflow.start(WORKFLOW_TYPE, { workflowId: id, taskQueue: TASK_QUEUE, args: [id] });
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "INSERT INTO cases (id, insured_name, state, tiv, year_built, losses, source_key, public_source_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        [id, parsed.data.insuredName, parsed.data.state, parsed.data.tiv, parsed.data.yearBuilt, parsed.data.losses, sourceKey, parsed.data.publicSourceUrl],
+      );
+      await enqueueJob(id, "analyze", `analyze:${id}:0`, {}, new Date(), client);
+      await client.query(
+        "INSERT INTO audit_events (case_id, event_type, event_key, detail) VALUES ($1, 'case_created', $2, $3)",
+        [id, `created:${id}`, JSON.stringify({ source: "intake_form", documentStore: "mongodb" })],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
     return NextResponse.json({ id }, { status: 201 });
   } catch (error) {
     console.error(error);
-    await db.query("UPDATE cases SET status = 'failed', error = 'Unable to start workflow', updated_at = now() WHERE id = $1", [id]).catch(() => {});
     return NextResponse.json({ error: "Could not start this case. Check local services and worker." }, { status: 503 });
   }
 }

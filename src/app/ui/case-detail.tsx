@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CircleAlert } from "lucide-react";
-import type { AuditEvent, CaseRecord, WorkflowStatus } from "@/lib/types";
+import type { AuditEvent, CaseRecord, JobStatus } from "@/lib/types";
 import { CaseView } from "./case-view";
 
-type Payload = { case: CaseRecord; audit: AuditEvent[]; workflowStatus: WorkflowStatus; voiceAvailable: boolean };
+type Payload = { case: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus; voiceAvailable: boolean };
 
 export function CaseDetail({ id }: { id: string }) {
   const [data, setData] = useState<Payload | null>(null);
@@ -71,7 +71,7 @@ export function CaseDetail({ id }: { id: string }) {
   if (!data) return <main className="shell shell-narrow"><Link className="back-link" href="/cases"><ArrowLeft size={15} /> Cases</Link><div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error ?? "Case not found."}</div></main>;
 
   return <CaseView
-    id={id} caseRecord={data.case} audit={data.audit} workflowStatus={data.workflowStatus} error={error} voiceAvailable={data.voiceAvailable}
+    id={id} caseRecord={data.case} audit={data.audit} jobStatus={data.jobStatus} error={error} voiceAvailable={data.voiceAvailable}
     response={response} setResponse={setResponse} reason={reason} setReason={setReason}
     submitting={submitting} onResponse={() => void sendAction("broker_response")}
     onDecision={(kind) => void sendAction(kind)}

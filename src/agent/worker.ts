@@ -1,22 +1,24 @@
-import { NativeConnection, Worker } from "@temporalio/worker";
-import * as activities from "./activities";
-import { TASK_QUEUE } from "./task-queue";
-import { captureAgentError, initMonitoring, monitorActivities } from "./monitoring";
-import { temporalConfig } from "./temporal-config";
+import { db } from "../lib/db";
+import { captureAgentError, initMonitoring } from "./monitoring";
+import { processNextJob } from "./jobs";
+
+let stopping = false;
+process.on("SIGINT", () => { stopping = true; });
+process.on("SIGTERM", () => { stopping = true; });
 
 async function main() {
   initMonitoring();
-  const { connectionOptions, namespace } = temporalConfig();
-  const connection = await NativeConnection.connect(connectionOptions);
-  const worker = await Worker.create({
-    connection,
-    namespace,
-    workflowsPath: require.resolve("./workflows"),
-    activities: monitorActivities(activities),
-    taskQueue: TASK_QUEUE,
-  });
-  console.log(`Worker listening on ${TASK_QUEUE}`);
-  await worker.run();
+  console.log("Case worker polling PostgreSQL");
+  while (!stopping) {
+    try {
+      if (await processNextJob()) continue;
+    } catch (error) {
+      captureAgentError(error);
+      console.error("Case worker poll failed", error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  await db.end();
 }
 
 main().catch((error) => {

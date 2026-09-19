@@ -16,7 +16,7 @@ Reviewed against `STUDENT_PROJECT_GUIDELINES.pdf`, `APPETITE_GUIDELINES.pdf`, `A
 | Present usable output | Case-review UI | `/triage` dashboard and `npm run triage` CLI with a local JSON report |
 | Optional enrichment | Browserbase excerpt without ranking effect | Remains optional evidence, not a structured risk signal; HTTP error pages now rejected and sessions have an explicit lifetime |
 
-The original Temporal case-review workflow remains a separate, explicitly fictional demo. Federato ranking does not automatically import cases, approve, decline, bind coverage, or send messages.
+The case-review job flow remains a separate, explicitly fictional demo. Federato ranking does not automatically import cases, approve, decline, bind coverage, or send messages.
 
 ## Running
 
@@ -27,7 +27,7 @@ FEDERATO_CLIENT_ID=...
 FEDERATO_CLIENT_SECRET=...
 ```
 
-Run `npm run triage`, or `npm run dev` and open `/triage`, then select **Rank live submissions**. This flow does not require PostgreSQL, Temporal, MinIO, Gemini, or Browserbase. The CLI saves the discovered schema to `data/federato-schema.json` before planning and saves the full report to `data/federato-triage.json`. Both are ignored by Git. Secrets remain server-side and are not included in reports.
+Run `npm run triage`, or `npm run dev` and open `/triage`, then select **Rank live submissions**. This flow does not require PostgreSQL, MongoDB, Gemini, or Browserbase. The CLI saves the discovered schema to `data/federato-schema.json` before planning and saves the full report to `data/federato-triage.json`. Both are ignored by Git. Secrets remain server-side and are not included in reports.
 
 The live endpoint returned a workflow envelope despite `outputOnly=true` and used `results` for ungrouped query rows; both behaviors are supported alongside the documented unwrapped/grouped forms.
 
