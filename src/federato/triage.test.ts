@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FederatoClient, type DataClient } from "./client";
+import { FederatoClient, type DataClient, type Query } from "./client";
 import { planQuery } from "./schema";
 import { scoreSubmission } from "./scoring";
 import { runTriage } from "./triage";
@@ -92,7 +92,7 @@ test("mapping overrides must exist in discovered schema and ambiguity remains vi
 });
 
 function fixture(rows: Record<string, unknown>[]): DataClient {
-  return { schema: async () => schema, query: async (q) => ({ rows: rows.slice(q.pagination.offset, q.pagination.offset + q.pagination.limit), total: rows.length }) };
+  return { schema: async () => schema, query: async (q) => ({ rows: rows.slice(q.pagination?.offset ?? 0, (q.pagination?.offset ?? 0) + (q.pagination?.limit ?? rows.length)), total: rows.length }) };
 }
 test("ranks the entire 123-record queue before taking top N and exposes each query", async () => {
   const rows = Array.from({ length: 123 }, (_, index) => ({ ...good, id: index + 1, premium: index === 122 ? 85_000 : 60_000 }));
@@ -102,7 +102,7 @@ test("ranks the entire 123-record queue before taking top N and exposes each que
   assert.equal(report.topSubmissions[0].id, "123");
   assert.equal(report.topSubmissions.length, 20);
   assert.equal(report.truncated, false);
-  assert.deepEqual(report.trace.map((q) => q.query.pagination.offset), [0, 50, 100]);
+  assert.deepEqual(report.trace.map((q) => q.query.pagination?.offset), [0, 50, 100]);
 });
 
 test("partial queues are labeled; empty, repeated, and changing pages are handled", async () => {
@@ -112,7 +112,7 @@ test("partial queues are labeled; empty, repeated, and changing pages are handle
   assert.equal((await runTriage(fixture([]))).evaluated, 0);
   await assert.rejects(runTriage({ schema: async () => schema, query: async () => ({ rows: [], total: 1 }) }), /empty page/);
   await assert.rejects(runTriage(fixture([{ ...good }, { ...good }])), /repeated/);
-  const changing: DataClient = { schema: async () => schema, query: async (q) => ({ rows: rows.slice(q.pagination.offset, q.pagination.offset + 50), total: q.pagination.offset ? 61 : 60 }) };
+  const changing: DataClient = { schema: async () => schema, query: async (q) => ({ rows: rows.slice(q.pagination?.offset ?? 0, (q.pagination?.offset ?? 0) + 50), total: q.pagination?.offset ? 61 : 60 }) };
   await assert.rejects(runTriage(changing), /changed/);
 });
 
@@ -143,4 +143,26 @@ test("client rejects invalid responses and does not expose upstream secrets", as
   await assert.rejects(client.schema(), (error: Error) => !error.message.includes("secret upstream content") && /authentication/.test(error.message));
   const malformed = new FederatoClient({ clientId: "id", clientSecret: "secret" }, async (url) => Response.json(String(url).includes("oauth/token") ? { access_token: "token", expires_in: 14400 } : { data: [good] }));
   await assert.rejects(malformed.query({ resource: "Policy", pagination: { limit: 50, offset: 0 } }), /Unexpected Federato query response/);
+});
+
+test("client forwards the documented query pipeline without changing array clauses", async () => {
+  const sent: unknown[] = [];
+  const client = new FederatoClient({ clientId: "fixture", clientSecret: "fixture" }, async (url, init) => {
+    if (String(url).includes("oauth/token")) return Response.json({ access_token: "fixture", expires_in: 14400 });
+    sent.push(JSON.parse(String(init?.body)));
+    return Response.json({ total: 2, results: [{ id: 7 }] });
+  });
+  const query: Query = {
+    resource: "Policy",
+    where: { status: { $ne: "expired" } },
+    expand: { exposure_units: { location: true } },
+    unwind: [{ path: "exposure_units", type: "left" }],
+    filter: { exposure_units: { $elemMatch: { kind: "location", location: { hazard_tags: { $in: ["wildfire"] } } } } },
+    over: ["id", "exposure_units.id"],
+    select: { id: true, totalTiv: { $sum: "exposure_units.basis_amount" } },
+    sort: [{ field: "totalTiv", direction: "desc" }],
+    pagination: { limit: 1, offset: 1 },
+  };
+  assert.deepEqual(await client.query(query), { total: 2, rows: [{ id: 7 }] });
+  assert.deepEqual(sent, [{ action: "query", payload: query }]);
 });

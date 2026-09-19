@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "guidelineVersion": "Federato HTN 2026 / 2025 sample commercial property appetite",
+  "asOf": "2026-09-19T00:00:00.000Z",
+  "source": {
+    "title": "2025 Sample: Commercial Property Underwriting Guidelines",
+    "location": "User-provided guideline table in task request, 2026-09-19; PDF pages pending attachment"
+  },
+  "base": {
+    "account_name": "Fictional Evaluation Property",
+    "primary_risk_state": "CA",
+    "business_type": "new",
+    "line_of_business": "property",
+    "tiv": 75000000,
+    "premium": 85000,
+    "year_built": 2015,
+    "acceptable_construction_percent": 75,
+    "five_year_loss_value": 0,
+    "effective_date": "2026-01-01",
+    "expiration_date": "2027-01-01"
+  },
+  "baseExpected": {
+    "recommendation": "Review for acceptance",
+    "score": 94,
+    "statuses": {
+      "business": "acceptable",
+      "line": "acceptable",
+      "state": "target",
+      "tiv": "target",
+      "premium": "target",
+      "year": "target",
+      "constructionPercent": "acceptable",
+      "lossValue": "target"
+    }
+  },
+  "cases": [
+    { "id": "new-property-target", "rule": "New business and Property are acceptable; CA, $75M TIV, $85K premium and post-2010 building are targets", "patch": {}, "expected": { "recommendation": "Review for acceptance", "score": 94, "statuses": {} } },
+    { "id": "renewal-target", "rule": "Renewal business is a target", "patch": { "business_type": "renewal" }, "expected": { "recommendation": "Review for acceptance", "score": 96, "statuses": { "business": "target" } } },
+    { "id": "other-line", "rule": "All lines other than Property are outside appetite", "patch": { "line_of_business": "auto" }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "line": "outside" } } },
+    { "id": "target-state", "rule": "OH, PA, MD, CO, CA and FL are target states", "patch": { "primary_risk_state": "OH" }, "expected": { "recommendation": "Review for acceptance", "score": 94, "statuses": { "state": "target" } } },
+    { "id": "acceptable-state", "rule": "NC, SC, GA, VA and UT are acceptable states", "patch": { "primary_risk_state": "UT" }, "expected": { "recommendation": "Review for acceptance", "score": 91, "statuses": { "state": "acceptable" } } },
+    { "id": "outside-state", "rule": "All other primary risk states are outside appetite", "patch": { "primary_risk_state": "NY" }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "state": "outside" } } },
+    { "id": "tiv-upper-bound", "rule": "TIV up to $150M is acceptable", "patch": { "tiv": 150000000 }, "expected": { "recommendation": "Review for acceptance", "score": 91, "statuses": { "tiv": "acceptable" } } },
+    { "id": "tiv-over-limit", "rule": "TIV over $150M is outside appetite", "patch": { "tiv": 150000001 }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "tiv": "outside" } } },
+    { "id": "premium-lower-bound", "rule": "$50K is acceptable premium", "patch": { "premium": 50000 }, "expected": { "recommendation": "Review for acceptance", "score": 91, "statuses": { "premium": "acceptable" } } },
+    { "id": "premium-below-limit", "rule": "Premium under $50K is outside appetite", "patch": { "premium": 49999 }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "premium": "outside" } } },
+    { "id": "premium-upper-bound", "rule": "$175K is acceptable premium", "patch": { "premium": 175000 }, "expected": { "recommendation": "Review for acceptance", "score": 91, "statuses": { "premium": "acceptable" } } },
+    { "id": "premium-over-limit", "rule": "Premium above $175K is outside appetite", "patch": { "premium": 175001 }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "premium": "outside" } } },
+    { "id": "building-1989", "rule": "Buildings older than 1990 are outside appetite", "patch": { "year_built": 1989 }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "year": "outside" } } },
+    { "id": "building-1990-ambiguous", "rule": "Exactly 1990 is unspecified by newer-than/older-than wording", "patch": { "year_built": 1990 }, "expected": { "recommendation": "Investigate missing or ambiguous data", "score": 69, "statuses": { "year": "unknown" }, "missingIncludes": ["Building age"] } },
+    { "id": "building-2010", "rule": "Newer than 1990 is acceptable; newer than 2010 is target", "patch": { "year_built": 2010 }, "expected": { "recommendation": "Review for acceptance", "score": 91, "statuses": { "year": "acceptable" } } },
+    { "id": "construction-50-ambiguous", "rule": "More than 50% eligible construction is acceptable; exactly 50% is unspecified", "patch": { "acceptable_construction_percent": 50 }, "expected": { "recommendation": "Investigate missing or ambiguous data", "score": 69, "statuses": { "constructionPercent": "unknown" }, "missingIncludes": ["Construction mix"] } },
+    { "id": "construction-49", "rule": "Under 50% eligible construction is outside appetite", "patch": { "acceptable_construction_percent": 49 }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "constructionPercent": "outside" } } },
+    { "id": "loss-100k-ambiguous", "rule": "Under $100K is acceptable and over $100K is outside; exactly $100K is unspecified", "patch": { "five_year_loss_value": 100000 }, "expected": { "recommendation": "Investigate missing or ambiguous data", "score": 69, "statuses": { "lossValue": "unknown" }, "missingIncludes": ["Five-year loss value"] } },
+    { "id": "loss-over-limit", "rule": "Five-year loss value over $100K is outside appetite", "patch": { "five_year_loss_value": 100001 }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "lossValue": "outside" } } },
+    { "id": "missing-premium", "rule": "Premium is a required data point and cannot be inferred when absent", "patch": { "premium": null }, "expected": { "recommendation": "Investigate missing or ambiguous data", "score": 69, "statuses": { "premium": "unknown" }, "missingIncludes": ["Total premium"] } },
+    { "id": "missing-account", "rule": "Account name is a required data point", "patch": { "account_name": "" }, "expected": { "recommendation": "Investigate missing or ambiguous data", "score": 69, "statuses": {}, "missingIncludes": ["account name"] } },
+    { "id": "reversed-dates", "rule": "Effective and expiration dates are required and must be ordered", "patch": { "expiration_date": "2025-01-01" }, "expected": { "recommendation": "Investigate missing or ambiguous data", "score": 69, "statuses": {}, "missingIncludes": ["valid effective/expiration date order"] } }
+  ]
+}
