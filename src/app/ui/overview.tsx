@@ -6,6 +6,7 @@ import { ArrowRight, BookOpen, CircleAlert, FilePlus2, Inbox, ListOrdered, Rotat
 import type { CaseRecord } from "@/lib/types";
 import { Status } from "./status";
 import { useCases } from "./use-cases";
+import { AgentQuality } from "./agent-quality";
 
 const RANGES = [7, 14, 30] as const;
 
@@ -109,6 +110,10 @@ export function Overview() {
           )}
         </div>
       </section>
+
+      <div className="section-divider" />
+
+      <AgentQuality />
 
       <div className="section-divider" />
 

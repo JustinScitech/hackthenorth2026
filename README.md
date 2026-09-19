@@ -37,6 +37,8 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 
 ## Run locally
 
+For a hosted demo with Vercel, Render, Temporal Cloud, and managed databases, follow [the deployment checklist](docs/deployment.md). The web API and worker are separate processes and must use the same Temporal namespace and data stores.
+
 1. Start Docker Desktop.
 2. Copy `.env.example` to `.env` if needed, then adjust values. Keep it out of Git. Google sign-in requires `BETTER_AUTH_URL`, a random `BETTER_AUTH_SECRET`, Google OAuth client ID/secret, and a comma-separated `AUTH_ALLOWED_EMAILS`. Without them, the workspace remains locked.
 3. Run `docker compose up -d`.
@@ -48,9 +50,15 @@ Temporal UI is at http://localhost:8080. The core demo needs no sponsor API keys
 
 For local Google OAuth, register `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI (use your actual dev-server port if different) and set `BETTER_AUTH_URL` to the matching origin. In production, register `https://your-domain/api/auth/callback/google`. Run `npm run db:migrate` after deploying to create the auth tables. Approved Google accounts share the demo workspace; this is authentication and an email allowlist, not tenant isolation or role-based authorization. Do not use real insurance submissions until those controls are added.
 
+If **Continue with Google** is disabled, check `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_ALLOWED_EMAILS`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL` in the server environment, then restart the web server. Database, MongoDB, and sponsor API keys do not substitute for a Google OAuth web client. The Google Cloud consent screen and the exact callback URL must also be configured there.
+
 MongoDB starts with `docker compose up -d` and is the only document store. For the Atlas prize, use an actual Atlas connection string instead; a local container is only a development substitute. `DATABASE_URL` can point to a Tiger Data PostgreSQL instance for case/audit state, but merely changing the hostname does not establish prize eligibility.
 
 Set only the integrations you want in `.env` (see `.env.sponsors.example`): `BROWSERBASE_API_KEY` enables public-source visits, `SENTRY_DSN` enables worker monitoring, `GEMINI_API_KEY` enables an independent extraction check, and `ELEVENLABS_API_KEY` enables audio briefs. All are optional. The public-source field accepts an explicit HTTPS URL; it does not discover or profile people. External page text is displayed as evidence, not treated as a verified underwriting fact or used to approve coverage.
+
+The **Agent quality** section on `/overview` uses local PostgreSQL case and audit data for 30-day outcomes, extraction source counts, and average time to the first guideline check. `npm run eval:agent` writes its latest aggregate result to `agent_eval_runs`; run `npm run db:migrate` after updating before using the dashboard. With `SENTRY_DSN` configured, the worker also emits extraction, model-duration, analysis-outcome, and decision metrics to Sentry. The dashboard does not query Sentry, so it remains useful without a Sentry auth token and does not expose one to the browser. Do not store raw submission text in telemetry.
+
+Atlas and TigerData connection strings can be kept as optional local variables, but the app uses `MONGODB_URI` and `DATABASE_URL` until you deliberately point those at hosted services. Do not run tests or migrations against hosted databases unintentionally. Linq messaging, Elasticsearch search, and a custom domain are not enabled by credentials alone; configure an explicit workflow, endpoint, or owned domain before using them. Keep all credentials in ignored local environment files or your deployment secret store, never in a PR.
 
 ## Durable case lifecycle
 

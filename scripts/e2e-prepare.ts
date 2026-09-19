@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { Pool } from "pg";
-import { E2E_DB_NAME, e2eEnvironment } from "./e2e-env";
+import { E2E_DB_NAME, e2eDatabaseUrl, e2eEnvironment } from "./e2e-env";
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for E2E tests");
+  e2eDatabaseUrl();
   const admin = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
     const existing = await admin.query("SELECT 1 FROM pg_database WHERE datname = $1", [E2E_DB_NAME]);
