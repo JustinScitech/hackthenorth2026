@@ -1,0 +1,13 @@
+# .vercelignore replaces .gitignore for uploads, so list everything that must not ship.
+.env
+.env.*
+!.env.example
+.vercel
+.claude
+node_modules
+.next
+data
+coverage
+playwright-report
+test-results
+*.log

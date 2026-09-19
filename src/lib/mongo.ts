@@ -1,4 +1,5 @@
 import { MongoClient, ServerApiVersion } from "mongodb";
+import { mongoUri } from "./env";
 
 type SourceDocument = { _id: string; content: string; createdAt: Date };
 type EvidenceDocument = { _id: string; url: string; title: string; excerpt: string; createdAt: Date };
@@ -6,8 +7,7 @@ type EvidenceDocument = { _id: string; url: string; title: string; excerpt: stri
 const globalForMongo = globalThis as unknown as { mongoClientPromise?: Promise<MongoClient> };
 
 async function mongoDatabase() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("MONGODB_URI is required for document storage");
+  const uri = mongoUri();
   globalForMongo.mongoClientPromise ??= new MongoClient(uri, {
     serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true },
     serverSelectionTimeoutMS: 10_000,

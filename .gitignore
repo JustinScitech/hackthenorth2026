@@ -1,8 +1,8 @@
 node_modules/
 .next/
-.env.local
-.env
-.env.production
+.env*
+!.env.example
+!.env.production.example
 *.tsbuildinfo
 data/
 

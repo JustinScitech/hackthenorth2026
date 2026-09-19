@@ -110,6 +110,7 @@ export default function DocsPage() {
         <table className="docs-table"><thead><tr><th>Variable</th><th>Purpose</th></tr></thead><tbody>
           <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL for cases and audit events. Required.</td></tr>
           <tr><td><code>MONGODB_URI</code>, <code>MONGODB_DB</code></td><td>Document store for submissions, replies, and public evidence. Required.</td></tr>
+          <tr><td><code>TIGERDATA_DATABASE_URL</code>, <code>MONGODB_ATLAS_URI</code></td><td>Hosted PostgreSQL and MongoDB. Used automatically when deployed on Vercel, where localhost does not exist, or locally when the primary variables are unset. A localhost value in a deployed environment fails with a clear error instead of a connection refusal.</td></tr>
           <tr><td><code>GEMINI_API_KEY</code>, <code>GEMINI_MODEL</code></td><td>Primary structured extraction from broker notes. Without a key or available credits, the deterministic extractor runs and facts remain source-labeled.</td></tr>
           <tr><td><code>BROWSERBASE_API_KEY</code></td><td>Visit an explicitly supplied public URL and attach a cited excerpt.</td></tr>
           <tr><td><code>SENTRY_DSN</code></td><td>Privacy-minimized worker error monitoring.</td></tr>
