@@ -14,7 +14,7 @@ const fieldSchema: z.ZodType<Field> = z.lazy(() => z.object({
 // Match explicit business concepts; never equate loss count with loss dollars or policy limit with TIV.
 const aliases: Record<Concept, string[]> = {
   account: ["accountname", "insuredname", "insured.name", "account.name"],
-  state: ["primaryriskstate", "primarystate", "riskstate"],
+  state: ["primaryriskstate", "primarystate", "riskstate", "state"],
   business: ["submissiontype", "businesstype"], line: ["lineofbusiness", "producttype"],
   tiv: ["totaltiv", "totalinsuredvalue", "tiv"], premium: ["totalpremium", "premium"],
   year: ["yearbuilt", "buildingyear", "constructionyear"],
@@ -116,7 +116,7 @@ export function planQuery(raw: unknown, options: { resource?: string; mapping?: 
 
 export function readValues(value: unknown, path: string): unknown[] {
   function read(current: unknown, parts: string[]): unknown[] {
-    if (Array.isArray(current)) return current.length ? current.flatMap((item) => read(item, parts)) : [undefined];
+    if (Array.isArray(current)) return current.flatMap((item) => read(item, parts));
     if (!parts.length) return [current];
     if (!current || typeof current !== "object") return [undefined];
     return read((current as Record<string, unknown>)[parts[0]], parts.slice(1));
