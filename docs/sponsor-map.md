@@ -10,9 +10,9 @@ This is a delivery map, not a claim that every listed sponsor has a confirmed 20
 | --- | --- | --- | --- |
 | Federato | Source submissions, schema, glossary, and appetite rules | Live schema discovery, 113-policy paginated ranking, supplied appetite rules, explanations and query trace at `/triage` | Reconcile standalone submissions with policies; confirm primary state and complete five-year loss history; see [gap assessment](federato-gap-assessment.md) |
 | Rox | Agent handling messy operational data and meaningful actions | Missing-field follow-up and conflict detection; Temporal wait/resume | Real messy Federato cases, measured resolutions and actions |
-| OpenAI | Structured extraction from broker notes | Coded, optional key | Run a case with API key and show evidence/uncertainty |
+| OpenAI | Not used; Gemini is the configured extraction provider | Not connected | No OpenAI integration is required for this branch |
 | Tiger Data | Relational case/audit state plus time-series operations analytics | PostgreSQL-compatible schema; no Tiger Data connection yet | Hosted Tiger Data instance and useful metrics dashboard |
-| Gemini | Independent extraction of construction and loss facts | Coded, optional key; disagreements become review findings | Run both models on conflicting broker text |
+| Gemini | Primary extraction of construction and loss facts | Coded, optional key; parser/Gemini disagreements become review findings | Run a case with a funded Gemini API project and show evidence/uncertainty |
 | Browserbase | Read an explicitly supplied public property/business source | Coded, optional key; URL/excerpt attached to case | Live browser session with cited source |
 | Sentry | Observe worker failures without transmitting submission text | Coded, optional DSN | Test event and worker trace in Sentry |
 | Expo | Mobile underwriter triage and decision | Not built | Working Expo app using same case API and human review |
@@ -27,7 +27,7 @@ This is a delivery map, not a claim that every listed sponsor has a confirmed 20
 ## Build order
 
 1. Integrate Federato's provided data, schema discovery, glossary, and appetite guidelines. Replace fictional checks and add case ranking with cited rule/version evidence.
-2. Configure and demonstrate MongoDB Atlas, OpenAI, Gemini, Browserbase, Sentry, and ElevenLabs against synthetic or sponsor-provided data. These support the same case investigation.
+2. Configure and demonstrate MongoDB Atlas, Gemini, Browserbase, Sentry, and ElevenLabs against synthetic or sponsor-provided data. These support the same case investigation.
 3. Add one real broker follow-up channel through Composio or Linq after consent, sender credentials, and delivery rules are available. Keep the Temporal timer as the trigger and the audit trail as the record.
 4. Add Tiger Data operational analytics, an Expo triage client, a Cloudflare edge assistant, or a GoDaddy domain only when the core underwriting demo is strong and the current prize rules reward the feature.
 

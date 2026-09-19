@@ -25,7 +25,7 @@ const claim = { id: 1, date_of_loss: "2025-01-01", paid_indemnity: 60_000, paid_
 test("derives exposure totals without double counting and documents construction weighting", () => {
   const result = deriveFacts({ currency: "USD", exposure_units: [{ location }, { location }], claims: [claim, claim] }, plan, asOf);
   assert.deepEqual(result.row.__derived, { tiv: 75_000_000, constructionPercent: 100, state: "CA", lossValue: 110_000 });
-  assert.match(result.sources.constructionPercent ?? "", /application assumption/);
+  assert.match(result.sources.constructionPercent ?? "", /building count/);
   assert.equal(result.lossLowerBound, 110_000);
 });
 
@@ -41,17 +41,24 @@ test("multi-state, missing exposures, unknown construction and non-USD amounts s
   assert.equal(foreign.row.__derived.premium, null);
 });
 
-test("claims are windowed, deduplicated lower bounds, never proof of complete clean history", () => {
+test("claims are windowed, deduplicated, and calculate the available five-year incurred value", () => {
   const result = deriveFacts({ currency: "USD", claims: [{ ...claim, paid_indemnity: 1, reserve_indemnity: 0 }, { ...claim, id: 2, date_of_loss: "2020-01-01" }, { ...claim, id: 3, date_of_loss: "2027-01-01" }] }, plan, asOf);
   assert.equal(result.lossLowerBound, 1);
-  assert.equal(result.mapping.lossValue, undefined);
-  assert.equal(deriveFacts({ currency: "USD", claims: [] }, plan, asOf).mapping.lossValue, undefined);
+  assert.equal(result.row.__derived.lossValue, 1);
+  assert.equal(deriveFacts({ currency: "USD", claims: [] }, plan, asOf).row.__derived.lossValue, 0);
 });
 
 test("chooses the resource with more direct appetite fields when both resources exist", () => {
   const discovered = { ...schema, Submission: { type: "object", fields: { id: n, line_of_business: s } } };
   assert.equal(planQuery(discovered).resource, "Policy");
   assert.equal(planQuery(discovered, { resource: "Submission" }).resource, "Submission");
+});
+
+test("uses a direct primary state field when the discovered schema provides one", () => {
+  const direct = { Policy: { type: "object", fields: { id: n, state: s, premium: n } } };
+  const directPlan = planQuery(direct);
+  assert.equal(directPlan.mapping.state, "state");
+  assert.equal(directPlan.derivations.locations, undefined);
 });
 
 test("supports live wrapped schema and ungrouped results even with outputOnly=true", async () => {

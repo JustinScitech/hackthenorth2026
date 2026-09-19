@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { parseBrokerNotes, type Extracted } from "./analysis";
@@ -10,7 +9,7 @@ const extractionSchema = z.object({
 
 type Candidate = { source: string; value: Extracted };
 export type ModelAttempt = {
-  source: "OpenAI" | "Gemini";
+  source: "Gemini";
   model: string;
   status: "not_configured" | "started" | "completed" | "failed";
   durationMs: number;
@@ -43,31 +42,8 @@ export function extractionConflicts(candidates: Candidate[]): string[] {
   return conflicts;
 }
 
-async function openAIExtraction(text: string): Promise<ModelAttempt> {
-  const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
-  if (!process.env.OPENAI_API_KEY) return { source: "OpenAI", model, status: "not_configured", durationMs: 0 };
-  const started = performance.now();
-  try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45_000, maxRetries: 0 });
-    const response = await openai.chat.completions.create({
-      model,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: "Extract only facts explicitly stated in the broker text. Return JSON with yearBuilt and losses as integers or null. Losses means the count of losses or claims in the past three years. Later broker updates supersede earlier details. Never infer a missing value." },
-        { role: "user", content: text.slice(0, 20_000) },
-      ],
-    });
-    const content = response.choices[0]?.message.content;
-    if (!content) throw new Error("Empty model response");
-    return { source: "OpenAI", model: response.model || model, status: "completed", durationMs: Math.round(performance.now() - started), value: extractionSchema.parse(JSON.parse(content)) };
-  } catch (error) {
-    console.warn("OpenAI extraction unavailable", error instanceof Error ? error.name : "UnknownError");
-    return { source: "OpenAI", model, status: "failed", durationMs: Math.round(performance.now() - started), errorCode: errorCode(error) };
-  }
-}
-
 export async function runGeminiWaterfall(
-  generate: (model: string) => Promise<{ text?: string; modelVersion?: string }>,
+  generate: (model: string) => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>,
   onEvent?: ModelObserver,
   models: readonly string[] = GEMINI_WATERFALL,
 ): Promise<ModelAttempt[]> {
@@ -79,7 +55,7 @@ export async function runGeminiWaterfall(
     try {
       const response = await generate(model);
       if (!response.text) throw new Error("Empty model response");
-      completed = { source: "Gemini", model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: extractionSchema.parse(JSON.parse(response.text)), attemptCount: 1 };
+      completed = { source: "Gemini", model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: extractionSchema.parse(JSON.parse(response.text)), attemptCount: response.attemptCount ?? 1 };
     } catch (error) {
       const attempt: ModelAttempt = { source: "Gemini", model, status: "failed", durationMs: Math.round(performance.now() - started), errorCode: errorCode(error), attemptCount: 1 };
       attempts.push(attempt);
@@ -97,29 +73,37 @@ export async function runGeminiWaterfall(
 }
 
 async function geminiExtraction(text: string, onEvent?: ModelObserver): Promise<ModelAttempt[]> {
-  const models = [...new Set([process.env.GEMINI_MODEL || GEMINI_WATERFALL[0], ...GEMINI_WATERFALL])];
+  const models = [...new Set([process.env.GEMINI_MODEL || "gemini-3.5-flash-lite", ...GEMINI_WATERFALL])];
   if (!process.env.GEMINI_API_KEY) return [{ source: "Gemini", model: models[0], status: "not_configured", durationMs: 0 }];
   const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  return runGeminiWaterfall((model) => gemini.models.generateContent({
-    model,
-    contents: `Extract only explicitly stated insurance submission facts. Return JSON with yearBuilt and losses as integers or null. Losses is the count in the past three years. Later broker updates supersede earlier details. Do not infer missing values.\n\n${text.slice(0, 20_000)}`,
-    config: { responseMimeType: "application/json", httpOptions: { timeout: 25_000 } },
-  }), onEvent, models);
+  return runGeminiWaterfall(async (model) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await gemini.models.generateContent({
+          model,
+          contents: `You extract facts for an underwriting review. Return only JSON matching {"yearBuilt": integer|null, "losses": integer|null}. Extract only facts explicitly stated in the broker text. "losses" is a count of losses or claims in the past three years, not a dollar amount. Later broker updates supersede earlier details. Do not infer missing values, convert currency, or treat a dollar loss total as a claim count.\n\n${text.slice(0, 20_000)}`,
+          config: { responseMimeType: "application/json", httpOptions: { timeout: 45_000 } },
+        });
+        return { text: response.text, modelVersion: response.modelVersion, attemptCount: attempt + 1 };
+      } catch (error) {
+        const status = errorCode(error);
+        const transient = status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+        if (!transient || attempt === 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
+      }
+    }
+    return { text: undefined };
+  }, onEvent, models);
 }
 
 export async function extractNotes(text: string, onGeminiEvent?: ModelObserver): Promise<{ extracted: Extracted; fieldSources: { yearBuilt: string; losses: string }; conflicts: string[]; sources: string[]; attempts: ModelAttempt[] }> {
   const parser = parseBrokerNotes(text);
-  const [openai, geminiAttempts] = await Promise.all([openAIExtraction(text), geminiExtraction(text, onGeminiEvent)]);
+  const geminiAttempts = await geminiExtraction(text, onGeminiEvent);
   const gemini = geminiAttempts.find((attempt) => attempt.status === "completed");
   const candidates: Candidate[] = [{ source: "Parser", value: parser }];
-  if (openai.value) candidates.push({ source: "OpenAI", value: openai.value });
   if (gemini?.value) candidates.push({ source: `Gemini ${gemini.model}`, value: gemini.value });
   function pickField(field: keyof Extracted): { value: number | null; source: string } {
-    for (const candidate of [gemini, openai]) {
-      if (!candidate) continue;
-      const value = candidate.value?.[field];
-      if (value !== undefined && value !== null) return { value, source: candidate.source === "Gemini" ? `Gemini ${candidate.model}` : candidate.source };
-    }
+    if (gemini?.value?.[field] !== undefined && gemini.value[field] !== null) return { value: gemini.value[field], source: `Gemini ${gemini.model}` };
     return { value: parser[field], source: parser[field] === null ? "Not provided" : "Parser" };
   }
   const yearBuilt = pickField("yearBuilt");
@@ -129,6 +113,6 @@ export async function extractNotes(text: string, onGeminiEvent?: ModelObserver):
     fieldSources: { yearBuilt: yearBuilt.source, losses: losses.source },
     conflicts: extractionConflicts(candidates),
     sources: candidates.map((candidate) => candidate.source),
-    attempts: [openai, ...geminiAttempts],
+    attempts: geminiAttempts,
   };
 }

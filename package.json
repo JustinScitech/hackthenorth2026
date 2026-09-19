@@ -6,12 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "worker": "node --env-file=.env --import tsx src/agent/worker.ts",
-    "db:migrate": "node --env-file=.env --import tsx scripts/migrate.ts",
+    "worker": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx src/agent/worker.ts",
+    "db:migrate": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/agent/*.test.ts src/federato/*.test.ts",
-    "eval:agent": "node --env-file=.env --import tsx scripts/eval-agent.ts",
-    "triage": "node --env-file=.env --import tsx scripts/federato-triage.ts"
+    "eval:agent": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/eval-agent.ts",
+    "test": "node --import tsx --test src/agent/*.test.ts src/federato/*.test.ts src/app/api/triage/*.test.ts",
+    "test:e2e": "npm run build && node --import tsx scripts/e2e.ts",
+    "triage": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/federato-triage.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.20.0",
@@ -23,7 +24,6 @@
     "lucide-react": "^0.468.0",
     "mongodb": "^7.6.0",
     "next": "^16.3.5",
-    "openai": "^6.0.0",
     "pg": "^8.16.0",
     "playwright-core": "^1.63.0",
     "react": "^19.0.0",

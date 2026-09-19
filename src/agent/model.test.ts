@@ -10,18 +10,14 @@ test("flags differing values without treating missing values as a contradiction"
 });
 
 test("parser fallback is labeled when no model is configured", async () => {
-  const openaiKey = process.env.OPENAI_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
-  delete process.env.OPENAI_API_KEY;
   delete process.env.GEMINI_API_KEY;
   try {
     const result = await extractNotes("The building was constructed in 2005 and had no losses in the past three years.");
     assert.deepEqual(result.extracted, { yearBuilt: 2005, losses: 0 });
     assert.deepEqual(result.fieldSources, { yearBuilt: "Parser", losses: "Parser" });
-    assert.deepEqual(result.attempts.map((attempt) => attempt.status), ["not_configured", "not_configured"]);
+    assert.deepEqual(result.attempts.map((attempt) => attempt.status), ["not_configured"]);
   } finally {
-    if (openaiKey === undefined) delete process.env.OPENAI_API_KEY;
-    else process.env.OPENAI_API_KEY = openaiKey;
     if (geminiKey === undefined) delete process.env.GEMINI_API_KEY;
     else process.env.GEMINI_API_KEY = geminiKey;
   }

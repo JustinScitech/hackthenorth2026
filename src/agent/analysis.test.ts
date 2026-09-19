@@ -7,6 +7,14 @@ test("extracts explicit construction year and loss count", () => {
   assert.deepEqual(parseBrokerNotes("Built in 1998. Loss information to follow. The property had 0 losses in the past three years."), { yearBuilt: 1998, losses: 0 });
 });
 
+test("does not mistake a dollar loss value for a claim count", () => {
+  assert.deepEqual(parseBrokerNotes("Loss value: $100,000. Claim count is not provided."), { yearBuilt: null, losses: null });
+});
+
+test("understands written year windows and lets later notes supersede earlier claim counts", () => {
+  assert.deepEqual(parseBrokerNotes("Built in 1998. Initial note: 3 claims. Broker update: claims in the past three years: 0."), { yearBuilt: 1998, losses: 0 });
+});
+
 test("missing loss history asks the broker and remains unknown", () => {
   const facts = buildFacts({ state: "PA", tiv: 3_200_000, yearBuilt: null, losses: null }, parseBrokerNotes("Built in 1998. Loss information to follow."));
   const result = evaluateFacts(facts);
