@@ -9,8 +9,9 @@
     "worker": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx src/agent/worker.ts",
     "db:migrate": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/agent/*.test.ts src/federato/*.test.ts",
     "eval:agent": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/eval-agent.ts",
+    "test": "node --import tsx --test src/agent/*.test.ts src/federato/*.test.ts src/app/api/triage/*.test.ts",
+    "test:e2e": "npm run build && node --import tsx scripts/e2e.ts",
     "triage": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/federato-triage.ts"
   },
   "dependencies": {
