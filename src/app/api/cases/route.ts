@@ -6,6 +6,7 @@ import { TASK_QUEUE, WORKFLOW_TYPE } from "@/agent/contracts";
 import { publicSourceUrl } from "@/agent/public-source-url";
 import { addAudit, db, listCases } from "@/lib/db";
 import { putText } from "@/lib/storage";
+import { requireApiSession } from "@/lib/auth-access";
 
 const createSchema = z.object({
   insuredName: z.string().trim().min(2).max(160),
@@ -17,7 +18,9 @@ const createSchema = z.object({
   publicSourceUrl: z.url().max(2000).nullable(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
+  const denied = await requireApiSession(request);
+  if (denied) return denied;
   try {
     return NextResponse.json({ cases: await listCases() });
   } catch (error) {
@@ -27,6 +30,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireApiSession(request);
+  if (denied) return denied;
+  const origin = request.headers.get("origin");
+  if (!origin || origin !== new URL(request.url).origin) return NextResponse.json({ error: "Use the case form on this site." }, { status: 403 });
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Check the submission fields and try again." }, { status: 400 });
   if (parsed.data.publicSourceUrl) {

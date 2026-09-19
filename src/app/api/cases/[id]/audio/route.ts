@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { getCase } from "@/lib/db";
+import { requireApiSession } from "@/lib/auth-access";
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await requireApiSession(request);
+  if (denied) return denied;
+  const origin = request.headers.get("origin");
+  if (!origin || origin !== new URL(request.url).origin) return NextResponse.json({ error: "Use the case page on this site." }, { status: 403 });
   const { id } = await context.params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "Invalid case ID." }, { status: 400 });
   const apiKey = process.env.ELEVENLABS_API_KEY;

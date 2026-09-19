@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Check, CircleAlert, ClipboardList, Clock3, ExternalLink, FileText, ShieldCheck, Send, X } from "lucide-react";
 import type { AuditEvent, CaseRecord, Fact, WorkflowStatus } from "@/lib/types";
 import { Status } from "./status";
+import { VoiceBrief } from "./voice-brief";
 
 type ActionKind = "approve" | "decline";
 
@@ -172,7 +173,7 @@ export function CaseView({ id, caseRecord, audit, workflowStatus, error, voiceAv
         <WorkflowProgress caseRecord={caseRecord} audit={audit} workflowStatus={workflowStatus} />
         {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={17} aria-hidden="true" />{caseRecord.error ?? "The workflow failed."}</div>}
         <p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p>
-        {voiceAvailable && caseRecord.brief && <audio className="brief-audio" controls preload="none" src={`/api/cases/${id}/audio`} aria-label="Listen to review brief" />}
+        {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} />
         {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
         <Findings caseRecord={caseRecord} />

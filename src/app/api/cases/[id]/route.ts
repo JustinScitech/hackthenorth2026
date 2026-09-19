@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { temporalClient } from "@/agent/client";
 import { getAudit, getCase } from "@/lib/db";
 import type { WorkflowStatus } from "@/lib/types";
+import { requireApiSession } from "@/lib/auth-access";
 
 async function getWorkflowStatus(id: string): Promise<WorkflowStatus> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -18,7 +19,9 @@ async function getWorkflowStatus(id: string): Promise<WorkflowStatus> {
   }
 }
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await requireApiSession(request);
+  if (denied) return denied;
   const { id } = await context.params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "Invalid case ID." }, { status: 400 });
   try {

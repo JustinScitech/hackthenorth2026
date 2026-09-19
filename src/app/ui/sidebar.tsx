@@ -3,9 +3,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronRight, FolderKanban, Globe, Home, Inbox, ListOrdered, Menu, Moon, Plus, Settings, Sun, X } from "lucide-react";
+import { BookOpen, ChevronRight, FolderKanban, Globe, Home, Inbox, ListOrdered, LogOut, Menu, Moon, Plus, Settings, Sun, X } from "lucide-react";
 import { useTheme } from "./theme";
 import { Wordmark } from "./logo";
+import { authClient } from "@/lib/auth-client";
 
 function Brand() {
   return <Wordmark href="/overview" />;
@@ -29,9 +30,11 @@ function NavLink({ href, active, children, external = false }: { href: string; a
   );
 }
 
-export function AppFrame({ children }: { children: ReactNode }) {
+export function AppFrame({ children, user }: { children: ReactNode; user: { name: string; email: string } }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState(false);
 
   useEffect(() => { setOpen(false); }, [pathname]);
 
@@ -44,6 +47,19 @@ export function AppFrame({ children }: { children: ReactNode }) {
 
   const isNewCase = pathname === "/cases/new";
   const isCases = pathname.startsWith("/cases") && !isNewCase;
+
+  async function signOut() {
+    setSigningOut(true); setSignOutError(false);
+    try {
+      const result = await authClient.signOut();
+      if (result.error) { setSignOutError(true); return; }
+      window.location.assign("/sign-in");
+    } catch {
+      setSignOutError(true);
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   return (
     <div className="app-frame" data-nav-open={open ? "true" : "false"}>
@@ -68,7 +84,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
         <div className="sidebar-bottom">
           <NavLink href="/docs" active={false}><BookOpen size={17} />Docs and API reference</NavLink>
           <NavLink href="/" active={false}><Globe size={17} />Astra Risk home</NavLink>
-          <div className="sidebar-user"><span className="avatar">U</span><span>Demo underwriter</span></div>
+          <div className="sidebar-user"><span className="avatar" aria-hidden="true">{(user.name || user.email).slice(0, 1).toUpperCase()}</span><span className="sidebar-user-details"><strong>{user.name || user.email}</strong><small>{user.email}</small></span><button className="icon-button" type="button" onClick={() => void signOut()} disabled={signingOut} aria-label="Sign out" title="Sign out"><LogOut size={16} /></button></div>
+          {signOutError && <p className="sidebar-auth-error" role="alert">Could not sign out. Try again.</p>}
         </div>
       </aside>
       <button className="sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setOpen(false)} tabIndex={-1} />

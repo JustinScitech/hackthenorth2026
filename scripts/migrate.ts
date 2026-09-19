@@ -1,10 +1,9 @@
-import { Pool } from "pg";
-
-if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+import { getMigrations } from "better-auth/db/migration";
+import { auth } from "../src/auth";
+import { db } from "../src/lib/db";
 
 async function main() {
-  await pool.query(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS cases (
       id uuid PRIMARY KEY,
       insured_name text NOT NULL,
@@ -50,10 +49,12 @@ async function main() {
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_evidence jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS extraction_conflicts jsonb NOT NULL DEFAULT '[]'::jsonb;
   `);
+  const { runMigrations } = await getMigrations(auth.options);
+  await runMigrations();
   console.log("Database ready");
 }
 
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
-}).finally(() => pool.end());
+}).finally(() => db.end());
