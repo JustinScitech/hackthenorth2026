@@ -21,7 +21,7 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 - MongoDB: broker submissions, replies, and public evidence (local container or Atlas)
 - Optional Gemini API: primary structured extraction from unstructured broker notes; deterministic fallback works without a key or available credits
 - Optional Browserbase: visit an explicitly supplied public source and attach a cited excerpt to the case
-- Optional Sentry: privacy-minimized worker error monitoring
+- Optional Sentry: error monitoring, agent traces, and job, analysis, and eval metrics from the worker, web app, and browser, read back into the overview dashboard
 - Optional ElevenLabs: spoken underwriter review brief
 
 ## Code layout
@@ -55,7 +55,7 @@ MongoDB starts with `docker compose up -d` and is the only document store. For t
 
 Set only the integrations you want in `.env` (see `.env.sponsors.example`): `BROWSERBASE_API_KEY` enables public-source visits, `SENTRY_DSN` enables worker monitoring, `GEMINI_API_KEY` enables an independent extraction check, and `ELEVENLABS_API_KEY` enables audio briefs. All are optional. The public-source field accepts an explicit HTTPS URL; it does not discover or profile people. External page text is displayed as evidence, not treated as a verified underwriting fact or used to approve coverage.
 
-The **Agent quality** section on `/overview` uses local PostgreSQL case and audit data for 30-day outcomes, extraction source counts, and average time to the first guideline check. `npm run eval:agent` writes its latest aggregate result to `agent_eval_runs`; run `npm run db:migrate` after updating before using the dashboard. With `SENTRY_DSN` configured, the worker also emits extraction, model-duration, analysis-outcome, and decision metrics to Sentry. The dashboard does not query Sentry, so it remains useful without a Sentry auth token and does not expose one to the browser. Do not store raw submission text in telemetry.
+The **Agent quality** section on `/overview` uses local PostgreSQL case and audit data for 30-day outcomes, extraction source counts, and average time to the first guideline check. `npm run eval:agent` writes its latest aggregate result to `agent_eval_runs`; run `npm run db:migrate` after updating before using the dashboard. With `SENTRY_DSN` configured, the worker also emits extraction, model-duration, analysis-outcome, decision, and job metrics to Sentry, traces each job and activity as a span, and `npm run eval:agent` reports per-run and per-fixture eval metrics. With `SENTRY_AUTH_TOKEN` (plus `SENTRY_ORG` and `SENTRY_PROJECT`) the same page adds a **Sentry telemetry** panel that reads those errors, spans, and metrics back from the Sentry API on the server, caches them for a minute, and never sends the token to the browser. Without the token, the panel explains what to set and the local metrics still work. Do not store raw submission text in telemetry.
 
 Atlas and TigerData connection strings can be kept as optional local variables, but the app uses `MONGODB_URI` and `DATABASE_URL` until you deliberately point those at hosted services. Do not run tests or migrations against hosted databases unintentionally. Linq messaging, Elasticsearch search, and a custom domain are not enabled by credentials alone; configure an explicit workflow, endpoint, or owned domain before using them. Keep all credentials in ignored local environment files or your deployment secret store, never in a PR.
 
@@ -67,15 +67,27 @@ Case work is queued in PostgreSQL. Broker responses and underwriter decisions ar
 
 The case view shows a persisted activity trace: intake, extraction sources, public research, guideline counts, broker follow-ups, and review actions. It does not display or store a model's private chain-of-thought. The live Federato triage endpoint is currently a separate synchronous request; move it into bounded jobs before treating it as a durable long-running process.
 
+## Sentry
+
+Sentry is wired for all three runtimes. `src/instrumentation.ts` loads `sentry.server.config.ts` and `sentry.edge.config.ts` and forwards Next.js request errors; `src/instrumentation-client.ts` initializes the browser SDK and traces App Router navigations; `src/app/global-error.tsx` reports root layout crashes; and `next.config.ts` wraps the build with `withSentryConfig`, which uploads source maps only when `SENTRY_AUTH_TOKEN` is set. The worker and eval script use `@sentry/node` directly in `src/agent/monitoring.ts`, tagged `process=worker` or `process=eval`, so everything lands in one project.
+
+Telemetry is privacy-minimized: request bodies, headers, and cookies are dropped, `sendDefaultPii` is off, agent errors are reported by error name only, and metrics carry attributes such as `source`, `outcome`, `status`, `kind`, `model`, and `fixture`, never broker text. The metric names are `underwriting.extraction`, `underwriting.model_duration`, `underwriting.analysis`, `underwriting.referrals`, `underwriting.decision`, `underwriting.job`, `underwriting.job_duration`, `underwriting.eval_accuracy`, `underwriting.eval_run`, `underwriting.eval_duration`, `underwriting.eval_case`, and `underwriting.eval_case_duration`; spans use the ops `agent.job`, `agent.activity`, `agent.eval`, and `agent.eval.case`.
+
+Set `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` to the project DSN and `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` for source maps and the dashboard panel. `./scripts/vercel-env.sh` pushes all five to Vercel. The Docker image needs `NEXT_PUBLIC_SENTRY_DSN` as a build argument because the browser DSN is inlined at build time; `compose.production.yaml` passes it from `.env.production`. Sentry's Claude Code plugin (`npx @sentry/agent-plugin install <org>#<code>`) is installed per developer machine, not in the repo.
+
 ## Deploying to Vercel
 
 The recommended low-cost demo runs the web app and worker together on one VM; see [the deployment checklist](docs/deployment.md). Vercel can host the web app separately only if the worker reaches the same hosted PostgreSQL and MongoDB databases. The app resolves databases from where it runs (`src/lib/env.ts`): locally it uses `DATABASE_URL` and `MONGODB_URI`, and on Vercel it uses `TIGERDATA_DATABASE_URL` and `MONGODB_ATLAS_URI`, refusing localhost. `./scripts/vercel-env.sh` can push variables to a linked Vercel project. `.vercelignore` keeps `.env` out of uploads; never rely on `.gitignore` for that. Vercel Hobby is limited to personal, non-commercial use.
+
+## Google sign-in troubleshooting
+
+A `redirect_uri_mismatch` from Google means the OAuth client does not list the exact callback the app sends. Run `npm run auth:check` to have Google report which candidate URIs are registered on the configured client; the two ending in `/api/auth/callback/google` must be marked as registered. Pass `--client <id>` to inspect a different client.
 
 ## Checks
 
 Run `npm run typecheck`, `npm test`, and `npm run build`. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100. Most UI scenarios use fixture responses; one exercises the real PostgreSQL job and MongoDB lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
 
-For a live Gemini extraction eval, set `GEMINI_API_KEY` and run `npm run eval:agent`. This checks the model's own year-built and three-year loss-count values across four fictional submissions, then checks the resulting demo guideline decisions. Calls are spaced to reduce per-minute rate-limit errors. The eval fails if Gemini is unavailable or falls back to the parser. It does not measure document ingestion, coverage decisions, or the separate Federato triage flow.
+Run `npm run eval:underwriting` for the offline, versioned Federato appetite corpus. It checks every factor and writes a detailed report under ignored `data/`. For a live Gemini extraction eval, set `GEMINI_API_KEY` and run `npm run eval:agent`. It checks the model's year-built and three-year loss-count values, selected provenance, and exact demo findings across synthetic broker notes and any samples added under `evals/agent-notes/`. Calls are spaced to reduce per-minute rate-limit errors. The live eval fails if Gemini is unavailable or falls back to the parser. These text-based evals do not measure PDF ingestion or coverage decisions. See [the evaluation guide](docs/underwriting-evals.md) for adding PDF-grounded cases.
 
 The case page shows job state and a persisted activity trace with model name, extraction time, and fallback status. Gemini extraction tries `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-3.5-flash`, stopping at the first valid result. `GEMINI_MODEL` can put a different model first for comparison. Quota and authentication errors stop the waterfall rather than multiplying requests. The demo still applies its four fictional guideline checks deterministically after extraction.
 

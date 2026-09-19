@@ -26,6 +26,8 @@ export function e2eEnvironment() {
     OPENAI_API_KEY: "",
     BROWSERBASE_API_KEY: "",
     SENTRY_DSN: "",
+    NEXT_PUBLIC_SENTRY_DSN: "",
+    SENTRY_AUTH_TOKEN: "",
     FEDERATO_API_KEY: "",
     FEDERATO_CLIENT_ID: "",
     FEDERATO_CLIENT_SECRET: "",

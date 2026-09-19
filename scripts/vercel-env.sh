@@ -33,6 +33,14 @@ add ELEVENLABS_API_KEY     "$ELEVENLABS_API_KEY"
 add GOOGLE_CLIENT_ID       "$GOOGLE_CLIENT_ID"
 add GOOGLE_CLIENT_SECRET   "$GOOGLE_CLIENT_SECRET"
 
+# Sentry: the DSN is public; the auth token uploads source maps at build time and powers the
+# Sentry panel on /overview. It stays server-side (no NEXT_PUBLIC_ prefix).
+add SENTRY_DSN             "$SENTRY_DSN"
+add NEXT_PUBLIC_SENTRY_DSN "$NEXT_PUBLIC_SENTRY_DSN"
+add SENTRY_ORG             "$SENTRY_ORG"
+add SENTRY_PROJECT         "$SENTRY_PROJECT"
+add SENTRY_AUTH_TOKEN      "$SENTRY_AUTH_TOKEN"
+
 # Set after the first deploy, once the production domain is known:
 #   printf 'https://<your-domain>' | vercel env add BETTER_AUTH_URL production --force
 echo "done"

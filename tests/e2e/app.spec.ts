@@ -43,6 +43,26 @@ test("overview, case list, search, and navigation use real session and case data
   await expect(page.getByRole("heading", { name })).toBeVisible();
 });
 
+test("workspace matches the landing palette across desktop and mobile", async ({ authenticatedPage: page }, testInfo) => {
+  await page.goto("/overview");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".sidebar .brand-text")).toContainText("AstraRisk");
+  expect(await page.locator("body").evaluate((body) => getComputedStyle(body).backgroundColor)).toBe("rgb(246, 245, 241)");
+  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(83, 71, 184)");
+  await page.screenshot({ path: testInfo.outputPath("overview-desktop.png"), fullPage: true });
+
+  await page.goto("/settings");
+  await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
+  await expect.poll(() => page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(177, 167, 240)");
+  await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Light" }).click();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/cases/new");
+  await expect(page.getByRole("heading", { name: /New submission|Create case/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("submission-mobile.png"), fullPage: true });
+});
+
 test("overview and metrics API show the latest persisted eval", async ({ authenticatedPage: page, seedEvalRun }) => {
   await seedEvalRun(3, 4);
   await page.goto("/overview");
@@ -116,6 +136,14 @@ test("intake shows a failed create request without losing the submission", async
   await page.getByRole("button", { name: "Start analysis" }).click();
   await expect(page.locator(".alert[role=alert]")).toContainText("Worker unavailable");
   await expect(page.getByLabel("Insured name")).toHaveValue("Front Range Fabrication");
+  await expect(page.getByRole("button", { name: "Start analysis" })).toBeEnabled();
+});
+
+test("intake explains an empty API error response", async ({ authenticatedPage: page }) => {
+  await page.route("**/api/cases", async (route) => route.fulfill({ status: 503, body: "" }));
+  await page.goto("/cases/new?sample=1");
+  await page.getByRole("button", { name: "Start analysis" }).click();
+  await expect(page.locator(".alert[role=alert]")).toContainText("HTTP 503");
   await expect(page.getByRole("button", { name: "Start analysis" })).toBeEnabled();
 });
 

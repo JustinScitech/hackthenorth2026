@@ -14,7 +14,7 @@ This is a delivery map, not a claim that every listed sponsor has a confirmed 20
 | Tiger Data | Relational case/audit state plus time-series operations analytics | PostgreSQL-compatible schema; no Tiger Data connection yet | Hosted Tiger Data instance and useful metrics dashboard |
 | Gemini | Primary extraction of construction and loss facts | Coded, optional key; parser/Gemini disagreements become review findings | Run a case with a funded Gemini API project and show evidence/uncertainty |
 | Browserbase | Read an explicitly supplied public property/business source | Coded, optional key; URL/excerpt attached to case | Live browser session with cited source |
-| Sentry | Observe worker failures without transmitting submission text | Coded, optional DSN | Test event and worker trace in Sentry |
+| Sentry | Observe worker failures, agent traces, and eval/job metrics without transmitting submission text | Live: web, edge, browser, and worker SDKs; job and activity spans; underwriting metrics; overview panel reads the Sentry API server-side | Process a case and run `npm run eval:agent` with the DSN set, then show the trace, metrics explorer, and the /overview panel |
 | Expo | Mobile underwriter triage and decision | Not built | Working Expo app using same case API and human review |
 | GoDaddy | Branded URL for deployed review workspace | Not purchased or configured | Domain registration and deployed app; purchase requires team action |
 | MongoDB Atlas | Immutable broker submissions, replies, and public evidence | Coded; local Mongo roundtrip verified | Atlas URI, live read/write, proof in Atlas collection |

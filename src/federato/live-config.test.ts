@@ -33,7 +33,7 @@ test("live configuration runs schema discovery and ranks evidence", async () => 
     assert.equal(report.topSubmissions[0].criteria.find((item) => item.factor === "Submission type")?.status, "acceptable");
     const firstQuery = report.trace[0];
     assert.ok(firstQuery);
-    assert.ok(firstQuery.query.select?.account_name);
+    assert.ok(firstQuery.query.select && !Array.isArray(firstQuery.query.select) && firstQuery.query.select.account_name);
   } finally {
     if (previous.id === undefined) delete process.env.FEDERATO_CLIENT_ID; else process.env.FEDERATO_CLIENT_ID = previous.id;
     if (previous.secret === undefined) delete process.env.FEDERATO_CLIENT_SECRET; else process.env.FEDERATO_CLIENT_SECRET = previous.secret;

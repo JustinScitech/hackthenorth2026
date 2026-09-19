@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { addAudit, db, getCase } from "../lib/db";
-import { checkCase, extractCase, failCase, finalizeDecision, recordBrokerFollowUp, recordBrokerResponse, researchPublicSource } from "./activities";
+import * as activityModule from "./activities";
+import { monitorActivities, recordJobMetrics, startAgentSpan } from "./monitoring";
 
 export type JobKind = "analyze" | "broker_response" | "decision" | "broker_follow_up";
 type JobPayload = { actionId?: string; revision?: number; reminderNumber?: number };
@@ -10,6 +11,9 @@ type Job = { id: string; case_id: string; kind: JobKind; payload: JobPayload; at
 const MAX_ATTEMPTS = 3;
 const LEASE_SECONDS = 900;
 const FOLLOW_UP_HOURS = 24;
+
+// Each activity becomes an `agent.activity` span when SENTRY_DSN is set; otherwise these are the plain functions.
+const { checkCase, extractCase, failCase, finalizeDecision, recordBrokerFollowUp, recordBrokerResponse, researchPublicSource } = monitorActivities(activityModule);
 
 export async function enqueueJob(caseId: string, kind: JobKind, key: string, payload: JobPayload = {}, runAt = new Date(), client?: PoolClient) {
   await (client ?? db).query(
@@ -84,13 +88,15 @@ export async function processNextJob(): Promise<boolean> {
   );
   const job = claimed.rows[0];
   if (!job) return false;
+  const startedAt = Date.now();
   const heartbeat = setInterval(() => {
     void db.query(`UPDATE case_jobs SET lease_until = now() + ($3 * interval '1 second')
       WHERE id = $1 AND lease_token = $2 AND finished_at IS NULL`, [job.id, token, LEASE_SECONDS]).catch(console.error);
   }, 30_000);
   try {
-    await runJob(job);
+    await startAgentSpan(`underwriting.job.${job.kind}`, "agent.job", { "job.kind": job.kind, "job.attempt": job.attempts, "case.id": job.case_id }, () => runJob(job));
     await db.query("UPDATE case_jobs SET status = 'completed', finished_at = now(), lease_token = NULL, updated_at = now() WHERE id = $1 AND lease_token = $2", [job.id, token]);
+    recordJobMetrics(job.kind, "completed", Date.now() - startedAt);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const exhausted = job.attempts >= MAX_ATTEMPTS;
@@ -102,6 +108,7 @@ export async function processNextJob(): Promise<boolean> {
     );
     await addAudit(job.case_id, "job_retry", { kind: job.kind, attempt: job.attempts, exhausted, reason: message.slice(0, 160) }, `job-retry:${job.id}:${job.attempts}`);
     if (exhausted && job.kind !== "broker_follow_up") await failCase(job.case_id, message);
+    recordJobMetrics(job.kind, exhausted ? "failed" : "retried", Date.now() - startedAt);
     console.error("Case job failed", job.id, message);
   } finally {
     clearInterval(heartbeat);

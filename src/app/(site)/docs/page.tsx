@@ -113,7 +113,8 @@ export default function DocsPage() {
           <tr><td><code>TIGERDATA_DATABASE_URL</code>, <code>MONGODB_ATLAS_URI</code></td><td>Hosted PostgreSQL and MongoDB. Used automatically when deployed on Vercel, where localhost does not exist, or locally when the primary variables are unset. A localhost value in a deployed environment fails with a clear error instead of a connection refusal.</td></tr>
           <tr><td><code>GEMINI_API_KEY</code>, <code>GEMINI_MODEL</code></td><td>Primary structured extraction from broker notes. Without a key or available credits, the deterministic extractor runs and facts remain source-labeled.</td></tr>
           <tr><td><code>BROWSERBASE_API_KEY</code></td><td>Visit an explicitly supplied public URL and attach a cited excerpt.</td></tr>
-          <tr><td><code>SENTRY_DSN</code></td><td>Privacy-minimized worker error monitoring.</td></tr>
+          <tr><td><code>SENTRY_DSN</code>, <code>NEXT_PUBLIC_SENTRY_DSN</code></td><td>Error monitoring, agent activity traces, and job, analysis, and eval metrics from the worker, the web app, and the browser. No submission text is sent.</td></tr>
+          <tr><td><code>SENTRY_AUTH_TOKEN</code>, <code>SENTRY_ORG</code>, <code>SENTRY_PROJECT</code></td><td>Server-side token that uploads source maps at build time and lets the overview page read Sentry errors, spans, and metrics. Never exposed to the browser.</td></tr>
           <tr><td><code>ELEVENLABS_API_KEY</code>, <code>ELEVENLABS_VOICE_ID</code></td><td>Spoken review brief.</td></tr>
           <tr><td><code>FEDERATO_CLIENT_ID</code>, <code>FEDERATO_CLIENT_SECRET</code></td><td>Live Federato triage. <code>FEDERATO_RESOURCE</code> and <code>FEDERATO_FIELD_MAP</code> override discovery.</td></tr>
         </tbody></table>
