@@ -9,6 +9,9 @@ export type Intake = {
 
 export type Extracted = { yearBuilt: number | null; losses: number | null };
 
+/** Joins the original submission with processed broker replies so later updates can supersede earlier details. */
+export const BROKER_UPDATE_SEPARATOR = "\n\n--- BROKER UPDATE ---\n\n";
+
 const countWords: Record<string, number> = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
 function parseCount(value: string): number {
   return /^\d+$/.test(value) ? Number(value) : countWords[value.toLowerCase()] ?? Number.NaN;

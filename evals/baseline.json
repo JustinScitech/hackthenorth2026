@@ -1,0 +1,16 @@
+{
+  "knownFailures": {
+    "extraction": [
+      "broker update supersedes the original note",
+      "claims history label and year of construction label",
+      "five-year count does not establish the three-year count",
+      "loss-free phrasing",
+      "losses none",
+      "several buildings use the oldest construction year",
+      "singular claim with a digit"
+    ],
+    "ranking": [
+      "plain-language summaries agree with the recommendation"
+    ]
+  }
+}
