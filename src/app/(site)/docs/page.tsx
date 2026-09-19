@@ -24,48 +24,48 @@ export default function DocsPage() {
       <article className="docs-content">
         <p className="eyebrow">Documentation</p>
         <h1 id="introduction">Astra Risk docs and API reference</h1>
-        <p className="lede">Astra Risk is a durable, human-reviewed underwriting agent for commercial property submissions. Each case is a Temporal workflow that extracts facts from a broker submission, checks them against guidelines, pauses for missing information, and resumes when a broker responds. An underwriter makes every final decision.</p>
+        <p className="lede">Astra Risk is a durable, human-reviewed underwriting agent for commercial property submissions. PostgreSQL jobs extract facts from a broker submission, check them against guidelines, pause for missing information, and resume when a broker responds. An underwriter makes every final decision.</p>
         <div className="notice"><Info size={17} aria-hidden="true" />The case review flow uses fictional demo guideline rules. The Federato triage flow uses the supplied 2025 sample appetite. Neither binds coverage.</div>
 
         <h2 id="quickstart">Quickstart</h2>
-        <p>The core demo needs PostgreSQL, MongoDB, and Temporal. No model or sponsor keys are required; a deterministic extractor runs when no key is set.</p>
+        <p>The core demo needs PostgreSQL and MongoDB. No model or sponsor keys are required; a deterministic extractor runs when no key is set.</p>
         <ol>
-          <li>Start the services. With Docker: <code>docker compose up -d</code>. Without Docker, run PostgreSQL, MongoDB, and <code>temporal server start-dev</code> locally.</li>
+          <li>Start the services. With Docker: <code>docker compose up -d</code>. Without Docker, run PostgreSQL and MongoDB locally.</li>
           <li>Copy <code>.env.example</code> to <code>.env</code> and adjust the connection strings if needed.</li>
           <li>Run <code>npm install</code> and <code>npm run db:migrate</code>.</li>
           <li>Start the worker with <code>npm run worker</code>, then the web app with <code>npm run dev</code>.</li>
           <li>Open the <Link href="/overview">workspace</Link> and try the sample case.</li>
         </ol>
-        <pre className="code-block"><code><span className="cm"># minimal .env</span>{"\n"}DATABASE_URL=postgres://underwriting:underwriting@localhost:5432/underwriting{"\n"}TEMPORAL_ADDRESS=localhost:7233{"\n"}MONGODB_URI=mongodb://localhost:27017{"\n"}MONGODB_DB=underwriting_agent</code></pre>
+        <pre className="code-block"><code><span className="cm"># minimal .env</span>{"\n"}DATABASE_URL=postgres://underwriting:underwriting@localhost:5432/underwriting{"\n"}MONGODB_URI=mongodb://localhost:27017{"\n"}MONGODB_DB=underwriting_agent</code></pre>
 
         <h2 id="lifecycle">Case lifecycle</h2>
-        <p>A case is always in exactly one of these states. The case ID is the Temporal workflow ID.</p>
+        <p>A case is always in exactly one of these states. Its work is recorded in the PostgreSQL job table.</p>
         <table className="docs-table"><thead><tr><th>State</th><th>Meaning</th></tr></thead><tbody>
-          <tr><td><code>received</code></td><td>Created and queued. The workflow has started.</td></tr>
+          <tr><td><code>received</code></td><td>Created and queued for analysis.</td></tr>
           <tr><td><code>extracting</code></td><td>Facts are being extracted from the submission and any broker replies.</td></tr>
           <tr><td><code>checking</code></td><td>Facts are being checked against guideline rules.</td></tr>
-          <tr><td><code>waiting_for_broker</code></td><td>Required information is missing. The workflow is on a durable wait and a question is stored on the case.</td></tr>
+          <tr><td><code>waiting_for_broker</code></td><td>Required information is missing. A question is stored on the case.</td></tr>
           <tr><td><code>review_ready</code></td><td>Checks are complete. An underwriter decision is needed.</td></tr>
           <tr><td><code>approved</code>, <code>declined</code></td><td>Terminal. The decision rationale is stored on the case.</td></tr>
-          <tr><td><code>failed</code></td><td>The workflow could not continue. The error is stored on the case.</td></tr>
+          <tr><td><code>failed</code></td><td>Analysis could not continue after retries. The error is stored on the case.</td></tr>
         </tbody></table>
-        <p>A durable 24-hour timer records when broker follow-up is due; it does not send a message. When Temporal recommends it, the workflow continues as new with a small checkpoint so long waits do not grow the history.</p>
+        <p>A scheduled PostgreSQL job records when broker follow-up is due after 24 hours; it does not send a message. Queued work survives worker restarts.</p>
 
         <h2 id="actions">Broker and underwriter actions</h2>
-        <p>Actions are durable signals. A broker response is accepted only while the case is <code>waiting_for_broker</code>; an approve or decline only while it is <code>review_ready</code>. Each action carries a client-generated UUID so a retried request is a no-op rather than a duplicate. Reusing an ID with different content is rejected.</p>
+        <p>Actions enqueue durable jobs. A broker response is accepted only while the case is <code>waiting_for_broker</code>; an approve or decline only while it is <code>review_ready</code>. Each action carries a client-generated UUID so a retried request is a no-op rather than a duplicate. Reusing an ID with different content is rejected.</p>
 
         <h2 id="trace">Activity trace</h2>
         <p>Every case has a persisted audit trail: intake, extraction sources and missing fields, public research outcome, guideline counts, broker follow-ups, and review actions. It records what happened and when. It does not display or store a model's private reasoning.</p>
 
         <h2 id="api">API reference</h2>
-        <p>All endpoints are same-origin, return JSON, and are the ones the workspace itself uses. Errors return <code>{"{ \"error\": string }"}</code> with a 4xx or 5xx status. A 503 means a backing service, usually the database or Temporal, was unreachable.</p>
+        <p>All endpoints are same-origin, return JSON, and are the ones the workspace itself uses. Errors return <code>{"{ \"error\": string }"}</code> with a 4xx or 5xx status. A 503 means a backing database was unreachable.</p>
 
         <Endpoint method="GET" path="/api/cases" id="list-cases" />
         <p>Returns every case, newest first.</p>
         <pre className="code-block"><code>{"{ \"cases\": CaseRecord[] }"}</code></pre>
 
         <Endpoint method="POST" path="/api/cases" id="create-case" />
-        <p>Stores the submission text in the document store, inserts the case, records a <code>case_created</code> event, and starts the workflow. Returns <code>201</code> with the new ID.</p>
+        <p>Stores the submission text in the document store, inserts the case, records a <code>case_created</code> event, and queues analysis. Returns <code>201</code> with the new ID.</p>
         <table className="docs-table"><thead><tr><th>Field</th><th>Type</th><th>Rules</th></tr></thead><tbody>
           <tr><td><code>insuredName</code></td><td>string</td><td>2 to 160 characters</td></tr>
           <tr><td><code>state</code></td><td>string</td><td>Two-letter code; upper-cased</td></tr>
@@ -82,12 +82,12 @@ export default function DocsPage() {
         <pre className="code-block"><code>{"{ \"case\": CaseRecord, \"audit\": AuditEvent[], \"voiceAvailable\": boolean }\n400 invalid id · 404 not found · 503 unavailable"}</code></pre>
 
         <Endpoint method="POST" path="/api/cases/{id}/actions" id="case-actions" />
-        <p>Delivers a broker response or an underwriter decision as a signal. The body is one of two shapes, discriminated by <code>kind</code>.</p>
+        <p>Queues a broker response or an underwriter decision. The body is one of two shapes, discriminated by <code>kind</code>.</p>
         <pre className="code-block"><code>{"{ \"id\": \"<uuid>\", \"kind\": \"broker_response\", \"response\": string }   // 3 to 10,000 chars\n{ \"id\": \"<uuid>\", \"kind\": \"approve\" | \"decline\", \"reason\": string } // 3 to 2,000 chars"}</code></pre>
         <table className="docs-table"><thead><tr><th>Status</th><th>When</th></tr></thead><tbody>
           <tr><td><code>200</code></td><td><code>{"{ \"ok\": true }"}</code>. Delivered, or already delivered with the same ID and content.</td></tr>
           <tr><td><code>409</code></td><td>The case is not in the state that action expects, or the ID was already used for different content.</td></tr>
-          <tr><td><code>503</code></td><td>The signal could not be delivered. Retrying with the same ID is safe.</td></tr>
+          <tr><td><code>503</code></td><td>The action could not be queued. Retrying with the same ID is safe.</td></tr>
         </tbody></table>
 
         <Endpoint method="GET" path="/api/cases/{id}/audio" id="case-audio" />
@@ -106,10 +106,9 @@ export default function DocsPage() {
         </tbody></table>
 
         <h2 id="environment">Environment variables</h2>
-        <p>Set these in <code>.env</code>. The first four are required; the rest switch on optional integrations.</p>
+        <p>Set these in <code>.env</code>. PostgreSQL and MongoDB are required; the rest switch on authentication or optional integrations.</p>
         <table className="docs-table"><thead><tr><th>Variable</th><th>Purpose</th></tr></thead><tbody>
           <tr><td><code>DATABASE_URL</code></td><td>PostgreSQL for cases and audit events. Required.</td></tr>
-          <tr><td><code>TEMPORAL_ADDRESS</code></td><td>Temporal frontend, for example <code>localhost:7233</code>. Required.</td></tr>
           <tr><td><code>MONGODB_URI</code>, <code>MONGODB_DB</code></td><td>Document store for submissions, replies, and public evidence. Required.</td></tr>
           <tr><td><code>TIGERDATA_DATABASE_URL</code>, <code>MONGODB_ATLAS_URI</code></td><td>Hosted PostgreSQL and MongoDB. Used automatically when deployed on Vercel, where localhost does not exist, or locally when the primary variables are unset. A localhost value in a deployed environment fails with a clear error instead of a connection refusal.</td></tr>
           <tr><td><code>GEMINI_API_KEY</code>, <code>GEMINI_MODEL</code></td><td>Primary structured extraction from broker notes. Without a key or available credits, the deterministic extractor runs and facts remain source-labeled.</td></tr>
@@ -123,7 +122,7 @@ export default function DocsPage() {
         <ul>
           <li>Guideline matching prioritizes human review. The agent never quotes or binds coverage.</li>
           <li>Public research visits only the URL the submitter supplied. It does not discover or profile people, and page text is shown as evidence, not treated as a verified fact.</li>
-          <li>Activities are bounded and retryable. Submissions and audit data live outside workflow history.</li>
+          <li>Jobs retry with backoff and recover expired leases. Submissions and audit data are stored in PostgreSQL and MongoDB.</li>
           <li>Triage evaluates at most 1,000 records per run and marks the report as truncated when it hits that limit.</li>
         </ul>
       </article>

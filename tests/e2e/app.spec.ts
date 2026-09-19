@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { Client } from "pg";
+import { e2eDatabaseUrl } from "../../scripts/e2e-env";
 import { test, expect } from "./fixtures";
 
 test("public pages are accessible and protected pages require sign-in", async ({ page, request }) => {
@@ -63,7 +65,7 @@ test("sample picker fills intake, supports keyboard selection, and sends the exp
   });
   await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
     case: { id, insuredName: "Garden State Distribution", state: "NJ", tiv: 6800000, status: "received", brief: null, facts: null, findings: null, publicEvidence: null, createdAt: new Date().toISOString() },
-    audit: [], workflowStatus: "RUNNING", voiceAvailable: false,
+    audit: [], jobStatus: "RUNNING", voiceAvailable: false,
   }) }));
   await page.goto("/cases/new");
   await page.getByRole("button", { name: /Custom submission/ }).click();
@@ -124,7 +126,7 @@ test("case trace shows live progress and broker and underwriter actions", async 
   await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
     case: { id, insuredName: "Trace Test Office", state: "NY", tiv: 2400000, status, brief: status === "extracting" ? null : "Review completed.", question: "What year was it built?", decision: "Approved after review.", facts: null, findings: null, publicEvidence: null, createdAt: new Date().toISOString() },
     audit: [{ id: "1", eventType: "gemini_model_started", detail: { model: "gemini-3.8-flash" }, createdAt: new Date().toISOString() }],
-    workflowStatus: "RUNNING", voiceAvailable: false,
+    jobStatus: "RUNNING", voiceAvailable: false,
   }) }));
   await page.route(`**/api/cases/${id}/actions`, async (route) => {
     const body = route.request().postDataJSON();
@@ -152,7 +154,7 @@ test("underwriter can decline with a recorded rationale", async ({ authenticated
   let action: Record<string, unknown> | undefined;
   await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
     case: { id, insuredName: "Referral Warehouse", state: "NJ", tiv: 6800000, status: action ? "declined" : "review_ready", brief: "Referral required.", decision: "Value outside demo appetite.", facts: null, findings: [{ id: "tiv", label: "Total insured value", result: "refer", detail: "Above the demo limit.", source: "Intake form" }], createdAt: new Date().toISOString() },
-    audit: [], workflowStatus: "RUNNING", voiceAvailable: false,
+    audit: [], jobStatus: "RUNNING", voiceAvailable: false,
   }) }));
   await page.route(`**/api/cases/${id}/actions`, async (route) => {
     action = route.request().postDataJSON();
@@ -230,7 +232,7 @@ test("sign-out revokes the authenticated session", async ({ authenticatedPage: p
   await expect(page).toHaveURL(/\/sign-in$/);
 });
 
-test("real Temporal workflow pauses for broker, resumes, and records a decision", async ({ authenticatedPage: page }) => {
+test("PostgreSQL jobs pause for broker, resume, and record a decision", async ({ authenticatedPage: page }) => {
   test.setTimeout(90_000);
   await page.goto("/cases/new");
   await page.locator(".sample-select-trigger").click();
@@ -247,4 +249,54 @@ test("real Temporal workflow pauses for broker, resumes, and records a decision"
   await page.getByRole("button", { name: "Approve review" }).click();
   await expect(page.getByRole("heading", { name: "Decision rationale" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Review approved");
+});
+
+test("expired leases recover and broker follow-ups repeat after a new analysis revision", async ({ seedCase }) => {
+  const id = await seedCase({ status: "waiting_for_broker" });
+  const db = new Client({ connectionString: e2eDatabaseUrl() });
+  await db.connect();
+  try {
+    await db.query(
+      `INSERT INTO case_jobs (id, case_id, kind, job_key, payload, status, attempts, run_at, lease_until, lease_token)
+       VALUES ($1, $2, 'broker_follow_up', $3, $4, 'running', 1, now() - interval '1 minute', now() - interval '1 minute', $5)`,
+      [randomUUID(), id, `followup:${id}:0:1`, JSON.stringify({ revision: 0, reminderNumber: 1 }), randomUUID()],
+    );
+    await expect.poll(async () => {
+      const result = await db.query("SELECT count(*)::int AS count FROM audit_events WHERE case_id = $1 AND event_type = 'broker_follow_up_due'", [id]);
+      return result.rows[0].count;
+    }, { timeout: 10_000 }).toBe(1);
+    const next = await db.query("SELECT run_at FROM case_jobs WHERE job_key = $1", [`followup:${id}:0:2`]);
+    expect(next.rowCount).toBe(1);
+    expect(new Date(next.rows[0].run_at).getTime()).toBeGreaterThan(Date.now() + 23 * 3_600_000);
+    await db.query("UPDATE cases SET analysis_revision = 1 WHERE id = $1", [id]);
+    await db.query(
+      `INSERT INTO case_jobs (id, case_id, kind, job_key, payload, run_at)
+       VALUES ($1, $2, 'broker_follow_up', $3, $4, now())`,
+      [randomUUID(), id, `followup:${id}:1:1`, JSON.stringify({ revision: 1, reminderNumber: 1 })],
+    );
+    await expect.poll(async () => {
+      const result = await db.query("SELECT count(*)::int AS count FROM audit_events WHERE case_id = $1 AND event_type = 'broker_follow_up_due'", [id]);
+      return result.rows[0].count;
+    }, { timeout: 10_000 }).toBe(2);
+  } finally {
+    await db.end();
+  }
+});
+
+test("a retried decision action returns success without duplicating the decision", async ({ authenticatedPage: page, seedCase }) => {
+  const id = await seedCase({ status: "review_ready" });
+  await page.goto(`/cases/${id}`);
+  const action = { id: randomUUID(), kind: "approve", reason: "Reviewed the submitted risk." };
+  const options = { headers: { origin: "http://localhost:3100" }, data: action };
+  expect((await page.request.post(`/api/cases/${id}/actions`, options)).status()).toBe(200);
+  await expect.poll(async () => (await (await page.request.get(`/api/cases/${id}`)).json()).case.status).toBe("approved");
+  expect((await page.request.post(`/api/cases/${id}/actions`, options)).status()).toBe(200);
+  const db = new Client({ connectionString: e2eDatabaseUrl() });
+  await db.connect();
+  try {
+    const result = await db.query("SELECT count(*)::int AS count FROM audit_events WHERE case_id = $1 AND event_type = 'approved'", [id]);
+    expect(result.rows[0].count).toBe(1);
+  } finally {
+    await db.end();
+  }
 });

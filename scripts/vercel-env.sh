@@ -22,9 +22,7 @@ add MONGODB_DB             "$MONGODB_DB"
 # Tiger Data presents a certificate chain Node rejects; the merged TLS fix reads this flag.
 add DATABASE_SSL_REJECT_UNAUTHORIZED "false"
 
-# No Temporal server is reachable from Vercel yet. Case creation returns 503 until this
-# points at Temporal Cloud (or another public Temporal) and a worker runs somewhere.
-add TEMPORAL_ADDRESS       "$TEMPORAL_ADDRESS"
+# The worker must use the same hosted PostgreSQL and MongoDB targets.
 
 add BETTER_AUTH_SECRET     "$BETTER_AUTH_SECRET"
 add AUTH_ALLOWED_EMAILS    "$AUTH_ALLOWED_EMAILS"

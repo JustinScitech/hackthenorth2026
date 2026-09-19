@@ -1,12 +1,12 @@
 # Underwriting review agent
 
-A durable, human-reviewed commercial property underwriting demo. Each case runs as a Temporal workflow. The worker extracts facts from a broker submission, checks sample guidelines, pauses for missing information, and resumes when a broker response arrives. An underwriter makes the final review decision.
+A durable, human-reviewed commercial property underwriting demo. PostgreSQL queues each case for a worker that extracts facts from a broker submission, checks sample guidelines, pauses for missing information, and resumes when a broker response arrives. An underwriter makes the final review decision.
 
 The original case-review workflow uses **fictional demo rules**. The separate Federato triage flow uses the supplied **2025 sample appetite guidelines**. Both support human review and must not be used to bind coverage automatically.
 
 ## Federato challenge triage
 
-Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` to enable this live integration. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local database and Temporal stack.
+Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` to enable this live integration. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local case database.
 
 The live schema currently selects `Policy` because it contains more appetite fields; the report explicitly identifies that scope. It is not yet a reconciled queue of standalone Submission records. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
 
@@ -17,8 +17,7 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 ## Stack
 
 - Next.js: case intake, progress, review, and API
-- Temporal: durable workflow, retries, broker/underwriter signals
-- PostgreSQL or Tiger Data: case records and audit events; Temporal uses PostgreSQL separately
+- PostgreSQL or Tiger Data: case records, durable jobs, retries, and audit events
 - MongoDB: broker submissions, replies, and public evidence (local container or Atlas)
 - Optional Gemini API: primary structured extraction from unstructured broker notes; deterministic fallback works without a key or available credits
 - Optional Browserbase: visit an explicitly supplied public source and attach a cited excerpt to the case
@@ -27,17 +26,17 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 
 ## Code layout
 
-- `src/agent/workflows.ts`: deterministic Temporal orchestration, signals, durable waits, and history rotation
+- `src/agent/jobs.ts`: PostgreSQL job queue, retries, leases, and scheduled broker follow-ups
 - `src/agent/activities.ts`: retryable I/O and idempotent case/audit transitions
 - `src/agent/analysis.ts` and `model.ts`: fictional guideline checks, Gemini extraction, deterministic fallback, and conflict detection
 - `src/agent/public-source.ts`: bounded Browserbase evidence capture; public URL validation is separate
-- `src/agent/contracts.ts`, `client.ts`, and `worker.ts`: shared Temporal names, API client, and worker process
+- `src/agent/worker.ts`: continuously running job worker
 - `src/lib`: shared case types, PostgreSQL access, and MongoDB documents
 - `src/app`: web UI and HTTP endpoints; it does not execute agent activities
 
 ## Run locally
 
-For a hosted demo with Vercel, Render, Temporal Cloud, and managed databases, follow [the deployment checklist](docs/deployment.md). The web API and worker are separate processes and must use the same Temporal namespace and data stores.
+For a single-VM demo deployment without paid workflow hosting, follow [the deployment checklist](docs/deployment.md). The web API and worker are separate processes connected to the same PostgreSQL and MongoDB instances.
 
 1. Start Docker Desktop.
 2. Copy `.env.example` to `.env` if needed, then adjust values. Keep it out of Git. Google sign-in requires `BETTER_AUTH_URL`, a random `BETTER_AUTH_SECRET`, Google OAuth client ID/secret, and a comma-separated `AUTH_ALLOWED_EMAILS`. Without them, the workspace remains locked.
@@ -46,7 +45,7 @@ For a hosted demo with Vercel, Render, Temporal Cloud, and managed databases, fo
 5. In one terminal, run `npm run worker`.
 6. In another terminal, run `npm run dev` and open http://localhost:3000.
 
-Temporal UI is at http://localhost:8080. The core demo needs no sponsor API keys.
+The core demo needs no sponsor API keys.
 
 For local Google OAuth, register `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI (use your actual dev-server port if different) and set `BETTER_AUTH_URL` to the matching origin. In production, register `https://your-domain/api/auth/callback/google`. Run `npm run db:migrate` after deploying to create the auth tables. Approved Google accounts share the demo workspace; this is authentication and an email allowlist, not tenant isolation or role-based authorization. Do not use real insurance submissions until those controls are added.
 
@@ -64,21 +63,21 @@ Atlas and TigerData connection strings can be kept as optional local variables, 
 
 `received -> extracting -> checking -> waiting_for_broker (optional) -> review_ready -> approved/declined`
 
-The case ID is the Temporal workflow ID. A broker response and an underwriter decision are durable signals, so a stopped worker can resume after restart. A durable 24-hour timer records when broker follow-up is due; it does not send a message. Activities are bounded and retryable. Submissions and audit data are stored outside workflow history; the workflow passes IDs and small typed results. When Temporal recommends it, the workflow continues as new with a small phase/follow-up checkpoint so long waits do not grow the execution history indefinitely. Changes to an existing submission should create a new case version in a production integration.
+Case work is queued in PostgreSQL. Broker responses and underwriter decisions are persisted before the worker processes them, so a stopped worker can resume after restart. A scheduled job records when a 24-hour broker follow-up is due; it does not send a message. Jobs retry with backoff and expired leases can be reclaimed. Changes to an existing submission should create a new case version in a production integration.
 
-The case view shows a persisted activity trace: intake, extraction sources, public research, guideline counts, broker follow-ups, and review actions. It does not display or store a model's private chain-of-thought. The live Federato triage endpoint is currently a separate synchronous request; move its discovery, pagination, and scoring into bounded Temporal activities before treating it as a durable long-running job.
+The case view shows a persisted activity trace: intake, extraction sources, public research, guideline counts, broker follow-ups, and review actions. It does not display or store a model's private chain-of-thought. The live Federato triage endpoint is currently a separate synchronous request; move it into bounded jobs before treating it as a durable long-running process.
 
 ## Deploying to Vercel
 
-Vercel hosts the web app only; Temporal and the worker run elsewhere. The app resolves databases from where it runs (`src/lib/env.ts`): locally it uses `DATABASE_URL` and `MONGODB_URI`, and on Vercel it uses `TIGERDATA_DATABASE_URL` and `MONGODB_ATLAS_URI`, refusing any localhost value with a clear error. Push variables from `.env` with `./scripts/vercel-env.sh`, deploy with `vercel --prod`, then set `BETTER_AUTH_URL` to the production origin and redeploy. `.vercelignore` keeps `.env` out of uploads; never rely on `.gitignore` for that.
+The recommended low-cost demo runs the web app and worker together on one VM; see [the deployment checklist](docs/deployment.md). Vercel can host the web app separately only if the worker reaches the same hosted PostgreSQL and MongoDB databases. The app resolves databases from where it runs (`src/lib/env.ts`): locally it uses `DATABASE_URL` and `MONGODB_URI`, and on Vercel it uses `TIGERDATA_DATABASE_URL` and `MONGODB_ATLAS_URI`, refusing localhost. `./scripts/vercel-env.sh` can push variables to a linked Vercel project. `.vercelignore` keeps `.env` out of uploads; never rely on `.gitignore` for that. Vercel Hobby is limited to personal, non-commercial use.
 
 ## Checks
 
-Run `npm run typecheck`, `npm test`, and `npm run build`. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100 and the `underwriting-cases-e2e` Temporal task queue. Most UI scenarios use fixture responses; one exercises the real Temporal/MongoDB/PostgreSQL lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
+Run `npm run typecheck`, `npm test`, and `npm run build`. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100. Most UI scenarios use fixture responses; one exercises the real PostgreSQL job and MongoDB lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
 
 For a live Gemini extraction eval, set `GEMINI_API_KEY` and run `npm run eval:agent`. This checks the model's own year-built and three-year loss-count values across four fictional submissions, then checks the resulting demo guideline decisions. Calls are spaced to reduce per-minute rate-limit errors. The eval fails if Gemini is unavailable or falls back to the parser. It does not measure document ingestion, coverage decisions, or the separate Federato triage flow.
 
-The case page shows Temporal execution state and a persisted activity trace with model name, extraction time, and fallback status. Gemini extraction tries `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-3.5-flash`, stopping at the first valid result. `GEMINI_MODEL` can put a different model first for comparison. Quota and authentication errors stop the waterfall rather than multiplying requests. The demo still applies its four fictional guideline checks deterministically after extraction.
+The case page shows job state and a persisted activity trace with model name, extraction time, and fallback status. Gemini extraction tries `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-3.5-flash`, stopping at the first valid result. `GEMINI_MODEL` can put a different model first for comparison. Quota and authentication errors stop the waterfall rather than multiplying requests. The demo still applies its four fictional guideline checks deterministically after extraction.
 
 ## Sponsor fit and remaining work
 

@@ -1,0 +1,78 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: underwriting
+      POSTGRES_DB: underwriting
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U underwriting -d underwriting"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: astra-risk-app:local
+    build: .
+    env_file: .env.production
+    command: ["npm", "run", "db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+
+  web:
+    image: astra-risk-app:local
+    restart: unless-stopped
+    env_file: .env.production
+    command: ["npm", "run", "start", "--", "-H", "0.0.0.0"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    image: astra-risk-app:local
+    restart: unless-stopped
+    env_file: .env.production
+    command: ["npm", "run", "worker"]
+    stop_grace_period: 5m
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env.production}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+
+volumes:
+  postgres-data:
+  mongo-data:
+  caddy-data:
+  caddy-config:

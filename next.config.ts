@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@temporalio/client", "pg"],
+  serverExternalPackages: ["pg"],
   turbopack: { root: process.cwd() },
 };
 
