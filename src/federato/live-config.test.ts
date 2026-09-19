@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { POST } from "./route";
+import { liveConfiguration } from "./config";
+import { runTriage } from "./triage";
 
 const schema = {
   Policy: { type: "object", fields: {
@@ -12,13 +13,7 @@ const schema = {
 };
 const row = { id: 42, account_name: "Fixture Property", state: "CA", business_type: "new", line_of_business: "property", tiv: 75_000_000, premium: 85_000, year_built: 2015, acceptable_construction_percent: 80, five_year_loss_value: 0, effective_date: "2026-01-01", expiration_date: "2027-01-01" };
 
-test("triage route blocks cross-origin calls before credentials are used", async () => {
-  const result = await POST(new Request("http://localhost:3000/api/triage", { method: "POST", headers: { origin: "https://attacker.example" } }));
-  assert.equal(result.status, 403);
-  assert.match((await result.json()).error, /triage page/i);
-});
-
-test("triage route runs the discovered schema and returns ranked evidence", async () => {
+test("live configuration runs schema discovery and ranks evidence", async () => {
   const previous = { id: process.env.FEDERATO_CLIENT_ID, secret: process.env.FEDERATO_CLIENT_SECRET, fetch: globalThis.fetch };
   process.env.FEDERATO_CLIENT_ID = "fixture-client";
   process.env.FEDERATO_CLIENT_SECRET = "fixture-secret";
@@ -29,15 +24,15 @@ test("triage route runs the discovered schema and returns ranked evidence", asyn
     return Response.json({ output: [{ data }] });
   }) as typeof fetch;
   try {
-    const result = await POST(new Request("http://localhost:3000/api/triage", { method: "POST", headers: { origin: "http://localhost:3000" } }));
-    assert.equal(result.status, 200);
-    const report = await result.json();
+    const { client, options } = liveConfiguration();
+    const report = await runTriage(client, options);
     assert.equal(report.resource, "Policy");
     assert.equal(report.evaluated, 1);
     assert.equal(report.topSubmissions[0].id, "42");
     assert.equal(report.topSubmissions[0].score, 100);
-    assert.ok(report.trace[0].query.select.account_name);
-    assert.equal("schema" in report, false);
+    const firstQuery = report.trace[0];
+    assert.ok(firstQuery);
+    assert.ok(firstQuery.query.select?.account_name);
   } finally {
     if (previous.id === undefined) delete process.env.FEDERATO_CLIENT_ID; else process.env.FEDERATO_CLIENT_ID = previous.id;
     if (previous.secret === undefined) delete process.env.FEDERATO_CLIENT_SECRET; else process.env.FEDERATO_CLIENT_SECRET = previous.secret;

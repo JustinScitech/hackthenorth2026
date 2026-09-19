@@ -1,5 +1,7 @@
 import { buildFacts, evaluateFacts, type Extracted, type Intake } from "../src/agent/analysis";
 import { extractNotes } from "../src/agent/model";
+import { randomUUID } from "node:crypto";
+import { recordEvalMetric } from "../src/agent/monitoring";
 
 type Fixture = {
   name: string;
@@ -54,12 +56,15 @@ Correction from the broker: The property was constructed in 2004. There was one 
 async function main() {
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required for the live agent eval");
   delete process.env.OPENAI_API_KEY;
+  const startedAt = Date.now();
   let passed = 0;
+  let lastModel: string | null = null;
   for (const [index, fixture] of fixtures.entries()) {
     if (index > 0) await new Promise((resolve) => setTimeout(resolve, 12_000));
     const result = await extractNotes(fixture.notes);
     const geminiAttempts = result.attempts.filter((attempt) => attempt.source === "Gemini");
     const gemini = geminiAttempts.find((attempt) => attempt.status === "completed");
+    if (gemini) lastModel = gemini.model;
     const modelCorrect = gemini?.status === "completed"
       && gemini.value?.yearBuilt === fixture.expected.yearBuilt
       && gemini.value?.losses === fixture.expected.losses;
@@ -75,6 +80,16 @@ async function main() {
     if (!provenanceCorrect) console.log(`  Extraction sources: ${JSON.stringify(result.fieldSources)}`);
   }
   console.log(`${passed}/${fixtures.length} live Gemini evals passed`);
+  if (process.env.DATABASE_URL) {
+    const { db } = await import("../src/lib/db");
+    try {
+      await db.query("INSERT INTO agent_eval_runs (id, total, passed, duration_ms, model) VALUES ($1, $2, $3, $4, $5)",
+        [randomUUID(), fixtures.length, passed, Date.now() - startedAt, lastModel]);
+    } finally {
+      await db.end();
+    }
+  }
+  await recordEvalMetric(passed, fixtures.length);
   if (passed !== fixtures.length) process.exitCode = 1;
 }
 
