@@ -4,6 +4,7 @@ import { Check, CircleAlert, ClipboardList, Clock3, ExternalLink, FileText, Shie
 import type { AuditEvent, CaseRecord, Fact, JobStatus } from "@/lib/types";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
+import { summarizeSubmission } from "@/federato/presentation";
 
 type ActionKind = "approve" | "decline";
 
@@ -14,7 +15,7 @@ function FactRow<T>({ label, fact, format = String }: { label: string; fact: Fac
 function Findings({ caseRecord }: { caseRecord: CaseRecord }) {
   if (!caseRecord.findings) return null;
   return <section className="detail-section" aria-labelledby="findings-title">
-    <div className="section-heading"><h2 id="findings-title">Demo guideline checks</h2><span className="count">{caseRecord.findings.length}</span></div>
+    <div className="section-heading"><h2 id="findings-title">{caseRecord.appetiteResult ? "Carrier appetite checks" : "Legacy guideline checks"}</h2><span className="count">{caseRecord.findings.length}</span></div>
     <div className="findings">{caseRecord.findings.map((finding) => (
       <div className="finding" key={finding.id}>
         <span className={`finding-mark finding-${finding.result}`} aria-hidden="true">
@@ -76,7 +77,7 @@ const eventLabels: Record<string, string> = {
   gemini_model_failed: "Gemini model unavailable",
   public_research_started: "Public source visit started",
   public_research_skipped: "Public research skipped", public_research_completed: "Public source reviewed",
-  public_research_failed: "Public research unavailable", guideline_check_started: "Checking demo guidelines",
+  public_research_failed: "Public research unavailable", guideline_check_started: "Checking carrier appetite",
   analysis_completed: "Guidelines checked",
   broker_response_received: "Broker response received", broker_follow_up_due: "Broker follow-up due",
   approved: "Review approved", declined: "Review declined", job_failed: "Analysis failed",
@@ -107,7 +108,7 @@ function traceDetail(event: AuditEvent): string | null {
   }
   if (event.eventType === "analysis_completed") {
     if (typeof event.detail.pass !== "number") return String(event.detail.status ?? "Analysis complete").replaceAll("_", " ");
-    return `Deterministic demo rules · ${event.detail.pass} passed · ${event.detail.refer} referred · ${event.detail.unknown} unknown`;
+    return `Guideline checks · ${event.detail.pass} passed · ${event.detail.refer} referred · ${event.detail.unknown} unknown`;
   }
   if (event.eventType === "public_research_skipped") return String(event.detail.reason ?? "Public research was skipped");
   if (event.eventType === "public_research_completed") return "Public source saved as evidence";
@@ -135,7 +136,7 @@ function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobS
       : latest?.eventType === "gemini_model_started" ? `Extracting with ${String(latest.detail.model ?? "Gemini")}`
         : latest?.eventType === "gemini_model_failed" ? `${String(latest.detail.model ?? "Gemini")} unavailable; continuing extraction`
       : latest?.eventType === "public_research_started" ? "Reviewing the supplied public source"
-        : latest?.eventType === "guideline_check_started" ? "Checking demo guidelines"
+        : latest?.eventType === "guideline_check_started" ? "Checking carrier appetite"
           : caseRecord.status === "received" ? "Analysis started" : "Reading the submission";
   }
   if (jobStatus === "QUEUED") return "Analysis queued";
@@ -173,6 +174,8 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         <JobProgress caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} />
         {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={17} aria-hidden="true" />{caseRecord.error ?? "Analysis failed."}</div>}
         <p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p>
+        {caseRecord.appetiteResult && <section className="detail-section" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
+        {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} />
         {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
@@ -181,6 +184,6 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
       </div>
     </div>
     <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} /></div>
-    <p className="demo-note">Demo guidelines only. A review decision does not quote or bind coverage.</p>
+    <p className="demo-note">New analyses use the supplied 2025 commercial property appetite. A review decision does not quote or bind coverage.</p>
   </main>;
 }

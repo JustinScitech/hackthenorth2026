@@ -19,8 +19,8 @@ const fixtures: Fixture[] = [
     notes: "Commercial property submission for Harbor Office LLC. The main building was constructed in 2005 and had no losses in the past three years.",
     expected: { yearBuilt: 2005, losses: 0 },
     intake: { state: "NY", tiv: 2_400_000, yearBuilt: null, losses: null },
-    expectedFindings: { territory: "pass", tiv: "pass", construction: "pass", losses: "pass" },
-    needsBroker: false,
+    expectedFindings: { business: "unknown", line: "unknown", state: "refer", tiv: "pass", premium: "unknown", year: "pass", constructionPercent: "unknown", lossValue: "unknown" },
+    needsBroker: true,
   },
   {
     name: "property schedule and loss run",
@@ -31,15 +31,15 @@ Loss summary: The attached loss run describes three claims in the past three yea
 Open items: The broker will provide updated photographs, a current statement of values, and the final loss runs. The insured expects the roof work to finish before inception, but the underwriter has not verified it.`,
     expected: { yearBuilt: 1988, losses: 3 },
     intake: { state: "NJ", tiv: 4_300_000, yearBuilt: null, losses: null },
-    expectedFindings: { territory: "pass", tiv: "pass", construction: "pass", losses: "refer" },
-    needsBroker: false,
+    expectedFindings: { business: "unknown", line: "unknown", state: "refer", tiv: "pass", premium: "unknown", year: "refer", constructionPercent: "unknown", lossValue: "unknown" },
+    needsBroker: true,
   },
   {
     name: "missing construction and losses",
     notes: "Commercial property submission for Canal Street Kitchen. The construction year is pending confirmation from the landlord. The broker requested loss runs but has not supplied a recent claim count.",
     expected: { yearBuilt: null, losses: null },
     intake: { state: "NY", tiv: 1_750_000, yearBuilt: null, losses: null },
-    expectedFindings: { territory: "pass", tiv: "pass", construction: "unknown", losses: "unknown" },
+    expectedFindings: { business: "unknown", line: "unknown", state: "refer", tiv: "pass", premium: "unknown", year: "unknown", constructionPercent: "unknown", lossValue: "unknown" },
     needsBroker: true,
   },
   {
@@ -49,8 +49,8 @@ Open items: The broker will provide updated photographs, a current statement of 
 Correction from the broker: The property was constructed in 2004. There was one loss in the past three years. The earlier construction year and loss count were entered for a different location.`,
     expected: { yearBuilt: 2004, losses: 1 },
     intake: { state: "PA", tiv: 3_200_000, yearBuilt: null, losses: null },
-    expectedFindings: { territory: "pass", tiv: "pass", construction: "pass", losses: "pass" },
-    needsBroker: false,
+    expectedFindings: { business: "unknown", line: "unknown", state: "pass", tiv: "pass", premium: "unknown", year: "pass", constructionPercent: "unknown", lossValue: "unknown" },
+    needsBroker: true,
   },
 ];
 fixtures.push(...loadAgentEvaluationCases().map((item) => ({ ...item, name: item.id })));

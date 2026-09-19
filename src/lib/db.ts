@@ -44,6 +44,8 @@ function mapCase(row: Record<string, unknown>): CaseRecord {
     id: String(row.id), insuredName: String(row.insured_name), state: String(row.state),
     tiv: Number(row.tiv), yearBuilt: row.year_built === null ? null : Number(row.year_built),
     losses: row.losses === null ? null : Number(row.losses), sourceKey: String(row.source_key),
+    appetite: row.appetite as CaseRecord["appetite"],
+    appetiteResult: row.appetite_result as CaseRecord["appetiteResult"],
     publicSourceUrl: row.public_source_url as string | null,
     publicEvidence: row.public_evidence as CaseRecord["publicEvidence"],
     extractionConflicts: (row.extraction_conflicts as string[] | null) ?? [],
@@ -62,7 +64,7 @@ export async function getCase(id: string): Promise<CaseRecord | null> {
 }
 
 export async function listCases(): Promise<CaseRecord[]> {
-  const result = await db.query("SELECT * FROM cases ORDER BY created_at DESC LIMIT 50");
+  const result = await db.query("SELECT * FROM cases ORDER BY created_at DESC LIMIT 1000");
   return result.rows.map(mapCase);
 }
 

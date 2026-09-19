@@ -1,4 +1,5 @@
 import { buildFacts, evaluateFacts } from "./analysis";
+import { brokerAppetite, caseAppetiteSchema } from "../lib/case-appetite";
 import { addAudit, db, getCase } from "../lib/db";
 import { extractNotes } from "./model";
 import { getText } from "../lib/storage";
@@ -48,7 +49,8 @@ export async function extractCase(caseId: string): Promise<void> {
       revision: caseRecord.analysisRevision,
     }, `gemini:${event}:${caseId}:${caseRecord.analysisRevision}:${attempt.model}`);
   });
-  const facts = buildFacts(caseRecord, extraction.extracted);
+  const appetite = caseAppetiteSchema.parse({ ...brokerAppetite(texts[0]), ...caseRecord.appetite, ...brokerAppetite(texts.slice(1).join("\n")) });
+  const facts = buildFacts({ ...caseRecord, appetite }, extraction.extracted);
   if (caseRecord.yearBuilt === null && facts.yearBuilt.value !== null) facts.yearBuilt.source = `Broker text via ${extraction.fieldSources.yearBuilt}`;
   if (caseRecord.losses === null && facts.losses.value !== null) facts.losses.source = `Broker text via ${extraction.fieldSources.losses}`;
   await db.query("UPDATE cases SET facts = $2, extraction_conflicts = $3, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(facts), JSON.stringify(extraction.conflicts)]);
@@ -69,14 +71,15 @@ export async function checkCase(caseId: string): Promise<{ needsBroker: boolean 
   await db.query("UPDATE cases SET status = 'checking', updated_at = now() WHERE id = $1", [caseId]);
   await addAudit(caseId, "guideline_check_started", { revision: caseRecord.analysisRevision }, `check-started:${caseId}:${caseRecord.analysisRevision}`);
   const result = evaluateFacts(caseRecord.facts as Facts);
+  result.appetiteResult.id = caseId;
   for (const [index, conflict] of caseRecord.extractionConflicts.entries()) {
     result.findings.push({ id: `extraction_conflict_${index}`, label: "Extraction conflict", result: "refer", detail: conflict, source: "Independent extraction" });
   }
   if (caseRecord.extractionConflicts.length) result.brief += " Verify conflicting extraction results before deciding.";
   const status = result.question ? "waiting_for_broker" : "review_ready";
   await db.query(
-    "UPDATE cases SET status = $2, findings = $3, question = $4, brief = $5, updated_at = now() WHERE id = $1",
-    [caseId, status, JSON.stringify(result.findings), result.question, result.brief],
+    "UPDATE cases SET status = $2, findings = $3, question = $4, brief = $5, appetite_result = $6, updated_at = now() WHERE id = $1",
+    [caseId, status, JSON.stringify(result.findings), result.question, result.brief, JSON.stringify(result.appetiteResult)],
   );
   await addAudit(caseId, "analysis_completed", {
     revision: caseRecord.analysisRevision, status,

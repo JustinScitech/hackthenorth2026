@@ -3,7 +3,7 @@ import test from "node:test";
 import { buildFacts, evaluateFacts, parseBrokerNotes } from "./analysis";
 import { loadAgentEvaluationCases } from "./evaluation";
 
-test("versioned extraction samples have grounded expectations and exact demo findings", () => {
+test("versioned extraction samples have grounded expectations and exact carrier findings", () => {
   const cases = loadAgentEvaluationCases();
   assert.ok(cases.length >= 2);
   for (const item of cases) {

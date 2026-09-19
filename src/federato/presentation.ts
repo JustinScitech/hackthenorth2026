@@ -38,6 +38,8 @@ export function buildSummaryMarkdown(report: { resource: string; generatedAt: st
   for (const [index, item] of report.topSubmissions.entries()) {
     const summary = summarizeSubmission(item);
     lines.push(`## ${index + 1}. ${item.account} (${labels.singular} ${item.id})`, `**${summary.title}** · Match score ${item.rawScore}/100 · Priority score ${item.score}/100`, "", summary.plainExplanation, "", `**Recommended next step:** ${summary.action}`);
+    if (item.evidenceNote) lines.push("", `Evidence: ${item.evidenceNote}`);
+    if (item.lifecycleStatus) lines.push("", `Lifecycle status: ${item.lifecycleStatus}`);
     if (summary.strengths.length) lines.push("", `**What supports this:** ${summary.strengths.join(", ")}.`);
     if (summary.questions.length) lines.push("", `**What to check:** ${summary.questions.join(", ")}.`);
     lines.push("");

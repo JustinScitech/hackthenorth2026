@@ -5,12 +5,18 @@ import Link from "next/link";
 import { ArrowRight, CircleAlert, FilePlus2, RotateCw, Search } from "lucide-react";
 import { Status } from "./status";
 import { useCases } from "./use-cases";
+import { rankingExplanation } from "@/federato/presentation";
 
 export function CaseList() {
   const { cases, loading, hasLoaded, error, refresh } = useCases();
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
-  const rows = needle ? cases.filter((record) => `${record.insuredName} ${record.state} ${record.status}`.toLowerCase().includes(needle)) : cases;
+  const ranked = [...cases].sort((left, right) => {
+    if (!left.appetiteResult) return right.appetiteResult ? 1 : 0;
+    if (!right.appetiteResult) return -1;
+    return right.appetiteResult.score - left.appetiteResult.score || right.appetiteResult.rawScore - left.appetiteResult.rawScore || left.id.localeCompare(right.id, "en", { numeric: true });
+  });
+  const rows = needle ? ranked.filter((record) => `${record.insuredName} ${record.state} ${record.status}`.toLowerCase().includes(needle)) : ranked;
 
   return (
     <main className="shell">
@@ -23,6 +29,7 @@ export function CaseList() {
         </div>
       </div>
       {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error}</div>}
+      <p className="subtle">Local case queue, most recent 1,000 records across all workflow statuses. {rankingExplanation} Unscored and legacy reviews appear last.</p>
       <div className="card">
         <div className="card-header">
           <div className="search-field" style={{ flex: "1 1 320px", maxWidth: 420 }}><Search size={15} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter by insured, state, or status" aria-label="Filter cases" /></div>
@@ -32,7 +39,7 @@ export function CaseList() {
           <div className="case-list">
             {rows.map((record) => (
               <Link className="case-row" href={`/cases/${record.id}`} key={record.id}>
-                <div className="case-main"><strong>{record.insuredName}</strong><span>{record.state} · ${record.tiv.toLocaleString()} TIV</span></div>
+                <div className="case-main"><strong>{record.insuredName}</strong><span>{record.state} · ${record.tiv.toLocaleString()} TIV</span><span>{record.appetiteResult ? `Match ${record.appetiteResult.rawScore}/100 · Priority ${record.appetiteResult.score}/100` : "Not scored against carrier appetite"}</span></div>
                 <Status value={record.status} />
                 <time dateTime={record.createdAt}>{new Date(record.createdAt).toLocaleDateString()}</time>
                 <ArrowRight className="row-arrow" size={16} aria-hidden="true" />
