@@ -46,6 +46,7 @@ export const test = base.extend<Fixtures>({
     });
     await withDatabase(async (db) => {
       for (const id of ids) {
+        await db.query("DELETE FROM case_jobs WHERE case_id = $1", [id]);
         await db.query("DELETE FROM case_actions WHERE case_id = $1", [id]);
         await db.query("DELETE FROM audit_events WHERE case_id = $1", [id]);
         await db.query("DELETE FROM cases WHERE id = $1", [id]);

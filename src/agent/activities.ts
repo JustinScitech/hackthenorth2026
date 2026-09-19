@@ -114,12 +114,12 @@ export async function recordBrokerResponse(caseId: string, actionId: string): Pr
   }
 }
 
-export async function recordBrokerFollowUp(caseId: string, reminderNumber: number): Promise<void> {
+export async function recordBrokerFollowUp(caseId: string, revision: number, reminderNumber: number): Promise<void> {
   await addAudit(
     caseId,
     "broker_follow_up_due",
     { reminderNumber },
-    `followup:${caseId}:${reminderNumber}`,
+    `followup:${caseId}:${revision}:${reminderNumber}`,
   );
 }
 
@@ -153,5 +153,5 @@ export async function finalizeDecision(caseId: string, actionId: string): Promis
 
 export async function failCase(caseId: string, reason: string): Promise<void> {
   await db.query("UPDATE cases SET status = 'failed', error = $2, updated_at = now() WHERE id = $1", [caseId, reason.slice(0, 500)]);
-  await addAudit(caseId, "workflow_failed", { reason: reason.slice(0, 500) }, `failed:${caseId}`);
+  await addAudit(caseId, "job_failed", { reason: reason.slice(0, 500) }, `failed:${caseId}`);
 }

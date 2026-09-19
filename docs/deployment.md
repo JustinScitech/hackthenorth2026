@@ -1,53 +1,44 @@
-# Demo deployment: Vercel + Render
+# Single-VM demo deployment
 
-The Next.js app includes the HTTP API. Deploy it as one Vercel project. The Temporal worker is a separate, continuously running process on Render. Both connect to the same Temporal namespace, PostgreSQL database, and MongoDB database. Do not deploy the local `compose.yaml` stack as production infrastructure.
+The Next.js process serves both the frontend and HTTP API. A separate Node worker processes durable jobs from PostgreSQL. MongoDB stores broker text and evidence. `compose.production.yaml` runs all four processes, plus Caddy for HTTPS, on one VM. There is no Temporal or Render dependency.
 
-## Before deploying
+This is a small fictional-data demo, not production insurance infrastructure. The app has an email allowlist but no tenant isolation or role-based authorization. Do not submit real customer documents. Rotate every credential previously shared in chat or screenshots.
 
-1. Merge the deployment PR into `main` before deploying. It also brings the agent-quality changes from PR #13 onto `main`. Use the same commit for Vercel and Render.
-2. Provision a managed PostgreSQL database for case, audit, eval, and auth tables; a MongoDB Atlas database for submission documents; and a Temporal Cloud namespace with API-key authentication. Set network access so both hosts can reach the databases. The Render pre-deploy command runs the PostgreSQL migration.
-3. Rotate credentials shared in chat or screenshots. Store new values only in the hosting providers' secret settings, not in the repository or `NEXT_PUBLIC_` variables.
-4. Keep submissions fictional. Authentication currently uses an email allowlist, but the workspace lacks tenant isolation and role-based authorization, and the core underwriting rules are demo rules.
+## VM and DNS
 
-## Render worker
+1. Provision a Linux VM with at least 2 vCPUs and 8 GB RAM. Oracle Always Free Arm is one possible zero-cost demo host when capacity is available. Confirm that the VM has enough free storage for database volumes and Docker images.
+2. Point a domain or subdomain you control at the VM's public IP. Allow inbound TCP 80 and 443, and UDP 443 for HTTPS. Restrict SSH to your own IP. Do not open PostgreSQL, MongoDB, or the worker to the internet.
+3. Install Docker Engine and its Compose plugin on the VM. Clone this repository at the revision you want to deploy.
+4. Copy `.env.production.example` to `.env.production`. Set `DOMAIN` and `BETTER_AUTH_URL` to the same public host, create fresh random `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`, and use the same PostgreSQL password in `DATABASE_URL`. Set Google OAuth credentials and approved email addresses. Set `GEMINI_API_KEY` to enable model extraction; without it, the deterministic parser runs.
+5. In Google Cloud, add `https://<your-domain>/api/auth/callback/google` as an authorized redirect URI for that OAuth client. Add approved accounts as test users while the consent screen is in Testing mode.
 
-In Render, create a Blueprint from this repository's `render.yaml`. It creates the `astra-risk-agent` background worker, installs dependencies, checks configuration, runs `npm run db:migrate` before deploy, then starts `npm run worker`. A background worker is required: it must keep polling Temporal while the web app is idle. Render background workers use a paid compute plan; the Blueprint leaves the plan at Render's default so you can choose a larger one if needed. Render prompts for these variables during the initial Blueprint setup:
+Keep `.env.production` on the VM only. It is ignored by Git and excluded from the Docker build context. The build uses inert placeholder values; Compose supplies real values at runtime.
 
-| Variable | Value |
-| --- | --- |
-| `DATABASE_URL` | Hosted PostgreSQL connection string for the **app** database (not Temporal's internal database). |
-| `MONGODB_URI` | Atlas connection string; URL-encode reserved characters in the password. |
-| `TEMPORAL_ADDRESS` | Temporal Cloud Namespace endpoint, for example `<namespace>.<account>.tmprl.cloud:7233`. |
-| `TEMPORAL_NAMESPACE` | Exact Namespace ID, for example `<namespace>.<account>`. |
-| `TEMPORAL_API_KEY` | Namespace-scoped API key for the worker. |
-| `GEMINI_API_KEY` | Model key required by this Render deployment to avoid parser-only analysis. |
+## Deploy
 
-The Blueprint sets `MONGODB_DB=underwriting_agent` and Node.js 22.22.0. Change the database name in Render if your Atlas database differs. Add `BROWSERBASE_API_KEY` and `SENTRY_DSN` to the worker only when those integrations are wanted. Existing Blueprints do not re-prompt for newly added `sync: false` variables; edit the Render service's environment settings instead.
+Run these commands from the repository directory on the VM:
 
-Wait for the pre-deploy migration and for the worker log `Worker listening on underwriting-cases` before testing the website. If PostgreSQL reports a certificate-chain error, obtain the provider's correct CA or connection configuration; do not turn off TLS verification.
+```sh
+docker compose --env-file .env.production -f compose.production.yaml config --quiet
+docker compose --env-file .env.production -f compose.production.yaml build migrate
+docker compose --env-file .env.production -f compose.production.yaml run --no-deps --rm web npm run deploy:check
+docker compose --env-file .env.production -f compose.production.yaml up -d
+docker compose --env-file .env.production -f compose.production.yaml logs -f worker web caddy
+```
 
-## Vercel web app and API
-
-Your teammate can import the same repository and commit into one Vercel Next.js project. Set these server-side environment variables in Vercel Production:
-
-| Variable | Value |
-| --- | --- |
-| `DATABASE_URL`, `MONGODB_URI`, `MONGODB_DB` | Same app databases used by Render. Use a pooled PostgreSQL endpoint if the provider offers one for serverless connections. |
-| `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_API_KEY` | Same Temporal Cloud namespace; a separate scoped API key is preferable for the web API. |
-| `BETTER_AUTH_URL` | Exact public HTTPS origin, with no trailing slash. |
-| `BETTER_AUTH_SECRET` | A new random production secret; keep it stable across deploys. |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Production Google OAuth Web client credentials. |
-| `AUTH_ALLOWED_EMAILS` | Comma-separated approved Google addresses. |
-
-Optional Vercel-side integrations: `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` for live triage; `ELEVENLABS_API_KEY` for audio briefs. Do not put worker-only model or sponsor keys into Vercel unless a web route actually needs them.
-
-In Google Cloud, register `https://<your-domain>/api/auth/callback/google` as an authorized redirect URI for the production OAuth client. If the consent screen is in Testing mode, add each approved address to its test users too. Update `BETTER_AUTH_URL` and Google's redirect URI together if the domain changes. Local `localhost:3003` credentials do not automatically configure production.
+Compose waits for PostgreSQL and MongoDB, runs the schema migration, then starts the web and worker services. Caddy obtains and renews the HTTPS certificate after DNS resolves. Deploy a new revision with `git pull`, then repeat `build migrate` and `up -d`. Keep PostgreSQL and MongoDB volumes intact during updates. `docker compose down -v` deletes case data.
 
 ## Smoke test
 
-1. Open `/sign-in` at the production origin and complete Google sign-in with an approved test user.
-2. Create a fictional sample submission. It should move past `received` and show extraction and guideline-check audit entries.
-3. Check that the case trace identifies a completed Gemini extraction, not a parser fallback. If it stalls, inspect Render worker logs and the Temporal namespace's task queue pollers.
-4. Complete a broker follow-up and underwriter decision, then confirm the case and Overview metrics update.
+1. Open `https://<your-domain>/sign-in` and sign in with an approved Google account.
+2. Create a fictional sample case. It should leave `received` and show extraction and guideline-check audit entries. If `GEMINI_API_KEY` is set, confirm the trace shows a completed Gemini attempt rather than parser fallback.
+3. Use a sample that requires broker information. Add a response, wait for `review_ready`, then record an underwriter decision.
+4. Restart only the worker with `docker compose --env-file .env.production -f compose.production.yaml restart worker`. Queued jobs should resume from PostgreSQL.
 
-The web app starts and signals workflows; only the Render worker executes agent activities. A healthy Vercel deploy with a stopped worker can accept a case but will not analyze it.
+If work stalls, inspect worker logs and the `case_jobs` table. Jobs retry three times with backoff; a crashed worker's lease expires and another worker can reclaim the job. The 24-hour broker follow-up is an audit event, not a sent message.
+
+## Limits and operations
+
+This setup has a single VM and no automatic offsite backups, high availability, or disaster recovery. Back up the PostgreSQL and MongoDB volumes before using persistent data. Watch disk space, memory, certificate renewal, and free-tier limits. Treat the free VM as a demo host; do not promise availability or store regulated customer data on it.
+
+The web server and worker must both be running. The web server can accept a case while the worker is stopped, but analysis will remain queued. Gemini and optional sponsor services have their own usage limits or charges independent of hosting.

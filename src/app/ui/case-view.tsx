@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { Check, CircleAlert, ClipboardList, Clock3, ExternalLink, FileText, ShieldCheck, Send, X } from "lucide-react";
-import type { AuditEvent, CaseRecord, Fact, WorkflowStatus } from "@/lib/types";
+import type { AuditEvent, CaseRecord, Fact, JobStatus } from "@/lib/types";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
 
@@ -79,7 +79,7 @@ const eventLabels: Record<string, string> = {
   public_research_failed: "Public research unavailable", guideline_check_started: "Checking demo guidelines",
   analysis_completed: "Guidelines checked",
   broker_response_received: "Broker response received", broker_follow_up_due: "Broker follow-up due",
-  approved: "Review approved", declined: "Review declined", workflow_failed: "Workflow failed",
+  approved: "Review approved", declined: "Review declined", job_failed: "Analysis failed",
 };
 
 function traceDetail(event: AuditEvent): string | null {
@@ -125,32 +125,32 @@ function AnalysisTrace({ audit }: { audit: AuditEvent[] }) {
   </section>;
 }
 
-function workflowMessage(caseRecord: CaseRecord, audit: AuditEvent[], workflowStatus: WorkflowStatus): string {
+function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobStatus): string {
   const latest = audit.at(-1);
   const processing = ["received", "extracting", "checking"].includes(caseRecord.status);
-  if (workflowStatus === "UNAVAILABLE") return "Temporal status unavailable. Showing the last recorded case step.";
-  if (["FAILED", "TERMINATED", "TIMED_OUT"].includes(workflowStatus)) return `Temporal workflow ${workflowStatus.toLowerCase()}.`;
-  if (processing && workflowStatus === "RUNNING") {
+  if (jobStatus === "FAILED") return "Analysis failed. Review the case error and activity trace.";
+  if (processing && jobStatus === "RUNNING") {
     const providers = Array.isArray(latest?.detail.providers) ? latest.detail.providers.join(" and ") : "Model";
     return latest?.eventType === "model_extraction_started" ? `${providers} extracting broker facts`
       : latest?.eventType === "gemini_model_started" ? `Extracting with ${String(latest.detail.model ?? "Gemini")}`
         : latest?.eventType === "gemini_model_failed" ? `${String(latest.detail.model ?? "Gemini")} unavailable; continuing extraction`
       : latest?.eventType === "public_research_started" ? "Reviewing the supplied public source"
         : latest?.eventType === "guideline_check_started" ? "Checking demo guidelines"
-          : caseRecord.status === "received" ? "Temporal workflow queued" : "Reading the submission";
+          : caseRecord.status === "received" ? "Analysis started" : "Reading the submission";
   }
-  if (caseRecord.status === "waiting_for_broker") return "Temporal workflow paused for broker information.";
-  if (caseRecord.status === "review_ready") return "Analysis complete. Temporal is waiting for an underwriter decision.";
-  if (workflowStatus === "COMPLETED") return "Temporal workflow completed.";
-  return `Temporal workflow ${workflowStatus.toLowerCase()}.`;
+  if (jobStatus === "QUEUED") return "Analysis queued";
+  if (caseRecord.status === "waiting_for_broker") return "Waiting for broker information.";
+  if (caseRecord.status === "review_ready") return "Analysis complete. Waiting for an underwriter decision.";
+  if (jobStatus === "COMPLETED") return "Review completed.";
+  return "Analysis in progress.";
 }
 
-function WorkflowProgress({ caseRecord, audit, workflowStatus }: { caseRecord: CaseRecord; audit: AuditEvent[]; workflowStatus: WorkflowStatus }) {
-  return <div className="progress-line" role="status"><Clock3 size={16} aria-hidden="true" />{workflowMessage(caseRecord, audit, workflowStatus)}</div>;
+function JobProgress({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus }) {
+  return <div className="progress-line" role="status"><Clock3 size={16} aria-hidden="true" />{jobMessage(caseRecord, audit, jobStatus)}</div>;
 }
 
-export function CaseView({ id, caseRecord, audit, workflowStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
-  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; workflowStatus: WorkflowStatus; error: string | null; voiceAvailable: boolean;
+export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
+  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
@@ -170,8 +170,8 @@ export function CaseView({ id, caseRecord, audit, workflowStatus, error, voiceAv
       <div className="message-avatar agent-avatar"><ShieldCheck size={18} aria-hidden="true" /></div>
       <div className="message-content">
         <p className="message-label">Underwriting agent</p>
-        <WorkflowProgress caseRecord={caseRecord} audit={audit} workflowStatus={workflowStatus} />
-        {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={17} aria-hidden="true" />{caseRecord.error ?? "The workflow failed."}</div>}
+        <JobProgress caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} />
+        {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={17} aria-hidden="true" />{caseRecord.error ?? "Analysis failed."}</div>}
         <p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p>
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} />
