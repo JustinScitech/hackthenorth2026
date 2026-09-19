@@ -4,3 +4,5 @@ node_modules/
 .env
 *.tsbuildinfo
 data/
+
+.npm-cache/

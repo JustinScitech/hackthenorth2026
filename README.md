@@ -2,7 +2,13 @@
 
 A durable, human-reviewed commercial property underwriting demo. Each case runs as a Temporal workflow. The worker extracts facts from a broker submission, checks sample guidelines, pauses for missing information, and resumes when a broker response arrives. An underwriter makes the final review decision.
 
-The guideline thresholds in this repository are **fictional demo rules** and must not be used to make real insurance decisions.
+The original case-review workflow uses **fictional demo rules**. The separate Federato triage flow uses the supplied **2025 sample appetite guidelines**. Both support human review and must not be used to bind coverage automatically.
+
+## Federato challenge triage
+
+Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Configure `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env.local`. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local database and Temporal stack.
+
+The live schema currently selects `Policy` because it contains more appetite fields; the report explicitly identifies that scope. It is not yet a reconciled queue of standalone Submission records. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
 
 ## Stack
 
@@ -54,7 +60,7 @@ Run `npm run typecheck`, `npm test`, and `npm run build`.
 
 ## Sponsor fit and remaining work
 
-See [the sponsor integration map](docs/sponsor-map.md) for every item from the team brief. Prize eligibility depends on this year's published rules and an actual configured, demonstrable integration, not a placeholder or package dependency.
+See [the sponsor integration map](docs/sponsor-map.md) for every item from the team brief and [the Federato gap assessment](docs/federato-gap-assessment.md) for the live triage implementation. Prize eligibility depends on this year's published rules and an actual configured, demonstrable integration, not a placeholder or package dependency.
 
 ## Production work
 

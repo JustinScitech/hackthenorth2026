@@ -90,3 +90,11 @@ textarea { resize: vertical; line-height: 1.5; }
 .timeline time { color: #8a9895; font-size: 11px; }
 @media (max-width: 960px) { .dashboard-grid, .detail-grid { grid-template-columns: 1fr; gap: 34px; } .intake-section { max-width: 620px; } .detail-aside { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; } }
 @media (max-width: 620px) { .header-inner { min-height: 60px; padding: 0 18px; } .header-meta { display: none; } .shell { padding: 25px 18px 50px; } h1 { font-size: 25px; } .dashboard-grid { gap: 30px; } .case-row { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; } .case-row time { display: none; } .case-row .row-arrow { display: none; } .case-row .status { grid-column: 2; grid-row: 1; } .intake-section { padding: 18px; } .detail-aside { grid-template-columns: 1fr; gap: 0; } .detail-heading { flex-direction: column; align-items: flex-start; } }
+.triage-plan, .triage-card { margin: 24px 0; padding: 22px; background: #fff; border: 1px solid #dbe2e0; border-radius: 6px; }
+.triage-plan summary, .triage-card summary { cursor: pointer; color: #0b756e; font-weight: 700; }
+.triage-plan li { margin: 9px 0; line-height: 1.5; }
+.triage-plan pre { overflow: auto; padding: 16px; background: #f7f9f8; }
+.triage-table-wrap { overflow-x: auto; }
+.triage-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; text-align: left; }
+.triage-table th, .triage-table td { padding: 12px 10px; border-bottom: 1px solid #dbe2e0; vertical-align: top; line-height: 1.5; }
+.triage-table small { color: #687879; overflow-wrap: anywhere; }

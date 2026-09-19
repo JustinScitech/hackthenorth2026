@@ -8,7 +8,7 @@ This is a delivery map, not a claim that every listed sponsor has a confirmed 20
 
 | Sponsor | Underwriting role | Current status | Live proof needed |
 | --- | --- | --- | --- |
-| Federato | Source submissions, schema, glossary, and appetite rules | Manual intake and fictional checks only | Provided API/schema/guidelines, real import, ranked in-appetite queue |
+| Federato | Source submissions, schema, glossary, and appetite rules | Live schema discovery, 113-policy paginated ranking, supplied appetite rules, explanations and query trace at `/triage` | Reconcile standalone submissions with policies; confirm primary state and complete five-year loss history; see [gap assessment](federato-gap-assessment.md) |
 | Rox | Agent handling messy operational data and meaningful actions | Missing-field follow-up and conflict detection; Temporal wait/resume | Real messy Federato cases, measured resolutions and actions |
 | OpenAI | Structured extraction from broker notes | Coded, optional key | Run a case with API key and show evidence/uncertainty |
 | Tiger Data | Relational case/audit state plus time-series operations analytics | PostgreSQL-compatible schema; no Tiger Data connection yet | Hosted Tiger Data instance and useful metrics dashboard |

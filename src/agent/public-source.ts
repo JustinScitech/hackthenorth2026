@@ -7,7 +7,7 @@ export type PublicEvidence = { url: string; title: string; excerpt: string };
 export async function browsePublicSource(value: string): Promise<PublicEvidence> {
   const url = publicSourceUrl(value);
   const browserbase = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY, timeout: 30_000, maxRetries: 1 });
-  const session = await browserbase.sessions.create();
+  const session = await browserbase.sessions.create({ api_timeout: 120 });
   let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined;
   try {
     browser = await chromium.connectOverCDP(session.connectUrl, { timeout: 30_000 });
@@ -17,7 +17,8 @@ export async function browsePublicSource(value: string): Promise<PublicEvidence>
       catch { return route.abort(); }
     });
     const page = context.pages()[0] ?? await context.newPage();
-    await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 25_000 });
+    const response = await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 25_000 });
+    if (!response || !response.ok()) throw new Error(`Source returned HTTP ${response?.status() ?? "unknown"}; no evidence captured.`);
     const finalUrl = publicSourceUrl(page.url());
     const title = (await page.title()).slice(0, 200);
     const excerpt = (await page.locator("body").innerText({ timeout: 10_000 })).replace(/\s+/g, " ").trim().slice(0, 1200);
