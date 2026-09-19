@@ -5,6 +5,10 @@ import { enqueueJob } from "@/agent/jobs";
 import { db, getCase } from "@/lib/db";
 import { putText } from "@/lib/storage";
 import { requireApiSession } from "@/lib/auth-access";
+import { drainJobsAfterResponse } from "@/lib/inline-jobs";
+
+// Long enough for the after() drain to finish an extraction on Vercel; see lib/inline-jobs.ts.
+export const maxDuration = 300;
 
 const actionSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.uuid(), kind: z.literal("broker_response"), response: z.string().trim().min(3).max(10_000) }),
@@ -36,6 +40,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         return NextResponse.json({ error: "This action ID was already used for different content." }, { status: 409 });
       }
       await enqueueJob(id, action.kind === "broker_response" ? "broker_response" : "decision", `action:${action.id}`, { actionId: action.id });
+      drainJobsAfterResponse();
       return NextResponse.json({ ok: true });
     }
     const expectedStatus = action.kind === "broker_response" ? "waiting_for_broker" : "review_ready";
@@ -61,6 +66,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     } finally {
       client.release();
     }
+    drainJobsAfterResponse();
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error(error);

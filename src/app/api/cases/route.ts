@@ -6,6 +6,10 @@ import { publicSourceUrl } from "@/agent/public-source-url";
 import { db, listCases } from "@/lib/db";
 import { putText } from "@/lib/storage";
 import { requireApiSession } from "@/lib/auth-access";
+import { drainJobsAfterResponse } from "@/lib/inline-jobs";
+
+// Long enough for the after() drain to finish an extraction on Vercel; see lib/inline-jobs.ts.
+export const maxDuration = 300;
 
 const createSchema = z.object({
   insuredName: z.string().trim().min(2).max(160),
@@ -68,6 +72,7 @@ export async function POST(request: Request) {
     } finally {
       client.release();
     }
+    drainJobsAfterResponse();
     return NextResponse.json({ id }, { status: 201 });
   } catch (error) {
     console.error(error);

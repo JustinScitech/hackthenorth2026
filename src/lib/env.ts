@@ -15,6 +15,18 @@ export function isDeployed(env: Env = process.env): boolean {
   return Boolean(env.VERCEL || env.VERCEL_ENV);
 }
 
+/**
+ * Whether the web app should drain the job queue itself instead of relying on `npm run worker`.
+ * On Vercel there is no long-running worker, so this defaults on; locally it defaults off so the
+ * worker and the e2e suite keep their usual roles. INLINE_JOBS=true|false overrides either way.
+ */
+export function inlineJobsEnabled(env: Env = process.env): boolean {
+  const flag = env.INLINE_JOBS?.trim().toLowerCase();
+  if (flag === "true" || flag === "1") return true;
+  if (flag === "false" || flag === "0") return false;
+  return isDeployed(env);
+}
+
 export function isLocalUrl(url: string): boolean {
   try {
     // mongodb+srv and postgres URLs both parse with the WHATWG parser for host purposes.

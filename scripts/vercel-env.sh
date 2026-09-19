@@ -22,7 +22,10 @@ add MONGODB_DB             "$MONGODB_DB"
 # Tiger Data presents a certificate chain Node rejects; the merged TLS fix reads this flag.
 add DATABASE_SSL_REJECT_UNAUTHORIZED "false"
 
-# The worker must use the same hosted PostgreSQL and MongoDB targets.
+# There is no worker on Vercel: routes drain the queue after responding, and /api/jobs/run drains
+# on demand. CRON_SECRET guards that route; Vercel Cron sends it automatically, an external
+# pinger sends it as "Authorization: Bearer <CRON_SECRET>".
+add CRON_SECRET            "$CRON_SECRET"
 
 add BETTER_AUTH_SECRET     "$BETTER_AUTH_SECRET"
 add AUTH_ALLOWED_EMAILS    "$AUTH_ALLOWED_EMAILS"

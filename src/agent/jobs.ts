@@ -115,3 +115,22 @@ export async function processNextJob(): Promise<boolean> {
   }
   return true;
 }
+
+export type DrainResult = { processed: number; drained: boolean };
+
+/**
+ * Processes due jobs one after another until the queue is empty (`drained: true`) or the time
+ * budget is spent. The worker loops on processNextJob forever; the web app calls this from a
+ * route handler's `after()` and from /api/jobs/run when there is no worker (see lib/env.ts).
+ * Claiming uses SKIP LOCKED with a lease, so a worker and any number of inline drains can run
+ * at once without handing the same job to two of them.
+ */
+export async function drainJobs(budgetMs: number, next: () => Promise<boolean> = processNextJob): Promise<DrainResult> {
+  const deadline = Date.now() + budgetMs;
+  let processed = 0;
+  while (Date.now() < deadline) {
+    if (!(await next())) return { processed, drained: true };
+    processed += 1;
+  }
+  return { processed, drained: false };
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { authBaseUrl, databaseUrl, isLocalUrl, mongoUri, withPgCompat } from "./env";
+import { authBaseUrl, databaseUrl, inlineJobsEnabled, isLocalUrl, mongoUri, withPgCompat } from "./env";
 
 const tiger = "postgres://user:pw@example.tsdb.cloud.timescale.com:37530/tsdb?sslmode=require";
 const atlas = "mongodb+srv://user:pw@cluster.example.mongodb.net/?appName=x";
@@ -49,4 +49,15 @@ test("auth base URL follows the environment", () => {
   assert.equal(authBaseUrl({ VERCEL: "1", VERCEL_ENV: "preview", VERCEL_URL: "astra-risk-abc123.vercel.app", VERCEL_PROJECT_PRODUCTION_URL: "astra-risk.vercel.app" }), "https://astra-risk-abc123.vercel.app");
   assert.equal(authBaseUrl({ VERCEL: "1", VERCEL_ENV: "production", BETTER_AUTH_URL: "https://underwriting.example.com/" }), "https://underwriting.example.com");
   assert.throws(() => authBaseUrl({ VERCEL: "1" }), /BETTER_AUTH_URL is not set and no Vercel URL/);
+});
+
+test("inline jobs default to deployed-only and honour an explicit flag", () => {
+  assert.equal(inlineJobsEnabled({}), false);
+  assert.equal(inlineJobsEnabled({ VERCEL: "1" }), true);
+  assert.equal(inlineJobsEnabled({ VERCEL_ENV: "preview" }), true);
+  assert.equal(inlineJobsEnabled({ INLINE_JOBS: "true" }), true);
+  assert.equal(inlineJobsEnabled({ INLINE_JOBS: "1" }), true);
+  assert.equal(inlineJobsEnabled({ VERCEL: "1", INLINE_JOBS: "false" }), false);
+  assert.equal(inlineJobsEnabled({ VERCEL: "1", INLINE_JOBS: " 0 " }), false);
+  assert.equal(inlineJobsEnabled({ VERCEL: "1", INLINE_JOBS: "maybe" }), true);
 });

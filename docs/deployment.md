@@ -37,6 +37,10 @@ Compose waits for PostgreSQL and MongoDB, runs the schema migration, then starts
 
 If work stalls, inspect worker logs and the `case_jobs` table. Jobs retry three times with backoff; a crashed worker's lease expires and another worker can reclaim the job. The 24-hour broker follow-up is an audit event, not a sent message.
 
+## Vercel without a worker
+
+If the web app runs on Vercel instead of this VM, skip the `worker` container: deployed routes drain the queue themselves after responding, and `/api/jobs/run` drains when pinged with `Authorization: Bearer <CRON_SECRET>`. Set `CRON_SECRET` in the Vercel project (`./scripts/vercel-env.sh` does this from `.env`), keep the daily cron in `vercel.json`, and optionally add a free external pinger every minute or two for quicker retries. See the README's Vercel section for the details.
+
 ## Limits and operations
 
 This setup has a single VM and no automatic offsite backups, high availability, or disaster recovery. Back up the PostgreSQL and MongoDB volumes before using persistent data. Watch disk space, memory, certificate renewal, and free-tier limits. Treat the free VM as a demo host; do not promise availability or store regulated customer data on it.
