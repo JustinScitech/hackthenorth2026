@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   ArrowDown,
-  ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
   Check,
@@ -45,7 +44,15 @@ import {
   type CameraAction,
   type CameraCommand,
 } from "./inspection-data";
+import {
+  DEFAULT_LANDING_THEME,
+  LANDING_THEME_KEY,
+  isLandingTheme,
+  landingThemeScript,
+  type LandingTheme,
+} from "./landing-theme";
 import styles from "./home.module.css";
+import ui from "./landing.module.css";
 
 const PropertyScene = dynamic(() => import("./property-scene"), {
   ssr: false,
@@ -67,7 +74,7 @@ const PropertyScene = dynamic(() => import("./property-scene"), {
   ),
 });
 
-export function AstraHome() {
+export function AstraHome({ fontClassName = "" }: { fontClassName?: string }) {
   const [elapsed, setElapsed] = useState(0);
   const [run, setRun] = useState(0);
   const [ready, setReady] = useState(false);
@@ -97,6 +104,8 @@ export function AstraHome() {
   const [showSignals, setShowSignals] = useState(true);
   const [reduced, setReduced] = useState(false);
   const [running, setRunning] = useState(true);
+  const [theme, setThemeState] = useState<LandingTheme>(DEFAULT_LANDING_THEME);
+  const rootRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef(0);
   const phase = getPhase(elapsed);
@@ -107,6 +116,18 @@ export function AstraHome() {
     (signal) => elapsed >= signal.revealAt,
   ).length;
   const markReady = useCallback(() => setReady(true), []);
+
+  // Light by default. The pre-hydration script applies a saved preference before paint,
+  // and the page follows later changes to the stored value (see setLandingTheme).
+  useEffect(() => {
+    const applied = rootRef.current?.dataset.theme;
+    if (isLandingTheme(applied)) setThemeState(applied);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === LANDING_THEME_KEY && isLandingTheme(event.newValue)) setThemeState(event.newValue);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -155,7 +176,7 @@ export function AstraHome() {
       (entries) =>
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add(styles.revealed);
+            entry.target.classList.add(ui.revealed);
             observer.unobserve(entry.target);
           }
         }),
@@ -237,98 +258,89 @@ export function AstraHome() {
   }
 
   return (
-    <main className={styles.home}>
-      <a href="#underwriting" className={styles.skipLink}>
-        Skip to underwriting
+    <main
+      ref={rootRef}
+      className={`${ui.page} ${fontClassName}`}
+      data-theme={theme}
+      suppressHydrationWarning
+    >
+      {/* Applies a saved dark preference before first paint. */}
+      <script dangerouslySetInnerHTML={{ __html: landingThemeScript }} />
+      <a href="#underwriting" className={ui.skipLink}>
+        Skip to how it works
       </a>
-      <header className={styles.header}>
-        <Link href="/" className={styles.brand} aria-label="Astra Risk home">
-          <Mark size={34} priority />
-          <span>
-            astra<span className={styles.brandRisk}>risk</span>
-          </span>
-        </Link>
-        <nav className={styles.navigation} aria-label="Main navigation">
-          <a href="#experience" className={styles.navActive}>
-            The platform
-          </a>
-          <a href="#underwriting">How it works</a>
-          <Link href="/docs">
-            Documentation
-            <ArrowUpRight size={12} />
+
+      <header className={ui.nav}>
+        <div className={`${ui.container} ${ui.navInner}`}>
+          <Link href="/" className={ui.brand} aria-label="Astra Risk home">
+            <Mark size={24} priority />
+            Astra<small>Risk</small>
           </Link>
-        </nav>
-        <Link href="/overview" className={styles.headerCta}>
-          Open workspace
-          <ArrowUpRight size={15} />
-        </Link>
+          <nav className={ui.navLinks} aria-label="Main navigation">
+            <a href="#experience">Platform</a>
+            <a href="#underwriting">How it works</a>
+            <Link href="/docs">
+              Documentation
+              <ArrowUpRight size={12} />
+            </Link>
+          </nav>
+          <div className={ui.navActions}>
+            <Link href="/overview" className={`${ui.pill} ${ui.pillPrimary} ${ui.pillSm}`}>
+              Open workspace
+              <ArrowUpRight size={14} />
+            </Link>
+          </div>
+        </div>
       </header>
 
-      <section
-        className={styles.hero}
-        id="experience"
-        aria-labelledby="hero-title"
-      >
-        <div className={styles.heroCopy}>
-          <div className={styles.eyebrow}>
-            <span className={styles.liveDot} />
-            INTELLIGENCE, GROUNDED IN REALITY
-          </div>
-          <h1 id="hero-title">
-            AI underwriting
+      <section className={`${ui.container} ${ui.hero}`} id="experience" aria-labelledby="hero-title">
+        <div className={ui.heroCopy}>
+          <span className={ui.eyebrow} style={{ "--i": 0 } as React.CSSProperties}>
+            <span className={ui.liveDot} />
+            Intelligence, grounded in reality
+          </span>
+          <h1 id="hero-title" style={{ "--i": 1 } as React.CSSProperties}>
+            AI underwriting{" "}
             <br />
-            that sees the
-            <br />
-            <span>whole risk.</span>
+            that sees the <span>whole risk.</span>
           </h1>
-          <p className={styles.intro}>
-            Astra reads submissions, investigates real-world risk, evaluates
-            carrier appetite, and explains every decision.
+          <p className={ui.intro} style={{ "--i": 2 } as React.CSSProperties}>
+            Astra reads the submission, investigates the property, checks
+            appetite, and shows its work.
           </p>
-          <div className={styles.heroActions}>
+          <div className={ui.heroActions} style={{ "--i": 3 } as React.CSSProperties}>
             <button
               type="button"
-              className={styles.primaryCta}
+              className={`${ui.pill} ${ui.pillPrimary}`}
               onClick={replay}
             >
-              <ScanLine size={17} />
+              <ScanLine size={16} />
               Run Astra
-              <ArrowUpRight size={16} />
             </button>
-            <a className={styles.secondaryCta} href="#underwriting">
-              View underwriting
-              <ArrowDown size={15} />
+            <a className={ui.pill} href="#underwriting">
+              How it works
+              <ArrowDown size={15} className={ui.iconDown} />
             </a>
           </div>
-          <div className={styles.heroNote}>
-            <ShieldCheck size={14} />
-            <span>Agent intelligence. Underwriter authority.</span>
-          </div>
-          <div className={styles.submission} key={run}>
-            <div
-              className={`${styles.documentIcon} ${ready && !complete ? styles.documentEntering : ""}`}
+          <div className={ui.submission} key={run} style={{ "--i": 4 } as React.CSSProperties}>
+            <span
+              className={`${ui.documentIcon} ${ready && !complete ? ui.documentEntering : ""}`}
             >
-              <FileText size={20} />
-            </div>
-            <div>
-              <span className={styles.microLabel}>
-                IT STARTS WITH A SUBMISSION
-              </span>
+              <FileText size={18} />
+            </span>
+            <span className={ui.submissionText}>
               <strong>Northline_Fabrication.pdf</strong>
-              <span className={styles.submissionMeta}>
-                ACORD form + property schedule + loss runs
-              </span>
-            </div>
-            <span className={styles.documentStatus}>
-              {elapsed > 1200 ? (
-                <CheckCheck size={17} />
-              ) : (
-                <ArrowRight size={17} />
-              )}
+              <span>Submission · ACORD + schedule + loss runs</span>
+            </span>
+            <span
+              className={`${ui.documentStatus} ${elapsed > 1200 ? ui.documentDone : ""}`}
+            >
+              {elapsed > 1200 ? <CheckCheck size={16} /> : <ArrowRight size={16} />}
             </span>
           </div>
         </div>
 
+        <div className={ui.stageFrame}>
         {ready && elapsed < 1300 && !reduced && (
           <div
             key={`submission-${run}`}
@@ -750,31 +762,34 @@ export function AstraHome() {
             </aside>
           )}
         </div>
+
+        </div>
       </section>
 
-      <div className={styles.sequenceBar}>
-        <div className={styles.sequenceState} role="status" aria-live="polite">
-          <span className={styles.liveDot} />
+      <div className={ui.container}>
+      <div className={ui.statusBar}>
+        <div className={ui.statusState} role="status" aria-live="polite">
+          <span className={ui.liveDot} />
           {!ready
-            ? "INITIALIZING DIGITAL TWIN"
+            ? "Initializing"
             : complete
-              ? "INVESTIGATION COMPLETE"
-              : `${WORKFLOW[phase].label.toUpperCase()} IN PROGRESS`}
+              ? "Investigation complete"
+              : `${WORKFLOW[phase].label} in progress`}
         </div>
-        <div className={styles.sequenceSteps}>
+        <div className={ui.statusSteps} aria-hidden="true">
           {WORKFLOW.map((step, index) => (
             <span
               key={step.label}
-              className={ready && phase >= index ? styles.stepDone : ""}
+              className={ready && phase >= index ? ui.stepDone : ""}
             >
               {(ready && phase > index) || complete ? (
                 <Check size={12} />
               ) : (
-                <span className={styles.stepNumber}>{index + 1}</span>
+                <span className={ui.stepNumber}>{index + 1}</span>
               )}
               {step.label}
-              {index < 4 && (
-                <ChevronRight size={12} className={styles.stepArrow} />
+              {index < WORKFLOW.length - 1 && (
+                <ChevronRight size={12} className={ui.stepArrow} />
               )}
             </span>
           ))}
@@ -782,61 +797,44 @@ export function AstraHome() {
         <button
           type="button"
           onClick={complete ? replay : skip}
-          className={styles.sequenceTime}
+          className={`${ui.pill} ${ui.pillSm} ${ui.statusTime}`}
         >
           {complete ? <RotateCcw size={12} /> : <Play size={11} />}
           {complete ? "Replay" : "Skip to result"}
           <span>{(elapsed / 1000).toFixed(1)}s</span>
         </button>
         <div
-          className={styles.sequenceProgress}
+          className={ui.statusProgress}
           style={{ transform: `scaleX(${elapsed / DEMO_DURATION})` }}
         />
       </div>
 
-      <section className={styles.signalSummary} aria-label="Assessment summary">
+      </div>
+
+      <div className={ui.container}>
+      <section className={ui.stats} aria-label="Assessment summary">
         <div>
-          <span className={styles.summaryIcon}>
-            <FileText size={19} />
-          </span>
-          <p>
-            <strong>One submission.</strong>
-            <span>Every detail, connected.</span>
-          </p>
+          <strong>{elapsed >= 1200 ? "24" : "—"}</strong>
+          <span>Facts extracted</span>
         </div>
         <div>
-          <strong className={styles.summaryNumber}>
-            {elapsed >= 1200 ? "24" : "—"}
-            <span>facts extracted</span>
-          </strong>
+          <strong>{count}</strong>
+          <span>Risk signals investigated</span>
         </div>
         <div>
-          <strong className={styles.summaryNumber}>
-            {count}
-            <span>risk signals investigated</span>
-          </strong>
+          <strong>100%</strong>
+          <span>Explainable findings</span>
         </div>
-        <div>
-          <strong className={styles.summaryNumber}>
-            100<span>% explainable findings</span>
-          </strong>
-        </div>
-        <a href="#underwriting" className={styles.scrollPrompt}>
-          FOLLOW THE EVIDENCE
-          <ArrowDownRight size={22} />
-        </a>
       </section>
 
-      <section
-        id="underwriting"
-        className={styles.underwriting}
-        data-astra-reveal
-      >
-        <div className={styles.sectionHeading}>
+      </div>
+
+      <section id="underwriting" className={`${ui.container} ${ui.band}`} data-astra-reveal>
+        <div className={ui.bandHead}>
           <div>
-            <span className={styles.eyebrow}>
-              <span className={styles.liveDot} />
-              FROM THE REAL WORLD TO YOUR WORKSPACE
+            <span className={ui.eyebrow}>
+              <span className={ui.liveDot} />
+              How it works
             </span>
             <h2>
               Every angle.
@@ -845,83 +843,62 @@ export function AstraHome() {
             </h2>
           </div>
           <p>
-            The context you need, already connected.
-            <br />
-            Follow the investigation from the first document
-            <br className={styles.desktopBreak} /> to a decision you can stand
-            behind.
+            Follow a submission from the first document to a decision you can
+            stand behind.
           </p>
         </div>
-        <div className={styles.workspacePreview}>
-          <div className={styles.workspaceTop}>
+        <div className={ui.workspace}>
+          <div className={ui.workspaceTop}>
             <span>
-              <Mark size={22} />
-              astra
-              <span className={styles.workspaceDivider} />
+              <Mark size={18} />
               Underwriting workspace
               <ChevronRight size={12} />
               <strong>Northline Fabrication</strong>
             </span>
-            <span className={styles.samplePill}>SAMPLE CASE</span>
+            <span className={ui.monoPill}>Sample case</span>
           </div>
-          <div className={styles.workspaceBody}>
-            <nav
-              className={styles.workflowNav}
-              aria-label="Explore underwriting stages"
-            >
-              <span className={styles.microLabel}>THE INVESTIGATION</span>
+          <div className={ui.workspaceBody}>
+            <nav className={ui.stageNav} aria-label="Explore underwriting stages">
+              <span className={ui.eyebrow}>The investigation</span>
               {WORKFLOW.map((step, index) => (
                 <button
                   type="button"
                   key={step.label}
                   onClick={() => setActiveStep(index)}
                   aria-pressed={activeStep === index}
-                  className={activeStep === index ? styles.workflowActive : ""}
+                  className={
+                    activeStep === index
+                      ? ui.stageActive
+                      : index < activeStep
+                        ? ui.stageDone
+                        : ""
+                  }
                 >
-                  <span className={styles.workflowNumber}>
+                  <span className={ui.stageNumber}>
                     {index < activeStep ? (
-                      <Check size={13} />
+                      <Check size={12} />
                     ) : (
                       String(index + 1).padStart(2, "0")
                     )}
                   </span>
-                  <span>
-                    {step.label}
-                    <small>
-                      {index === activeStep
-                        ? "Exploring this stage"
-                        : "View stage"}
-                    </small>
-                  </span>
-                  <ChevronRight size={13} />
+                  {step.label}
+                  <ChevronRight size={14} />
                 </button>
               ))}
-              <div className={styles.workflowFooter}>
-                <ShieldCheck size={16} />
-                <span>
-                  You make the call.<small>Astra shows its work.</small>
-                </span>
-              </div>
             </nav>
-            <div className={styles.workflowContent} key={activeStep}>
-              <div className={styles.workflowContentTop}>
-                <span className={styles.microLabel}>
-                  0{activeStep + 1} / {WORKFLOW[activeStep].label.toUpperCase()}
-                </span>
-                <span className={styles.completedPill}>
-                  <Check size={11} />
-                  Complete
-                </span>
-              </div>
+            <div className={ui.stageContent} key={activeStep}>
+              <span className={ui.eyebrow}>
+                0{activeStep + 1} / {WORKFLOW[activeStep].label}
+              </span>
               <h3>{WORKFLOW[activeStep].title}</h3>
               <p>{WORKFLOW[activeStep].description}</p>
-              <div className={styles.factTable}>
+              <div className={ui.facts}>
                 {WORKFLOW[activeStep].items.map(([label, value], index) => (
                   <div key={label}>
                     <span>{label}</span>
                     <strong
                       className={
-                        activeStep === 2 && index < 3 ? styles.factWarning : ""
+                        activeStep === 2 && index < 3 ? ui.factWarning : ""
                       }
                     >
                       {value}
@@ -943,7 +920,7 @@ export function AstraHome() {
                         }}
                         aria-label={`Inspect ${label} evidence`}
                       >
-                        <ArrowUpRight size={15} />
+                        <ArrowUpRight size={14} />
                       </button>
                     ) : (
                       <Check size={14} />
@@ -951,84 +928,67 @@ export function AstraHome() {
                   </div>
                 ))}
               </div>
-              <div className={styles.sourceNote}>
-                <FileText size={13} />
-                Linked to source evidence
-                <span>4 findings · full audit trail</span>
-              </div>
             </div>
-            <aside className={styles.workspaceDecision}>
-              <span className={styles.microLabel}>THE BIG PICTURE</span>
-              <div className={styles.largeScore}>
-                92<span>%</span>
+            <aside className={ui.decision} aria-label="Decision summary">
+              <span className={ui.eyebrow}>The big picture</span>
+              <div className={ui.bigScore}>
+                {DEMO_PROPERTY.match}
+                <span>%</span>
               </div>
-              <span className={styles.workspaceMatch}>Appetite match</span>
-              <div className={styles.workspaceMatchTrack}>
+              <span className={ui.scoreLabel}>Appetite match</span>
+              <div className={ui.track}>
                 <i />
               </div>
-              <p>
-                Strong alignment.
-                <br />A few things to look closer at.
-              </p>
-              <div className={styles.reviewNote}>
-                <ShieldCheck size={15} />
+              <div className={ui.reviewNote}>
+                <ShieldCheck size={16} />
                 <span>
-                  Ready for your review<small>2 conditions to resolve</small>
+                  Ready for your review
+                  <small>2 conditions to resolve</small>
                 </span>
               </div>
-              <Link href="/cases/new?sample=1">
+              <Link href="/cases/new?sample=1" className={ui.pill}>
                 Open a sample case
                 <ArrowUpRight size={14} />
               </Link>
             </aside>
           </div>
         </div>
-        <div className={styles.previewCaption}>
-          <span>
-            <span className={styles.liveDot} />
-            ILLUSTRATIVE WORKFLOW · REAL POSSIBILITIES
-          </span>
-          <Link href="/overview">
-            Explore the live workspace
-            <ArrowRight size={14} />
-          </Link>
-        </div>
       </section>
 
-      <section className={styles.closing} data-astra-reveal>
-        <div className={styles.closingMark}>
-          <Mark size={50} />
+      <section className={`${ui.container} ${ui.band} ${ui.closing}`} data-astra-reveal>
+        <div className={ui.closingMark}>
+          <Mark size={44} />
         </div>
-        <p>LESS CHASING. MORE UNDERWRITING.</p>
+        <span className={ui.eyebrow}>Less chasing. More underwriting.</span>
         <h2>
           A clearer view.
           <br />A more confident decision.
         </h2>
-        <Link href="/cases/new" className={styles.primaryCta}>
+        <Link href="/cases/new" className={`${ui.pill} ${ui.pillPrimary}`}>
           Start a submission
-          <ArrowUpRight size={17} />
+          <ArrowUpRight size={16} />
         </Link>
-        <span>Built for the judgment only you can bring.</span>
       </section>
-      <footer className={styles.footer}>
-        <Link href="/" className={styles.brand}>
-          <Mark size={26} />
-          <span>
-            astra<span className={styles.brandRisk}>risk</span>
-          </span>
-        </Link>
-        <p>Intelligence, grounded in reality.</p>
-        <nav aria-label="Footer navigation">
-          <Link href="/docs">
-            Documentation
-            <ArrowUpRight size={12} />
+
+      <footer className={ui.footer}>
+        <div className={`${ui.container} ${ui.footerInner}`}>
+          <Link href="/" className={ui.brand}>
+            <Mark size={20} />
+            Astra<small>Risk</small>
           </Link>
-          <Link href="/overview">
-            Workspace
-            <ArrowUpRight size={12} />
-          </Link>
-        </nav>
-        <small>Demo data. Recommendations require underwriter review.</small>
+          <span>Intelligence, grounded in reality.</span>
+          <nav aria-label="Footer navigation">
+            <Link href="/docs">
+              Documentation
+              <ArrowUpRight size={12} />
+            </Link>
+            <Link href="/overview">
+              Workspace
+              <ArrowUpRight size={12} />
+            </Link>
+          </nav>
+          <small>Demo data · Recommendations require underwriter review</small>
+        </div>
       </footer>
     </main>
   );
