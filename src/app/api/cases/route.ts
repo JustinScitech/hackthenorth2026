@@ -18,13 +18,13 @@ const createSchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const denied = await requireApiSession(request);
-  if (denied) return denied;
   try {
-    return NextResponse.json({ cases: await listCases() });
+    const denied = await requireApiSession(request);
+    if (denied) return denied;
+    return NextResponse.json({ cases: await listCases() }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Cases are unavailable." }, { status: 503 });
+    return NextResponse.json({ error: "Cases are unavailable." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
 

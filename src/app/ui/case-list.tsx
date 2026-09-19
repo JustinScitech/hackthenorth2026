@@ -7,7 +7,7 @@ import { Status } from "./status";
 import { useCases } from "./use-cases";
 
 export function CaseList() {
-  const { cases, loading, error, refresh } = useCases();
+  const { cases, loading, hasLoaded, error, refresh } = useCases();
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
   const rows = needle ? cases.filter((record) => `${record.insuredName} ${record.state} ${record.status}`.toLowerCase().includes(needle)) : cases;
@@ -26,9 +26,9 @@ export function CaseList() {
       <div className="card">
         <div className="card-header">
           <div className="search-field" style={{ flex: "1 1 320px", maxWidth: 420 }}><Search size={15} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter by insured, state, or status" aria-label="Filter cases" /></div>
-          <span className="count">{rows.length}</span>
+          <span className="count">{hasLoaded ? rows.length : "—"}</span>
         </div>
-        {loading ? <p className="empty-state">Loading cases...</p> : rows.length === 0 ? <p className="empty-state">{cases.length === 0 ? "No submissions yet. Create a case to begin." : "No cases match that filter."}</p> : (
+        {loading ? <p className="empty-state">Loading cases...</p> : !hasLoaded ? <p className="empty-state">Cases could not be loaded. Use Refresh to try again.</p> : rows.length === 0 ? <p className="empty-state">{cases.length === 0 ? "No submissions yet. Create a case to begin." : "No cases match that filter."}</p> : (
           <div className="case-list">
             {rows.map((record) => (
               <Link className="case-row" href={`/cases/${record.id}`} key={record.id}>
