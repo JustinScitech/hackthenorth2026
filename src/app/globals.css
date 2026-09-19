@@ -377,6 +377,21 @@ select { width: auto; padding-right: 32px; appearance: none; background-image: l
 .score small { font-size: 11px; font-weight: 500; opacity: 0.8; }
 .triage-card .card-body p:last-child { margin-bottom: 0; }
 .triage-card .card-body > p { font-size: 14.5px; color: var(--text-secondary); }
+.decision-banner { display: flex; gap: 10px; align-items: flex-start; padding: 13px 14px; border-radius: var(--radius-md); margin-bottom: 14px; }
+.decision-banner > div { display: grid; gap: 3px; }
+.decision-banner span { color: var(--text-secondary); font-size: 14px; }
+.decision-positive { background: var(--green-tint); color: var(--green-ink); }
+.decision-caution { background: var(--amber-tint); color: var(--amber-ink); }
+.decision-refer { background: var(--red-tint); color: var(--red-ink); }
+.next-action { color: var(--text); font-size: 15px; }
+.plain-facts { display: grid; gap: 5px; color: var(--text-secondary); font-size: 14px; }
+.technical-detail { margin-top: 16px; }
+@media print {
+  .sidebar, .topbar, .breadcrumb, .triage-heading button, .triage-plan, .section-heading .actions, .technical-detail, .triage-card > details { display: none !important; }
+  .app-frame, .workspace-main, .shell { display: block; min-height: auto; }
+  .triage-card { break-inside: avoid; border: 1px solid #bbb; color: #111; box-shadow: none; }
+  .decision-banner span, .plain-facts, .subtle { color: #333; }
+}
 .triage-card details { border-top: 1px solid var(--border); }
 .triage-table-wrap { overflow-x: auto; padding: 0 22px 18px; }
 .triage-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 13px; text-align: left; }
