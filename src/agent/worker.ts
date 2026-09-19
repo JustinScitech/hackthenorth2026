@@ -1,6 +1,6 @@
 import { NativeConnection, Worker } from "@temporalio/worker";
 import * as activities from "./activities";
-import { TASK_QUEUE } from "./contracts";
+import { TASK_QUEUE } from "./task-queue";
 import { captureAgentError, initMonitoring, monitorActivities } from "./monitoring";
 
 async function main() {

@@ -21,3 +21,20 @@ test("out-of-guideline risks are referred, not automatically approved", () => {
   assert.equal(result.findings.filter((finding) => finding.result === "refer").length, 4);
   assert.match(result.brief, /4 guideline exceptions require/);
 });
+
+test("demo guideline thresholds are inclusive at their stated limits", () => {
+  const atLimit = evaluateFacts(buildFacts({ state: "NJ", tiv: 5_000_000, yearBuilt: 1980, losses: 2 }, { yearBuilt: null, losses: null }));
+  assert.deepEqual(atLimit.findings.map((finding) => finding.result), ["pass", "pass", "pass", "pass"]);
+  assert.equal(atLimit.question, null);
+
+  const outside = evaluateFacts(buildFacts({ state: "CO", tiv: 5_000_001, yearBuilt: 1979, losses: 3 }, { yearBuilt: null, losses: null }));
+  assert.deepEqual(outside.findings.map((finding) => finding.result), ["refer", "refer", "refer", "refer"]);
+});
+
+test("intake facts take precedence over conflicting broker text", () => {
+  const parsed = parseBrokerNotes("Built in 1998. Three claims: 3. Later corrected: built in 2001. No losses.");
+  assert.deepEqual(parsed, { yearBuilt: 2001, losses: 0 });
+  const facts = buildFacts({ state: "NY", tiv: 2_000_000, yearBuilt: 2012, losses: 1 }, parsed);
+  assert.deepEqual(facts.yearBuilt, { value: 2012, source: "Intake form", confidence: 1 });
+  assert.deepEqual(facts.losses, { value: 1, source: "Intake form", confidence: 1 });
+});

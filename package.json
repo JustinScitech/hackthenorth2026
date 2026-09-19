@@ -9,7 +9,8 @@
     "worker": "node --env-file=.env --import tsx src/agent/worker.ts",
     "db:migrate": "node --env-file=.env --import tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/agent/*.test.ts src/federato/*.test.ts src/lib/*.test.ts",
+    "test": "node --import tsx --test src/agent/*.test.ts src/app/ui/*.test.ts src/federato/*.test.ts src/lib/*.test.ts",
+    "test:e2e": "node --env-file=.env --import tsx scripts/e2e-prepare.ts && npm run build && node --env-file=.env ./node_modules/.bin/playwright test",
     "eval:agent": "node --env-file=.env --import tsx scripts/eval-agent.ts",
     "triage": "node --env-file=.env --import tsx scripts/federato-triage.ts"
   },
@@ -32,6 +33,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.15.0",
     "@types/react": "^19.0.0",
