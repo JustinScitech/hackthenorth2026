@@ -3,8 +3,15 @@ import type { AuditEvent, CaseRecord } from "./types";
 
 const globalForDb = globalThis as unknown as { dbPool?: Pool };
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+// Tiger Data's managed endpoint uses sslmode=require but presents a private
+// chain in local development. Opt into its certificate behavior explicitly;
+// production deployments should leave this unset and provide a trusted CA.
+const connectionString = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
+  ? process.env.DATABASE_URL.replace(/([?&])sslmode=require&?/, "$1").replace(/[?&]$/, "")
+  : process.env.DATABASE_URL;
 export const db = globalForDb.dbPool ?? new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
+  ...(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false" ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 if (process.env.NODE_ENV !== "production") globalForDb.dbPool = db;
 
