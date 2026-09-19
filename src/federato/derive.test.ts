@@ -41,6 +41,18 @@ test("multi-state, missing exposures, unknown construction and non-USD amounts s
   assert.equal(foreign.row.__derived.premium, null);
 });
 
+test("live steel-frame labels count as eligible without classifying unfamiliar labels", () => {
+  for (const construction of ["Steel Frame", "steel_frame", "steel-frame"]) {
+    const result = deriveFacts({ currency: "USD", exposure_units: [{ location: { ...location, buildings: [{ ...building, construction_type: construction }] } }] }, plan, asOf);
+    assert.equal(result.row.__derived.constructionPercent, 100);
+  }
+  const mixed = deriveFacts({ currency: "USD", exposure_units: [{ location: { ...location, buildings: [
+    { ...building, construction_type: "Steel Frame" },
+    { ...building, id: 2, construction_type: "Wood Frame" },
+  ] } }] }, plan, asOf);
+  assert.equal(mixed.row.__derived.constructionPercent, 50);
+});
+
 test("claims are windowed, deduplicated, and calculate the available five-year incurred value", () => {
   const result = deriveFacts({ currency: "USD", claims: [{ ...claim, paid_indemnity: 1, reserve_indemnity: 0 }, { ...claim, id: 2, date_of_loss: "2020-01-01" }, { ...claim, id: 3, date_of_loss: "2027-01-01" }] }, plan, asOf);
   assert.equal(result.lossLowerBound, 1);

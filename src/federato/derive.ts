@@ -3,7 +3,7 @@ import { readValues, type Mapping, type Plan } from "./schema";
 const numeric = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;
 const text = (value: unknown) => typeof value === "string" ? value.toLowerCase().replace(/[_-]/g, " ").trim() : "";
 // Enumerated labels only; unknown labels cannot establish an acceptable mix.
-const acceptableConstruction = ["jm", "joisted masonry", "non combustible", "steel", "non combustible/steel", "masonry non combustible", "mnc"];
+const acceptableConstruction = ["jm", "joisted masonry", "non combustible", "steel", "steel frame", "non combustible/steel", "masonry non combustible", "mnc"];
 const otherConstruction = ["frame", "wood", "wood frame", "fire resistive", "modified fire resistive"];
 function objects(row: unknown, path: string) {
   const values = readValues(row, path);

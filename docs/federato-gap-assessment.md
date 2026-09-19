@@ -55,6 +55,19 @@ The carrier supplies thresholds, not weights. Submission type and line each have
 
 ## Validation and remaining limits
 
+### Source evidence audit, September 19, 2026
+
+A fresh read of all 158 submissions found 38 Property submissions and 120 other lines. The 27 linked Property submissions have valid building years, positive building TIVs, and USD policy currency. The API's "Steel Frame" label is now recognized as eligible steel construction; the missing alias previously made 16 submissions (five Property) unnecessarily unknown.
+
+After that correction, Property submissions have these unresolved checks (categories overlap):
+
+- Primary risk state: 31, consisting of 20 linked multi-state risks without a primary-location marker and 11 unlinked submissions. Headquarters is not a substitute.
+- Construction: 17, consisting of six exact 50% eligible mixes and 11 unlinked submissions. The guideline leaves the 50% boundary unspecified.
+- Five-year loss value: 19, consisting of eight linked submissions without sufficient complete-history evidence and 11 unlinked submissions. Other known lower bounds may establish exceptions without establishing completeness.
+- Premium, business type, expiration, TIV, and building age: the same 11 unlinked Property submissions. The schema offers no direct equivalent fields for these; requested limit is not TIV.
+
+Browserbase currently captures a user-supplied public URL's title and excerpt for Cases and stores it as evidence. That evidence is not passed to the appetite scorer, and Federato triage does not invoke Browserbase. This is external research collection, not the optional ranking-affecting enrichment bonus. Public evidence may corroborate building information, but cannot establish undisclosed premiums or complete private loss history.
+
 Live verification read all 158 Submission records and 113 linked Policy records across seven pages. It enriched 113 uniquely compatible submissions and retained 45 without linked policy evidence. Counts reflect the observed dataset, not fixed assumptions.
 
 Regression tests cover shared case scoring, renewal rejection, missing dollar evidence, malformed claims, duplicate/ambiguous/conflicting links, partial enrichment, stable score ties, schema mapping, pagination, and API envelopes. Browser tests exercise intake, broker responses, scoring output, and human decisions against an isolated local database.
