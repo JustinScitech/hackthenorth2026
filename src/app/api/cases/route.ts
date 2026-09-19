@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { enqueueJob } from "@/agent/jobs";
+import { enqueueJob } from "@/agent/job-queue";
 import { publicSourceUrl } from "@/agent/public-source-url";
 import { db, listCases } from "@/lib/db";
 import { putText } from "@/lib/storage";
