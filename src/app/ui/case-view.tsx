@@ -254,6 +254,7 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
   const stalled = jobStatus === "QUEUED" && elapsed > QUEUE_PATIENCE_SECONDS;
   const thoughts = audit.map((event) => ({ id: event.id, thought: narrate(event) })).filter((entry) => entry.thought).slice(-5);
   return <div className={`working${stalled ? " is-stalled" : ""}`} role="status" aria-live="polite">
+    {!stalled && <span className="ring" aria-hidden="true"><i /></span>}
     <div className="working-head">
       <span className="working-message"><span className="working-spinner" aria-hidden="true"><Mark size={16} /></span>{stalled ? "Waiting for a worker to pick this up" : jobMessage(caseRecord, audit, jobStatus).replace(/\.$/, "")}<span className="working-ellipsis" aria-hidden="true" /></span>
       <time className="working-clock" dateTime={`PT${elapsed}S`}>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</time>
@@ -294,7 +295,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
       <div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state} property · ${caseRecord.tiv.toLocaleString()} total insured value</p><time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div>
     </div>
     <div className="conversation-message agent-message">
-      <div className={`message-avatar agent-avatar${working ? " is-working" : ""}`}>{working ? <Mark size={20} /> : <ShieldCheck size={18} weight="duotone" aria-hidden="true" />}</div>
+      <div className={`message-avatar agent-avatar${working ? " is-working" : ""}`}>{working && <span className="ring ring-fast" aria-hidden="true"><i /></span>}{working ? <Mark size={20} /> : <ShieldCheck size={18} weight="duotone" aria-hidden="true" />}</div>
       <div className="message-content">
         <p className="message-label">Underwriting agent{working && <span className="message-live">Working</span>}</p>
         {working ? <AgentWorking caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} /> : <JobProgress caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} />}
