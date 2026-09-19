@@ -155,9 +155,18 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
           publicSourceUrl: form.publicSourceUrl.trim() || null,
         }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Could not create case.");
-      window.location.assign(`/cases/${data.id}`);
+      if (!response.ok) {
+        const payload: unknown = await response.json().catch(() => null);
+        const error = payload && typeof payload === "object" && "error" in payload ? payload.error : null;
+        throw new Error(typeof error === "string"
+          ? error
+          : `Could not create case (HTTP ${response.status}). Check the web API logs.`);
+      }
+      const payload: unknown = await response.json().catch(() => null);
+      if (!payload || typeof payload !== "object" || !("id" in payload) || typeof payload.id !== "string") {
+        throw new Error("Case API returned an empty or invalid response. Check the web API logs.");
+      }
+      window.location.assign(`/cases/${payload.id}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not create case.");
       setSubmitting(false);

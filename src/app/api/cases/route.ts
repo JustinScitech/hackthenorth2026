@@ -29,8 +29,13 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireApiSession(request);
-  if (denied) return denied;
+  try {
+    const denied = await requireApiSession(request);
+    if (denied) return denied;
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Could not verify your session. Check the web API and database logs." }, { status: 503 });
+  }
   const origin = request.headers.get("origin");
   if (!origin || origin !== new URL(request.url).origin) return NextResponse.json({ error: "Use the case form on this site." }, { status: 403 });
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
