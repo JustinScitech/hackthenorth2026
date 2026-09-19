@@ -2,11 +2,33 @@ import { Pool } from "pg";
 import type { AuditEvent, CaseRecord } from "./types";
 
 const globalForDb = globalThis as unknown as { dbPool?: Pool };
-if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
-export const db = globalForDb.dbPool ?? new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-if (process.env.NODE_ENV !== "production") globalForDb.dbPool = db;
+
+/**
+ * Creates the pool on first use rather than at import time. `next build` imports every
+ * route module to collect page data, and that must not require a live DATABASE_URL.
+ */
+function pool(): Pool {
+  if (globalForDb.dbPool) return globalForDb.dbPool;
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+  const created = new Pool({ connectionString: process.env.DATABASE_URL });
+  globalForDb.dbPool = created;
+  return created;
+}
+
+/**
+ * Pool-shaped proxy: `"connect" in db` and friends answer from Pool.prototype without
+ * touching the environment, while any property read forwards to the real pool.
+ */
+export const db: Pool = new Proxy(Pool.prototype, {
+  get(_target, property) {
+    const real = pool();
+    const value = Reflect.get(real, property, real);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+  set(_target, property, value) {
+    return Reflect.set(pool(), property, value);
+  },
+}) as Pool;
 
 function mapCase(row: Record<string, unknown>): CaseRecord {
   return {
