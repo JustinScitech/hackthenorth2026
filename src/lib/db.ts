@@ -11,7 +11,15 @@ const globalForDb = globalThis as unknown as { dbPool?: Pool };
  */
 function pool(): Pool {
   if (globalForDb.dbPool) return globalForDb.dbPool;
-  const created = new Pool({ connectionString: databaseUrl() });
+  const rejectUnauthorized = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false";
+  const baseConnectionString = databaseUrl();
+  const connectionString = rejectUnauthorized
+    ? baseConnectionString.replace(/([?&])sslmode=require&?/, "$1").replace(/[?&]$/, "")
+    : baseConnectionString;
+  const created = new Pool({
+    connectionString,
+    ...(rejectUnauthorized ? { ssl: { rejectUnauthorized: false } } : {}),
+  });
   globalForDb.dbPool = created;
   return created;
 }
