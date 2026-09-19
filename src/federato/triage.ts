@@ -13,7 +13,7 @@ export async function runTriage(client: DataClient, options: { resource?: string
   let offset = 0, total: number | undefined;
   while (total === undefined || offset < total) {
     if (offset >= maxRecords) break;
-    const query: Query = { resource: plan.resource, select: plan.select, sort: [{ field: plan.id, direction: "asc" }], pagination: { limit: Math.min(50, maxRecords - offset), offset } };
+    const query = { resource: plan.resource, select: plan.select, sort: [{ field: plan.id, direction: "asc" }], pagination: { limit: Math.min(50, maxRecords - offset), offset } } satisfies Query;
     const page = await client.query(query);
     trace.push({ reason: offset === 0 ? "Fetch all candidates with the discovered fields; do not discard incomplete submissions." : `The API reports ${page.total} candidates; fetch the next page before ranking the queue.`, query, returned: page.rows.length, total: page.total });
     if (total !== undefined && total !== page.total) throw new Error("Federato queue changed during pagination. Rerun triage for a consistent ranking.");

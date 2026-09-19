@@ -2,13 +2,14 @@ import { buildFacts, evaluateFacts, type Extracted, type Intake } from "../src/a
 import { extractNotes } from "../src/agent/model";
 import { randomUUID } from "node:crypto";
 import { initMonitoring, recordEvalRun, startAgentSpan, type EvalCaseResult } from "../src/agent/monitoring";
+import { loadAgentEvaluationCases, type AgentEvaluationCase } from "../src/agent/evaluation";
 
 type Fixture = {
   name: string;
   notes: string;
   expected: Extracted;
   intake: Intake;
-  expectedReferrals: number;
+  expectedFindings: AgentEvaluationCase["expectedFindings"];
   needsBroker: boolean;
 };
 
@@ -18,7 +19,7 @@ const fixtures: Fixture[] = [
     notes: "Commercial property submission for Harbor Office LLC. The main building was constructed in 2005 and had no losses in the past three years.",
     expected: { yearBuilt: 2005, losses: 0 },
     intake: { state: "NY", tiv: 2_400_000, yearBuilt: null, losses: null },
-    expectedReferrals: 0,
+    expectedFindings: { territory: "pass", tiv: "pass", construction: "pass", losses: "pass" },
     needsBroker: false,
   },
   {
@@ -30,7 +31,7 @@ Loss summary: The attached loss run describes three claims in the past three yea
 Open items: The broker will provide updated photographs, a current statement of values, and the final loss runs. The insured expects the roof work to finish before inception, but the underwriter has not verified it.`,
     expected: { yearBuilt: 1988, losses: 3 },
     intake: { state: "NJ", tiv: 4_300_000, yearBuilt: null, losses: null },
-    expectedReferrals: 1,
+    expectedFindings: { territory: "pass", tiv: "pass", construction: "pass", losses: "refer" },
     needsBroker: false,
   },
   {
@@ -38,7 +39,7 @@ Open items: The broker will provide updated photographs, a current statement of 
     notes: "Commercial property submission for Canal Street Kitchen. The construction year is pending confirmation from the landlord. The broker requested loss runs but has not supplied a recent claim count.",
     expected: { yearBuilt: null, losses: null },
     intake: { state: "NY", tiv: 1_750_000, yearBuilt: null, losses: null },
-    expectedReferrals: 0,
+    expectedFindings: { territory: "pass", tiv: "pass", construction: "unknown", losses: "unknown" },
     needsBroker: true,
   },
   {
@@ -48,10 +49,11 @@ Open items: The broker will provide updated photographs, a current statement of 
 Correction from the broker: The property was constructed in 2004. There was one loss in the past three years. The earlier construction year and loss count were entered for a different location.`,
     expected: { yearBuilt: 2004, losses: 1 },
     intake: { state: "PA", tiv: 3_200_000, yearBuilt: null, losses: null },
-    expectedReferrals: 0,
+    expectedFindings: { territory: "pass", tiv: "pass", construction: "pass", losses: "pass" },
     needsBroker: false,
   },
 ];
+fixtures.push(...loadAgentEvaluationCases().map((item) => ({ ...item, name: item.id })));
 
 async function main() {
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required for the live agent eval");
@@ -72,16 +74,19 @@ async function main() {
     const modelCorrect = gemini?.status === "completed"
       && gemini.value?.yearBuilt === fixture.expected.yearBuilt
       && gemini.value?.losses === fixture.expected.losses;
-    const provenanceCorrect = (fixture.expected.yearBuilt === null || result.fieldSources.yearBuilt === `Gemini ${gemini?.model}`)
-      && (fixture.expected.losses === null || result.fieldSources.losses === `Gemini ${gemini?.model}`);
+    const provenanceCorrect = (fixture.expected.yearBuilt === null ? result.fieldSources.yearBuilt === "Not provided" : result.fieldSources.yearBuilt === `Gemini ${gemini?.model}`)
+      && (fixture.expected.losses === null ? result.fieldSources.losses === "Not provided" : result.fieldSources.losses === `Gemini ${gemini?.model}`);
     const checks = evaluateFacts(buildFacts(fixture.intake, result.extracted));
-    const guidelineCorrect = checks.findings.filter((finding) => finding.result === "refer").length === fixture.expectedReferrals
+    const actualFindings = Object.fromEntries(checks.findings.map((finding) => [finding.id, finding.result]));
+    const guidelineCorrect = JSON.stringify(actualFindings) === JSON.stringify(fixture.expectedFindings)
       && Boolean(checks.question) === fixture.needsBroker;
-    const ok = Boolean(modelCorrect && provenanceCorrect && guidelineCorrect);
+    const selectedCorrect = result.extracted.yearBuilt === fixture.expected.yearBuilt && result.extracted.losses === fixture.expected.losses;
+    const ok = Boolean(modelCorrect && provenanceCorrect && selectedCorrect && guidelineCorrect);
     if (ok) passed++;
     cases.push({ name: fixture.name, ok, durationMs: Date.now() - caseStartedAt, model: gemini?.model ?? null });
     console.log(`${ok ? "PASS" : "FAIL"} ${fixture.name}: ${geminiAttempts.map((attempt) => `${attempt.model} ${attempt.status}${attempt.errorCode ? ` (HTTP ${attempt.errorCode})` : ""}`).join(" -> ")}, selected ${gemini?.model ?? "none"} ${gemini?.durationMs ?? 0}ms, extracted ${JSON.stringify(gemini?.value ?? null)}, expected ${JSON.stringify(fixture.expected)}`);
-    if (!guidelineCorrect) console.log(`  Guideline result: ${checks.findings.filter((finding) => finding.result === "refer").length} referrals, broker question ${Boolean(checks.question)}`);
+    if (!guidelineCorrect) console.log(`  Guideline result: ${JSON.stringify(actualFindings)}, expected ${JSON.stringify(fixture.expectedFindings)}, broker question ${Boolean(checks.question)}`);
+    if (!selectedCorrect) console.log(`  Selected extraction: ${JSON.stringify(result.extracted)}`);
     if (!provenanceCorrect) console.log(`  Extraction sources: ${JSON.stringify(result.fieldSources)}`);
   }
   });

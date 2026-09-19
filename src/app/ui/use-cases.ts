@@ -2,19 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { CaseRecord } from "@/lib/types";
+import { loadCases } from "./load-cases";
 
 /** Polls the case list. Shared by the overview and the cases page. */
 export function useCases(intervalMs = 5000) {
   const [cases, setCases] = useState<CaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch("/api/cases", { cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Could not load cases.");
-      setCases(data.cases);
+      setCases(await loadCases());
+      setHasLoaded(true);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load cases.");
@@ -29,5 +29,5 @@ export function useCases(intervalMs = 5000) {
     return () => clearInterval(timer);
   }, [refresh, intervalMs]);
 
-  return { cases, loading, error, refresh };
+  return { cases, loading, hasLoaded, error, refresh };
 }

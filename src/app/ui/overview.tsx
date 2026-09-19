@@ -48,7 +48,7 @@ function CasesChart({ cases, days }: { cases: CaseRecord[]; days: number }) {
 }
 
 export function Overview() {
-  const { cases, loading, error, refresh } = useCases();
+  const { cases, loading, hasLoaded, error, refresh } = useCases();
   const [days, setDays] = useState<(typeof RANGES)[number]>(7);
   const waiting = cases.filter((record) => record.status === "waiting_for_broker").length;
   const ready = cases.filter((record) => record.status === "review_ready").length;
@@ -64,12 +64,12 @@ export function Overview() {
       </div>
 
       <div className="stat-row">
-        <Stat label="Cases" hint="All submissions in this workspace"><span className="stat-value">{loading ? "…" : cases.length}</span></Stat>
-        <Stat label="In analysis" hint="Cases the worker is currently extracting or checking"><span className="stat-value">{loading ? "…" : inProgress}</span></Stat>
-        <Stat label="Awaiting broker" hint="Cases paused on a durable wait for broker information"><span className="stat-value">{loading ? "…" : waiting}</span></Stat>
-        <Stat label="Ready for review" hint="Cases that need an underwriter decision"><span className="stat-value">{loading ? "…" : ready}</span></Stat>
-        <Stat label="System status" hint="Whether the case API is reachable from this browser">
-          <span className={`system-status${error ? " degraded" : ""}`}>{error ? "API unreachable" : loading ? "Checking" : "All systems operational"}</span>
+        <Stat label="Cases" hint="All submissions in this workspace"><span className="stat-value">{loading ? "…" : hasLoaded ? cases.length : "—"}</span></Stat>
+        <Stat label="In analysis" hint="Cases the worker is currently extracting or checking"><span className="stat-value">{loading ? "…" : hasLoaded ? inProgress : "—"}</span></Stat>
+        <Stat label="Awaiting broker" hint="Cases paused on a durable wait for broker information"><span className="stat-value">{loading ? "…" : hasLoaded ? waiting : "—"}</span></Stat>
+        <Stat label="Ready for review" hint="Cases that need an underwriter decision"><span className="stat-value">{loading ? "…" : hasLoaded ? ready : "—"}</span></Stat>
+        <Stat label="System status" hint="Whether the case API returned a valid response">
+          <span className={`system-status${error ? " degraded" : ""}`}>{error ? "Case API unavailable" : loading ? "Checking" : "All systems operational"}</span>
         </Stat>
       </div>
 
@@ -89,7 +89,7 @@ export function Overview() {
       <section aria-labelledby="recent-title">
         <div className="panel-head"><h2 id="recent-title">Recent cases</h2>{cases.length > 0 && <Link className="quiet-button" href="/cases">View all {cases.length}</Link>}</div>
         <div className="card">
-          {loading ? <p className="empty-state">Loading cases...</p> : recent.length === 0 ? (
+          {loading ? <p className="empty-state">Loading cases...</p> : !hasLoaded ? <p className="empty-state">Cases could not be loaded. Use Refresh to try again.</p> : recent.length === 0 ? (
             <div className="panel-empty">
               <span className="empty-icon"><Inbox size={20} /></span>
               <strong>No cases in this workspace yet.</strong>
