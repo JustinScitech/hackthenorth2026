@@ -8,6 +8,11 @@ export type CaseStatus =
   | "declined"
   | "failed";
 
+export type WorkflowStatus =
+  | "UNSPECIFIED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED"
+  | "TERMINATED" | "CONTINUED_AS_NEW" | "TIMED_OUT" | "PAUSED" | "UNKNOWN"
+  | "UNAVAILABLE";
+
 export type Fact<T> = { value: T | null; source: string; confidence: number };
 
 export type Facts = {

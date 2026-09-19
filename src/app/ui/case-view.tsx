@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, CircleAlert, ClipboardList, Clock3, ExternalLink, FileText, ShieldCheck, Send, X } from "lucide-react";
-import type { AuditEvent, CaseRecord, Fact } from "@/lib/types";
+import { Check, CircleAlert, ClipboardList, Clock3, ExternalLink, FileText, ShieldCheck, Send, X } from "lucide-react";
+import type { AuditEvent, CaseRecord, Fact, WorkflowStatus } from "@/lib/types";
 import { Status } from "./status";
 
 type ActionKind = "approve" | "decline";
@@ -69,46 +69,81 @@ function CaseActions({ caseRecord, response, setResponse, reason, setReason, sub
 }
 
 const eventLabels: Record<string, string> = {
-  case_created: "Submission received", extraction_completed: "Facts extracted",
+  case_created: "Submission received", extraction_started: "Reading submission",
+  model_extraction_started: "Model extraction started", extraction_completed: "Facts extracted",
+  public_research_started: "Public source visit started",
   public_research_skipped: "Public research skipped", public_research_completed: "Public source reviewed",
-  public_research_failed: "Public research unavailable", analysis_completed: "Guidelines checked",
+  public_research_failed: "Public research unavailable", guideline_check_started: "Checking demo guidelines",
+  analysis_completed: "Guidelines checked",
   broker_response_received: "Broker response received", broker_follow_up_due: "Broker follow-up due",
   approved: "Review approved", declined: "Review declined", workflow_failed: "Workflow failed",
 };
 
 function traceDetail(event: AuditEvent): string | null {
+  if (event.eventType === "model_extraction_started") {
+    const providers = Array.isArray(event.detail.providers) ? event.detail.providers.join(" and ") : "Model";
+    return `Calling ${providers} for year built and recent loss count.`;
+  }
   if (event.eventType === "extraction_completed") {
-    const sources = Array.isArray(event.detail.sources) ? event.detail.sources.join(", ") : "Broker submission";
+    const attempts = Array.isArray(event.detail.attempts) ? event.detail.attempts as { source: string; model: string; status: string; durationMs: number; errorCode?: number; attemptCount?: number }[] : [];
+    const completed = attempts.filter((attempt) => attempt.status === "completed");
+    const failed = attempts.filter((attempt) => attempt.status === "failed");
+    const source = completed.length
+      ? `${completed.map((attempt) => `${attempt.source} ${attempt.model} (${(attempt.durationMs / 1000).toFixed(1)}s${attempt.attemptCount && attempt.attemptCount > 1 ? `, ${attempt.attemptCount} attempts` : ""})`).join(", ")} with parser cross-check`
+      : failed.length ? `${failed.map((attempt) => `${attempt.source}${attempt.errorCode ? ` (HTTP ${attempt.errorCode})` : ""}`).join(" and ")} unavailable; parser fallback` : "Parser only; no model configured";
     const missing = Array.isArray(event.detail.missing) && event.detail.missing.length ? ` · Missing: ${event.detail.missing.join(", ")}` : "";
-    return `${sources}${missing}`;
+    const applied = event.detail.appliedSources as { yearBuilt?: string; losses?: string } | undefined;
+    const used = applied ? ` · Used: year ${applied.yearBuilt}, losses ${applied.losses}` : "";
+    return `${attempts.length ? source : (Array.isArray(event.detail.sources) ? event.detail.sources.join(", ") : "Broker submission")}${used}${missing}`;
   }
   if (event.eventType === "analysis_completed") {
     if (typeof event.detail.pass !== "number") return String(event.detail.status ?? "Analysis complete").replaceAll("_", " ");
-    return `${event.detail.pass} passed · ${event.detail.refer} referred · ${event.detail.unknown} unknown`;
+    return `Deterministic demo rules · ${event.detail.pass} passed · ${event.detail.refer} referred · ${event.detail.unknown} unknown`;
   }
-  if (event.eventType === "public_research_skipped") return "Browserbase is not configured";
+  if (event.eventType === "public_research_skipped") return String(event.detail.reason ?? "Public research was skipped");
   if (event.eventType === "public_research_completed") return "Public source saved as evidence";
   if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; no message was sent";
   return null;
 }
 
 function AnalysisTrace({ audit }: { audit: AuditEvent[] }) {
-  return <details className="analysis-trace">
-    <summary><span><ClipboardList size={16} /> Activity trace <small>{audit.length} recorded steps</small></span><ChevronDown size={16} aria-hidden="true" /></summary>
+  return <section className="analysis-trace" aria-label="Activity trace">
+    <div className="trace-header"><span><ClipboardList size={16} /> Activity trace <small>{audit.length} recorded steps</small></span></div>
     <ol className="trace-list">{audit.map((event) => <li key={event.id}>
       <div className="trace-heading"><strong>{eventLabels[event.eventType] ?? event.eventType.replaceAll("_", " ")}</strong><time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time></div>
       {traceDetail(event) && <p>{traceDetail(event)}</p>}
     </li>)}</ol>
-  </details>;
+  </section>;
 }
 
-export function CaseView({ id, caseRecord, audit, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
-  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; error: string | null; voiceAvailable: boolean;
+function workflowMessage(caseRecord: CaseRecord, audit: AuditEvent[], workflowStatus: WorkflowStatus): string {
+  const latest = audit.at(-1);
+  const processing = ["received", "extracting", "checking"].includes(caseRecord.status);
+  if (workflowStatus === "UNAVAILABLE") return "Temporal status unavailable. Showing the last recorded case step.";
+  if (["FAILED", "TERMINATED", "TIMED_OUT"].includes(workflowStatus)) return `Temporal workflow ${workflowStatus.toLowerCase()}.`;
+  if (processing && workflowStatus === "RUNNING") {
+    const providers = Array.isArray(latest?.detail.providers) ? latest.detail.providers.join(" and ") : "Model";
+    return latest?.eventType === "model_extraction_started" ? `${providers} extracting broker facts`
+      : latest?.eventType === "public_research_started" ? "Reviewing the supplied public source"
+        : latest?.eventType === "guideline_check_started" ? "Checking demo guidelines"
+          : caseRecord.status === "received" ? "Temporal workflow queued" : "Reading the submission";
+  }
+  if (caseRecord.status === "waiting_for_broker") return "Temporal workflow paused for broker information.";
+  if (caseRecord.status === "review_ready") return "Analysis complete. Temporal is waiting for an underwriter decision.";
+  if (workflowStatus === "COMPLETED") return "Temporal workflow completed.";
+  return `Temporal workflow ${workflowStatus.toLowerCase()}.`;
+}
+
+function WorkflowProgress({ caseRecord, audit, workflowStatus }: { caseRecord: CaseRecord; audit: AuditEvent[]; workflowStatus: WorkflowStatus }) {
+  return <div className="progress-line" role="status"><Clock3 size={16} aria-hidden="true" />{workflowMessage(caseRecord, audit, workflowStatus)}</div>;
+}
+
+export function CaseView({ id, caseRecord, audit, workflowStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
+  id: string; caseRecord: CaseRecord; audit: AuditEvent[]; workflowStatus: WorkflowStatus; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
 }) {
-  const active = ["received", "extracting", "checking"].includes(caseRecord.status);
   return <main className="shell shell-narrow conversation">
     <div className="case-toolbar">
       <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><Link href="/cases">Cases</Link><span className="sep">/</span><span className="current">{caseRecord.insuredName}</span></p>
@@ -124,7 +159,7 @@ export function CaseView({ id, caseRecord, audit, error, voiceAvailable, respons
       <div className="message-avatar agent-avatar"><ShieldCheck size={18} aria-hidden="true" /></div>
       <div className="message-content">
         <p className="message-label">Underwriting agent</p>
-        {active && <div className="progress-line" role="status"><Clock3 size={16} aria-hidden="true" />{caseRecord.status === "received" ? "Queued for analysis" : caseRecord.status === "extracting" ? "Extracting submission facts" : "Checking guidelines"} · this page updates automatically</div>}
+        <WorkflowProgress caseRecord={caseRecord} audit={audit} workflowStatus={workflowStatus} />
         {caseRecord.status === "failed" && <div className="alert"><CircleAlert size={17} aria-hidden="true" />{caseRecord.error ?? "The workflow failed."}</div>}
         <p className="brief">{caseRecord.brief ?? "Analysis is in progress."}</p>
         {voiceAvailable && caseRecord.brief && <audio className="brief-audio" controls preload="none" src={`/api/cases/${id}/audio`} aria-label="Listen to review brief" />}

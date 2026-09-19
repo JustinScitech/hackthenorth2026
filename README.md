@@ -63,6 +63,10 @@ The case view shows a persisted activity trace: intake, extraction sources, publ
 
 Run `npm run typecheck`, `npm test`, and `npm run build`.
 
+For a live Gemini extraction eval, set `GEMINI_API_KEY` and run `npm run eval:agent`. This checks the model's own year-built and three-year loss-count values across four fictional submissions, then checks the resulting demo guideline decisions. Calls are spaced to reduce per-minute rate-limit errors. The eval fails if Gemini is unavailable or falls back to the parser. It does not measure document ingestion, coverage decisions, or the separate Federato triage flow.
+
+The case page shows Temporal execution state and a persisted activity trace with model name, extraction time, and fallback status. `GEMINI_MODEL` defaults to `gemini-2.5-flash` for the local demo; set it explicitly to compare another model. The demo still applies its four fictional guideline checks deterministically after extraction.
+
 ## Sponsor fit and remaining work
 
 See [the sponsor integration map](docs/sponsor-map.md) for every item from the team brief and [the Federato gap assessment](docs/federato-gap-assessment.md) for the live triage implementation. Prize eligibility depends on this year's published rules and an actual configured, demonstrable integration, not a placeholder or package dependency.
