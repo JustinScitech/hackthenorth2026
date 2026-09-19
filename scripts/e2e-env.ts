@@ -15,6 +15,7 @@ export function e2eEnvironment() {
   return {
     ...process.env,
     DATABASE_URL: e2eDatabaseUrl(),
+    DATABASE_SSL_REJECT_UNAUTHORIZED: "true",
     MONGODB_URI: "mongodb://127.0.0.1:27017",
     MONGODB_DB: "underwriting_agent_e2e",
     BETTER_AUTH_URL: `http://localhost:${E2E_PORT}`,

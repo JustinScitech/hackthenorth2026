@@ -1,20 +1,60 @@
 [
   {
     "id": "dollar-loss-is-not-claim-count",
-    "source": { "title": "Synthetic broker note", "location": "Evaluation fixture; not a PDF or a real submission" },
+    "source": {
+      "title": "Synthetic broker note",
+      "location": "Evaluation fixture; not a PDF or a real submission"
+    },
     "notes": "Commercial property building constructed in 2008. The five-year loss value is $120,000. The broker has not supplied the number of claims in the past three years.",
-    "expected": { "yearBuilt": 2008, "losses": null },
-    "intake": { "state": "NY", "tiv": 2000000, "yearBuilt": null, "losses": null },
-    "expectedFindings": { "territory": "pass", "tiv": "pass", "construction": "pass", "losses": "unknown" },
+    "expected": {
+      "yearBuilt": 2008,
+      "losses": null
+    },
+    "intake": {
+      "state": "NY",
+      "tiv": 2000000,
+      "yearBuilt": null,
+      "losses": null
+    },
+    "expectedFindings": {
+      "business": "unknown",
+      "line": "unknown",
+      "state": "refer",
+      "tiv": "pass",
+      "premium": "unknown",
+      "year": "pass",
+      "constructionPercent": "unknown",
+      "lossValue": "unknown"
+    },
     "needsBroker": true
   },
   {
     "id": "old-building-three-claims",
-    "source": { "title": "Synthetic broker note", "location": "Evaluation fixture; not a PDF or a real submission" },
+    "source": {
+      "title": "Synthetic broker note",
+      "location": "Evaluation fixture; not a PDF or a real submission"
+    },
     "notes": "The original building was built in 1978. Roof replacement in 2024 did not change the construction year. There were 3 claims in the past three years.",
-    "expected": { "yearBuilt": 1978, "losses": 3 },
-    "intake": { "state": "PA", "tiv": 3200000, "yearBuilt": null, "losses": null },
-    "expectedFindings": { "territory": "pass", "tiv": "pass", "construction": "refer", "losses": "refer" },
-    "needsBroker": false
+    "expected": {
+      "yearBuilt": 1978,
+      "losses": 3
+    },
+    "intake": {
+      "state": "PA",
+      "tiv": 3200000,
+      "yearBuilt": null,
+      "losses": null
+    },
+    "expectedFindings": {
+      "business": "unknown",
+      "line": "unknown",
+      "state": "pass",
+      "tiv": "pass",
+      "premium": "unknown",
+      "year": "refer",
+      "constructionPercent": "unknown",
+      "lossValue": "unknown"
+    },
+    "needsBroker": true
   }
 ]

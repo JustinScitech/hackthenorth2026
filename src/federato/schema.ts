@@ -20,7 +20,7 @@ const aliases: Record<Concept, string[]> = {
   year: ["yearbuilt", "buildingyear", "constructionyear"],
   constructionPercent: ["acceptableconstructionpercent", "eligibleconstructionpercent"],
   lossValue: ["fiveyearlossvalue", "fiveyearlosstotal", "lossvalue5years", "losses5yearstotal"],
-  effective: ["effectivedate", "dates.effective"], expiration: ["expirationdate", "dates.expiration"],
+  effective: ["effectivedate", "targeteffectivedate", "dates.effective"], expiration: ["expirationdate", "dates.expiration"],
 };
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9.]/g, "");
 
@@ -30,7 +30,7 @@ export function planQuery(raw: unknown, options: { resource?: string; mapping?: 
   const schema = parsed.data;
   const candidates = Object.keys(schema).filter((key) => /^(submission|policy)$/i.test(key));
   const rankedResources = candidates.map((name) => ({ name, coverage: Object.keys(schema[name].fields ?? {}).filter((key) => Object.values(aliases).flat().includes(normalize(key))).length })).sort((a, b) => b.coverage - a.coverage);
-  const resource = options.resource ?? (rankedResources.length && (rankedResources.length === 1 || rankedResources[0].coverage > rankedResources[1].coverage) ? rankedResources[0].name : undefined);
+  const resource = options.resource ?? candidates.find((name) => name === "Submission") ?? (rankedResources.length && (rankedResources.length === 1 || rankedResources[0].coverage > rankedResources[1].coverage) ? rankedResources[0].name : undefined);
   if (!resource || !schema[resource]?.fields) throw new Error("Set FEDERATO_RESOURCE to a discovered submission/policy resource; selection is missing or ambiguous.");
   const leaves: Leaf[] = [];
   function walk(field: Field, path: string, many: boolean, references: string[], ancestors: string[], depth: number) {
@@ -48,7 +48,7 @@ export function planQuery(raw: unknown, options: { resource?: string; mapping?: 
   const id = leaves.find((leaf) => leaf.path === "id" && !leaf.many);
   if (!id) throw new Error(`Resource ${resource} requires a scalar id for stable pagination and deduplication.`);
   const mapping: Mapping = {};
-  const reasoning = [`Selected ${resource} from discovered resources by direct appetite-field coverage; rank all records in that resource so exceptions remain visible. Other resources are not included in this ranking.`];
+  const reasoning = [`Selected ${resource}${options.resource ? " by explicit resource selection" : resource === "Submission" ? " as the submission queue" : " by available appetite-field coverage"}. Evaluate all lifecycle statuses; no undocumented open-status filter is assumed. Retain incomplete and outside-appetite records.`];
   for (const concept of concepts) {
     const override = options.mapping?.[concept];
     let matches = leaves.filter((leaf) => {
@@ -56,6 +56,7 @@ export function planQuery(raw: unknown, options: { resource?: string; mapping?: 
       return aliases[concept].some((alias) => alias.includes(".") ? path === alias : tail === alias);
     });
     // Totals must be policy-level scalars, not individual building premiums/TIVs.
+    if (concept !== "account") matches = matches.filter((leaf) => !leaf.path.startsWith("insured.") && !leaf.path.startsWith("submission."));
     if (concept !== "year") matches = matches.filter((leaf) => !leaf.many);
     if (matches.length > 1) {
       const minimumDepth = Math.min(...matches.map((leaf) => leaf.path.split(".").length));
@@ -86,7 +87,7 @@ export function planQuery(raw: unknown, options: { resource?: string; mapping?: 
         derivations.locations = location;
         extraPaths.push(`${location}.id`, `${location}.state`);
       }
-      reasoning.push("Fetch unique exposure buildings to sum building TIV and assess the oldest building. Use TIV-weighted construction share as an explicit application assumption. Infer state only when every exposure location agrees; otherwise request the primary risk state.");
+      reasoning.push("Fetch unique exposure buildings to sum building TIV and assess the oldest building. Use construction share by unique building count as an explicit application assumption. Infer state only when every exposure location agrees; otherwise request the primary risk state.");
     }
   }
   const claimPaths = ["id", "date_of_loss", "paid_indemnity", "paid_expense", "reserve_indemnity", "reserve_expense"].map((key) => `claims.${key}`);

@@ -10,7 +10,7 @@ const fixture = z.object({
   notes: z.string().min(1),
   expected: z.object({ yearBuilt: z.number().int().nullable(), losses: z.number().int().nonnegative().nullable() }),
   intake: z.object({ state: z.string(), tiv: z.number(), yearBuilt: z.number().int().nullable(), losses: z.number().int().nonnegative().nullable() }),
-  expectedFindings: z.object({ territory: result, tiv: result, construction: result, losses: result }),
+  expectedFindings: z.object({ business: result, line: result, state: result, tiv: result, premium: result, year: result, constructionPercent: result, lossValue: result }),
   needsBroker: z.boolean(),
 });
 export type AgentEvaluationCase = z.infer<typeof fixture>;

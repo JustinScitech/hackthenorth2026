@@ -44,13 +44,17 @@ test("multi-state, missing exposures, unknown construction and non-USD amounts s
 test("claims are windowed, deduplicated, and calculate the available five-year incurred value", () => {
   const result = deriveFacts({ currency: "USD", claims: [{ ...claim, paid_indemnity: 1, reserve_indemnity: 0 }, { ...claim, id: 2, date_of_loss: "2020-01-01" }, { ...claim, id: 3, date_of_loss: "2027-01-01" }] }, plan, asOf);
   assert.equal(result.lossLowerBound, 1);
-  assert.equal(result.row.__derived.lossValue, 1);
-  assert.equal(deriveFacts({ currency: "USD", claims: [] }, plan, asOf).row.__derived.lossValue, 0);
+  assert.equal(result.row.__derived.lossValue, null);
+  assert.equal(deriveFacts({ currency: "USD", claims: [] }, plan, asOf).row.__derived.lossValue, null);
+  assert.equal(deriveFacts({ currency: "USD", claims: [{ ...claim, date_of_loss: "invalid" }] }, plan, asOf).row.__derived.lossValue, null);
+  assert.equal(deriveFacts({ currency: "USD", claims: [{ ...claim, date_of_loss: "2026-02-30" }] }, plan, asOf).row.__derived.lossValue, null);
+  assert.equal(deriveFacts({ currency: "USD", claims: [{ ...claim, paid_expense: null }] }, plan, asOf).row.__derived.lossValue, null);
 });
 
-test("chooses the resource with more direct appetite fields when both resources exist", () => {
+test("prefers actual submissions and permits explicit policy scope", () => {
   const discovered = { ...schema, Submission: { type: "object", fields: { id: n, line_of_business: s } } };
-  assert.equal(planQuery(discovered).resource, "Policy");
+  assert.equal(planQuery(discovered).resource, "Submission");
+  assert.equal(planQuery(discovered, { resource: "Policy" }).resource, "Policy");
   assert.equal(planQuery(discovered, { resource: "Submission" }).resource, "Submission");
 });
 

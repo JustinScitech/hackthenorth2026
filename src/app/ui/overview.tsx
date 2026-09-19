@@ -128,7 +128,7 @@ export function Overview() {
         </div>
       </section>
 
-      <p className="demo-note">Fictional guideline rules for demonstration only. Every final decision requires underwriter review.</p>
+      <p className="demo-note">Supplied 2025 carrier appetite. Every final decision requires underwriter review.</p>
     </main>
   );
 }
