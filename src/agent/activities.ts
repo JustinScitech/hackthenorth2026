@@ -4,7 +4,7 @@ import { extractNotes } from "./model";
 import { getText } from "../lib/storage";
 import { putMongoEvidence } from "../lib/mongo";
 import type { Facts } from "../lib/types";
-import { captureAgentError } from "./monitoring";
+import { captureAgentError, recordAnalysisMetrics, recordDecisionMetric, recordExtractionMetrics } from "./monitoring";
 import { browsePublicSource } from "./public-source";
 
 export async function researchPublicSource(caseId: string): Promise<void> {
@@ -40,7 +40,7 @@ export async function extractCase(caseId: string): Promise<void> {
     [caseId],
   );
   const texts = await Promise.all([caseRecord.sourceKey, ...responseRows.rows.map((row) => String(row.source_key))].map(getText));
-  const providers = [process.env.OPENAI_API_KEY && "OpenAI", process.env.GEMINI_API_KEY && "Gemini"].filter(Boolean);
+  const providers = [process.env.GEMINI_API_KEY && "Gemini"].filter(Boolean);
   if (providers.length) await addAudit(caseId, "model_extraction_started", { providers, revision: caseRecord.analysisRevision }, `model-started:${caseId}:${caseRecord.analysisRevision}`);
   const extraction = await extractNotes(texts.join("\n\n--- BROKER UPDATE ---\n\n"), async (event, attempt) => {
     await addAudit(caseId, `gemini_model_${event}`, {
@@ -60,6 +60,7 @@ export async function extractCase(caseId: string): Promise<void> {
     attempts: extraction.attempts.map(({ source, model, status, durationMs, errorCode, attemptCount }) => ({ source, model, status, durationMs, errorCode, attemptCount })),
     appliedSources: { yearBuilt: facts.yearBuilt.source, losses: facts.losses.source },
   }, `extraction:${caseId}:${caseRecord.analysisRevision}`);
+  recordExtractionMetrics(extraction.attempts);
 }
 
 export async function checkCase(caseId: string): Promise<{ needsBroker: boolean }> {
@@ -83,6 +84,7 @@ export async function checkCase(caseId: string): Promise<{ needsBroker: boolean 
     refer: result.findings.filter((finding) => finding.result === "refer").length,
     unknown: result.findings.filter((finding) => finding.result === "unknown").length,
   }, `analysis:${caseId}:${caseRecord.analysisRevision}`);
+  recordAnalysisMetrics(result.findings, Boolean(result.question));
   return { needsBroker: Boolean(result.question) };
 }
 
@@ -140,6 +142,7 @@ export async function finalizeDecision(caseId: string, actionId: string): Promis
       [caseId, status, `action:${actionId}`, JSON.stringify({ actionId, reason: action.rows[0].reason })],
     );
     await client.query("COMMIT");
+    recordDecisionMetric(status);
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

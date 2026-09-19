@@ -4,6 +4,9 @@ export const E2E_DB_NAME = "underwriting_agent_e2e";
 export function e2eDatabaseUrl() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for E2E tests");
   const url = new URL(process.env.DATABASE_URL);
+  if (!["localhost", "127.0.0.1", "::1"].includes(url.hostname)) {
+    throw new Error("E2E tests require a local PostgreSQL DATABASE_URL");
+  }
   url.pathname = `/${E2E_DB_NAME}`;
   return url.toString();
 }
@@ -12,7 +15,11 @@ export function e2eEnvironment() {
   return {
     ...process.env,
     DATABASE_URL: e2eDatabaseUrl(),
+    MONGODB_URI: "mongodb://127.0.0.1:27017",
     MONGODB_DB: "underwriting_agent_e2e",
+    TEMPORAL_ADDRESS: "127.0.0.1:7233",
+    TEMPORAL_NAMESPACE: "default",
+    TEMPORAL_API_KEY: "",
     TEMPORAL_TASK_QUEUE: "underwriting-cases-e2e",
     BETTER_AUTH_URL: `http://localhost:${E2E_PORT}`,
     BETTER_AUTH_SECRET: "e2e-only-secret-do-not-use-in-production-2026",

@@ -1,19 +1,43 @@
 import { Pool } from "pg";
+import { databaseUrl } from "./env";
 import type { AuditEvent, CaseRecord } from "./types";
 
 const globalForDb = globalThis as unknown as { dbPool?: Pool };
-if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
-// Tiger Data's managed endpoint uses sslmode=require but presents a private
-// chain in local development. Opt into its certificate behavior explicitly;
-// production deployments should leave this unset and provide a trusted CA.
-const connectionString = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
-  ? process.env.DATABASE_URL.replace(/([?&])sslmode=require&?/, "$1").replace(/[?&]$/, "")
-  : process.env.DATABASE_URL;
-export const db = globalForDb.dbPool ?? new Pool({
-  connectionString,
-  ...(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false" ? { ssl: { rejectUnauthorized: false } } : {}),
-});
-if (process.env.NODE_ENV !== "production") globalForDb.dbPool = db;
+
+/**
+ * Creates the pool on first use rather than at import time. `next build` imports every
+ * route module to collect page data, and that must not require a live DATABASE_URL.
+ * The target itself comes from env.ts, which knows local from deployed.
+ */
+function pool(): Pool {
+  if (globalForDb.dbPool) return globalForDb.dbPool;
+  const rejectUnauthorized = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false";
+  const baseConnectionString = databaseUrl();
+  const connectionString = rejectUnauthorized
+    ? baseConnectionString.replace(/([?&])sslmode=require&?/, "$1").replace(/[?&]$/, "")
+    : baseConnectionString;
+  const created = new Pool({
+    connectionString,
+    ...(rejectUnauthorized ? { ssl: { rejectUnauthorized: false } } : {}),
+  });
+  globalForDb.dbPool = created;
+  return created;
+}
+
+/**
+ * Pool-shaped proxy: `"connect" in db` and friends answer from Pool.prototype without
+ * touching the environment, while any property read forwards to the real pool.
+ */
+export const db: Pool = new Proxy(Pool.prototype, {
+  get(_target, property) {
+    const real = pool();
+    const value = Reflect.get(real, property, real);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+  set(_target, property, value) {
+    return Reflect.set(pool(), property, value);
+  },
+}) as Pool;
 
 function mapCase(row: Record<string, unknown>): CaseRecord {
   return {
