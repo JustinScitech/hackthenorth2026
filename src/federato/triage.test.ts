@@ -32,10 +32,16 @@ test("hard exceptions cannot be outweighed by target matches", () => {
   }
 });
 
-test("renewals receive the appetite target while new business remains acceptable", () => {
-  assert.equal(score({ business_type: "renewal" }).criteria.find((item) => item.factor === "Submission type")?.status, "target");
+test("renewals are outside appetite while new business remains acceptable", () => {
+  for (const business of ["renewal", "renewal business", "Renewal_Business"]) {
+    const result = score({ business_type: business });
+    assert.equal(result.criteria.find((item) => item.factor === "Submission type")?.status, "outside");
+    assert.equal(result.recommendation, "Refer for appetite exceptions");
+    assert.equal(result.rawScore, 86);
+    assert.equal(result.score, 49);
+  }
   assert.equal(score({ business_type: "new" }).criteria.find((item) => item.factor === "Submission type")?.status, "acceptable");
-  assert.equal(score({ business_type: "renewal" }).recommendation, "Review for acceptance");
+  assert.equal(score({ business_type: "new" }).recommendation, "Review for acceptance");
 });
 
 test("inclusive limits, target ranges, and unspecified boundaries follow the PDF", () => {
@@ -94,6 +100,16 @@ test("mapping overrides must exist in discovered schema and ambiguity remains vi
 function fixture(rows: Record<string, unknown>[]): DataClient {
   return { schema: async () => schema, query: async (q) => ({ rows: rows.slice(q.pagination?.offset ?? 0, (q.pagination?.offset ?? 0) + (q.pagination?.limit ?? rows.length)), total: rows.length }) };
 }
+test("capped exceptions retain match-score ordering and deterministic ties", async () => {
+  const report = await runTriage(fixture([
+    { ...good, id: 1, business_type: "renewal", premium: 60_000 },
+    { ...good, id: 3, business_type: "renewal" },
+    { ...good, id: 2, business_type: "renewal" },
+  ]));
+  assert.deepEqual(report.ranked.map((item) => item.id), ["2", "3", "1"]);
+  assert.deepEqual(report.ranked.map((item) => item.score), [49, 49, 49]);
+  assert.deepEqual(report.ranked.map((item) => item.rawScore), [86, 86, 83]);
+});
 test("ranks the entire 123-record queue before taking top N and exposes each query", async () => {
   const rows = Array.from({ length: 123 }, (_, index) => ({ ...good, id: index + 1, premium: index === 122 ? 85_000 : 60_000 }));
   const report = await runTriage(fixture(rows));

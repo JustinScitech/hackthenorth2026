@@ -35,7 +35,7 @@
   },
   "cases": [
     { "id": "new-property-target", "rule": "New business and Property are acceptable; CA, $75M TIV, $85K premium and post-2010 building are targets", "patch": {}, "expected": { "recommendation": "Review for acceptance", "score": 94, "statuses": {} } },
-    { "id": "renewal-target", "rule": "Renewal business is a target", "patch": { "business_type": "renewal" }, "expected": { "recommendation": "Review for acceptance", "score": 96, "statuses": { "business": "target" } } },
+    { "id": "renewal-target", "rule": "Renewal business is outside appetite", "patch": { "business_type": "renewal" }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "business": "outside" } } },
     { "id": "other-line", "rule": "All lines other than Property are outside appetite", "patch": { "line_of_business": "auto" }, "expected": { "recommendation": "Refer for appetite exceptions", "score": 49, "statuses": { "line": "outside" } } },
     { "id": "target-state", "rule": "OH, PA, MD, CO, CA and FL are target states", "patch": { "primary_risk_state": "OH" }, "expected": { "recommendation": "Review for acceptance", "score": 94, "statuses": { "state": "target" } } },
     { "id": "acceptable-state", "rule": "NC, SC, GA, VA and UT are acceptable states", "patch": { "primary_risk_state": "UT" }, "expected": { "recommendation": "Review for acceptance", "score": 91, "statuses": { "state": "acceptable" } } },

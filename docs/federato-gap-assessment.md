@@ -27,7 +27,7 @@ FEDERATO_CLIENT_ID=...
 FEDERATO_CLIENT_SECRET=...
 ```
 
-Run `npm run triage`, or `npm run dev` and open `/triage`, then select **Rank live submissions**. This flow does not require PostgreSQL, MongoDB, Gemini, or Browserbase. The CLI saves the discovered schema to `data/federato-schema.json` before planning and saves the full report to `data/federato-triage.json`. Both are ignored by Git. Secrets remain server-side and are not included in reports.
+Run `npm run triage`, or `npm run dev` and open `/triage`, then select **Rank live records**. This flow does not require PostgreSQL, MongoDB, Gemini, or Browserbase. The CLI saves the discovered schema to `data/federato-schema.json` before planning and saves the full report to `data/federato-triage.json`. Both are ignored by Git. Secrets remain server-side and are not included in reports.
 
 The live endpoint returned a workflow envelope despite `outputOnly=true` and used `results` for ungrouped query rows; both behaviors are supported alongside the documented unwrapped/grouped forms.
 
@@ -44,7 +44,7 @@ Supported mapping concepts: `account`, `state`, `business`, `line`, `tiv`, `prem
 
 The carrier supplies thresholds, not weights. Application weights: submission type 10, line 10, state 15, TIV 15, premium 15, building age 15, construction 10, five-year losses 10. Target matches earn 100% of the factor weight; acceptable matches earn 80%; exceptions and unknowns earn zero. Any exception caps the final score at 49; incomplete required data caps it at 69. Sort descending by final score, then raw score, then ID. Caps avoid allowing strong matches to offset a known appetite exception; they do not constitute automated rejection.
 
-- New business and Property are required. Accepted states: OH, PA, MD, CO, CA, FL, NC, SC, GA, VA, UT; the first six are targets.
+- New business is acceptable; renewal business is not acceptable (Appetite Guidelines, page 2, Not Acceptable column). Property is required. Accepted states: OH, PA, MD, CO, CA, FL, NC, SC, GA, VA, UT; the first six are targets.
 - TIV: up to $150M, target $50M-$100M. Premium: $50K-$175K, target $75K-$100K. Ranges are inclusive.
 - Buildings: newer than 1990, target newer than 2010; use the oldest exposure building. Exactly 1990 is unspecified in the source and requires clarification.
 - Construction: more than 50% eligible JM/non-combustible/steel/masonry non-combustible. Exactly 50% requires clarification. When deriving the mix, count unique buildings; this follows the percentage wording without inventing a TIV weighting basis. Unknown codes remain unknown.
@@ -53,6 +53,8 @@ The carrier supplies thresholds, not weights. Application weights: submission ty
 - Required account name and effective/expiration dates must be present and dates ordered. No unsupported expiry preference is added.
 
 ## Remaining gaps and limits
+
+The dashboard and Markdown export show the underlying weighted match score alongside the capped priority score, explain the sort order, and name the specific factors requiring underwriting review. A match score is not an acceptance probability. Resource labels follow the discovered resource, so Policy results are labeled policies. Referrals request human review without assuming the carrier offers an exception-approval process. These presentation changes preserve the scoring weights and caps.
 
 1. **Queue scope:** the live schema has Policy and Submission resources. Policy has substantially more appetite data, so the default ranks all 113 Policy records, including their different lifecycle statuses. It is not a complete ranking of standalone Submission records or an open-only submission pipeline. The selected resource and scope are shown in the trace. A production submission queue needs explicit status semantics and a verified Submission-to-Policy reconciliation, including unmatched submissions.
 2. **Data sufficiency:** many records have multiple risk states and no explicit primary-state marker. Complete five-year account history is not established by policy-linked claims. These factors request clarification rather than becoming false passes.
