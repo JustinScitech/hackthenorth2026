@@ -37,6 +37,8 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 
 ## Run locally
 
+For a hosted demo with Vercel, Render, Temporal Cloud, and managed databases, follow [the deployment checklist](docs/deployment.md). The web API and worker are separate processes and must use the same Temporal namespace and data stores.
+
 1. Start Docker Desktop.
 2. Copy `.env.example` to `.env` if needed, then adjust values. Keep it out of Git. Google sign-in requires `BETTER_AUTH_URL`, a random `BETTER_AUTH_SECRET`, Google OAuth client ID/secret, and a comma-separated `AUTH_ALLOWED_EMAILS`. Without them, the workspace remains locked.
 3. Run `docker compose up -d`.
