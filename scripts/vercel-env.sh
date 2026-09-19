@@ -19,6 +19,8 @@ add() {
 add TIGERDATA_DATABASE_URL "$TIGERDATA_DATABASE_URL"
 add MONGODB_ATLAS_URI      "$MONGODB_ATLAS_URI"
 add MONGODB_DB             "$MONGODB_DB"
+# Tiger Data presents a certificate chain Node rejects; the merged TLS fix reads this flag.
+add DATABASE_SSL_REJECT_UNAUTHORIZED "false"
 
 # No Temporal server is reachable from Vercel yet. Case creation returns 503 until this
 # points at Temporal Cloud (or another public Temporal) and a worker runs somewhere.
