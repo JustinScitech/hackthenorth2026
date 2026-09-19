@@ -98,6 +98,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .triage-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; text-align: left; }
 .triage-table th, .triage-table td { padding: 12px 10px; border-bottom: 1px solid #dbe2e0; vertical-align: top; line-height: 1.5; }
 .triage-table small { color: #687879; overflow-wrap: anywhere; }
+@media (max-width: 620px) { .triage-heading { flex-direction: column; align-items: stretch; } .triage-heading .primary-button { width: 100%; } }
 
 .case-workspace { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: calc(100vh - 68px); background: #fff; }
 .case-navigation { display: flex; flex-direction: column; gap: 22px; min-width: 0; background: #f0f2f0; border-right: 1px solid #e0e5e1; padding: 22px 12px; }
