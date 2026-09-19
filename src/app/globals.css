@@ -93,6 +93,7 @@ code, kbd, pre, .mono { font-family: var(--font-mono); font-size: 0.875em; }
 .brand { display: inline-flex; align-items: center; gap: 9px; padding: 6px 8px 14px; color: var(--text); white-space: nowrap; }
 .brand img { flex: 0 0 auto; }
 .brand-text { font-size: 16px; font-weight: 500; letter-spacing: -0.02em; }
+.brand-text small { margin-left: 3px; font-size: 0.56em; font-weight: 500; letter-spacing: 0; }
 .brand img { filter: brightness(0) saturate(100%) invert(36%) sepia(43%) saturate(2076%) hue-rotate(219deg) brightness(90%) contrast(88%); }
 [id] { scroll-margin-top: 84px; }
 .workspace { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); font-size: 14px; font-weight: 500; }

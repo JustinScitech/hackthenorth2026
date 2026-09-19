@@ -8,5 +8,5 @@ export function Mark({ size = 28, priority = false }: { size?: number; priority?
 
 /** Mark plus wordmark. The text is HTML so it follows the active theme. */
 export function Wordmark({ href = "/", size = 28, className = "brand" }: { href?: string; size?: number; className?: string }) {
-  return <Link className={className} href={href} aria-label="Astra Risk"><Mark size={size} /><span className="brand-text">Astra Risk</span></Link>;
+  return <Link className={className} href={href} aria-label="Astra Risk"><Mark size={size} /><span className="brand-text">Astra<small>Risk</small></span></Link>;
 }
