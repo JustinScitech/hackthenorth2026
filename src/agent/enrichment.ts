@@ -80,7 +80,7 @@ export function evidenceFindings(facts: Facts, evidence: PublicEvidence, signals
       const label = String(signal.value);
       const eligible = ["jm", "joisted masonry", "steel frame", "steel", "non combustible", "non combustible/steel", "masonry non combustible", "mnc"].includes(label.toLowerCase().replace(/[_-]/g, " ").replace(/\s+/g, " ").trim());
       const result = eligible ? "pass" : referConstruction.test(label) ? "refer" : passConstruction.test(label) ? "pass" : "unknown";
-      findings.push({ id, label: "Public construction type", result, detail: `${eligible ? "Appetite-eligible construction category reported" : result === "refer" ? "Combustible construction reported" : "Construction reported"}: ${label}. Verify the account-wide eligible construction percentage separately; this public description does not establish the required mix. ${cite(signal)}`, source });
+      findings.push({ id, label: "Public construction type", result, detail: `${eligible ? "Appetite-eligible construction category reported" : result === "refer" ? "Combustible construction reported" : "Construction reported"}: ${label}. Verify the account-wide eligible construction percentage separately; the required mix comes from the full building schedule. ${cite(signal)}`, source });
     } else if (signal.kind === "squareFeet") {
       findings.push({ id, label: "Public building size", result: "pass", detail: `The public source lists ${Number(signal.value).toLocaleString("en-US")} square feet. ${cite(signal)}`, source });
     } else {

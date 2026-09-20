@@ -42,4 +42,4 @@ export function brokerAppetite(text: string): Partial<CaseAppetite> {
   return result as Partial<CaseAppetite>;
 }
 
-export const brokerAppetiteInstructions = "Supply missing appetite fields on separate lines: Business type: new or renewal; Line of business: property; Premium: dollar amount; Eligible construction percent: 0-100; Five-year loss value: dollar amount; Five-year history complete: yes or no; Effective date: YYYY-MM-DD; Expiration date: YYYY-MM-DD. Dollar amounts must be USD. Loss counts do not establish five-year loss dollars.";
+export const brokerAppetiteInstructions = "Supply missing appetite fields on separate lines: Business type: new or renewal; Line of business: property; Premium: dollar amount; Eligible construction percent: 0-100; Five-year loss value: dollar amount; Five-year history complete: yes or no; Effective date: YYYY-MM-DD; Expiration date: YYYY-MM-DD. Dollar amounts must be USD. Five-year loss dollars are a separate figure from the loss count.";

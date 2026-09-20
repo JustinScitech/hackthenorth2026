@@ -34,7 +34,7 @@ export function scoreSubmission(row: Record<string, unknown>, mapping: Mapping, 
   const construction = number(value("constructionPercent"));
   add("constructionPercent", "Construction mix", 10, construction === null || construction > 100 || construction === 50 ? "unknown" : construction > 50 ? "acceptable" : "outside", `More than 50% JM, non-combustible/steel, or masonry non-combustible is acceptable. Eligible share: ${construction === null ? "missing" : `${construction}%`}. Exactly 50% needs clarification; percentages must use 0-100 units.`);
   const loss = number(value("lossValue"));
-  add("lossValue", "Five-year loss value", 10, loss === null || loss === 100_000 ? "unknown" : loss < 100_000 ? "target" : "outside", `Five-year loss dollars under $100K required. Observed ${loss === null ? "missing" : `$${loss.toLocaleString("en-US")}`}. Exactly $100K needs clarification; loss counts do not establish loss value.`);
+  add("lossValue", "Five-year loss value", 10, loss === null || loss === 100_000 ? "unknown" : loss < 100_000 ? "target" : "outside", `Five-year loss dollars under $100K required. Observed ${loss === null ? "missing" : `$${loss.toLocaleString("en-US")}`}. Exactly $100K needs clarification; loss value comes from dollar figures, separate from the loss count.`);
   const missingData: string[] = [];
   const account = value("account");
   if (typeof account !== "string" || !account.trim()) missingData.push("account name");

@@ -167,7 +167,7 @@ test("case trace shows live progress and broker and underwriter actions", async 
   });
   await page.goto(`/cases/${id}`);
   await expect(page.getByRole("status")).toContainText("Astra is extracting the broker facts");
-  await expect(page.getByRole("status")).toContainText("Loss counts provide context but do not establish five-year loss dollars");
+  await expect(page.getByRole("status")).toContainText("Loss counts are context; the five-year loss dollars");
   await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Gemini model started");
   status = "waiting_for_broker";
   await page.reload();
