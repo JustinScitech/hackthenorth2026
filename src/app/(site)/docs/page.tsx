@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Info } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, BookOpen, Code, Info, ListChecks } from "@phosphor-icons/react/dist/ssr";
+import { DocsSidebar } from "./docs-sidebar";
 
 export const metadata: Metadata = { title: "Docs and API reference", description: "How Astra Risk cases move, how to run it, and the HTTP API the workspace uses." };
 
 const NAV = [
-  { group: "Guide", items: [["#introduction", "Introduction"], ["#quickstart", "Quickstart"], ["#lifecycle", "Case lifecycle"], ["#actions", "Broker and underwriter actions"], ["#trace", "Activity trace"]] },
+  { group: "Get started", items: [["#introduction", "Introduction"], ["#quickstart", "Quickstart"], ["#lifecycle", "Case lifecycle"], ["#actions", "Broker and underwriter actions"], ["#trace", "Activity trace"]] },
   { group: "API reference", items: [["#api", "Conventions"], ["#list-cases", "List cases"], ["#create-case", "Create a case"], ["#get-case", "Get a case"], ["#case-actions", "Deliver an action"], ["#case-audio", "Voice brief"], ["#triage", "Federato triage"], ["#types", "Types"]] },
   { group: "Configuration", items: [["#environment", "Environment variables"], ["#limits", "Limits and safety"]] },
 ];
@@ -17,14 +18,21 @@ function Endpoint({ method, path, id }: { method: "GET" | "POST"; path: string; 
 export default function DocsPage() {
   return (
     <div className="docs">
-      <nav className="docs-nav" aria-label="Docs sections">
-        {NAV.map((section) => <span key={section.group} style={{ display: "contents" }}><span className="label-mono">{section.group}</span>{section.items.map(([href, label]) => <a key={href} href={href}>{label}</a>)}</span>)}
-      </nav>
+      <DocsSidebar sections={NAV} />
 
       <article className="docs-content">
-        <p className="eyebrow">Documentation</p>
-        <h1 id="introduction">Astra Risk docs and API reference</h1>
+        <div className="docs-breadcrumb"><span>Documentation</span><span aria-hidden="true">/</span><strong>Introduction</strong></div>
+        <div className="docs-hero" id="introduction">
+          <div className="docs-hero-kicker"><BookOpen size={15} aria-hidden="true" /> GET STARTED</div>
+          <h1>Documentation</h1>
+          <p className="docs-hero-subtitle">Build and review commercial property cases with Astra Risk.</p>
+        </div>
         <p className="lede">Astra Risk is a durable, human-reviewed underwriting agent for commercial property submissions. PostgreSQL jobs extract facts from a broker submission, check them against guidelines, pause for missing information, and resume when a broker responds. An underwriter makes every final decision.</p>
+        <div className="docs-link-grid" aria-label="Explore the documentation">
+          <a href="#quickstart" className="docs-link-card"><span className="docs-card-icon"><BookOpen size={19} aria-hidden="true" /></span><strong>Quickstart</strong><span>Run the services and open your first case.</span><ArrowRight size={16} className="docs-card-arrow" aria-hidden="true" /></a>
+          <a href="#lifecycle" className="docs-link-card"><span className="docs-card-icon"><ListChecks size={19} aria-hidden="true" /></span><strong>Case lifecycle</strong><span>Follow a submission from intake to decision.</span><ArrowRight size={16} className="docs-card-arrow" aria-hidden="true" /></a>
+          <a href="#api" className="docs-link-card"><span className="docs-card-icon"><Code size={19} aria-hidden="true" /></span><strong>API reference</strong><span>Explore the endpoints behind the workspace.</span><ArrowRight size={16} className="docs-card-arrow" aria-hidden="true" /></a>
+        </div>
         <div className="notice"><Info size={17} aria-hidden="true" />Cases and Federato triage share the supplied 2025 commercial property appetite. Neither binds coverage.</div>
 
         <h2 id="quickstart">Quickstart</h2>
@@ -128,6 +136,17 @@ export default function DocsPage() {
           <li>Triage evaluates at most 1,000 records per run and marks the report as truncated when it hits that limit.</li>
         </ul>
       </article>
+      <aside className="docs-toc" aria-label="On this page">
+        <p>On this page</p>
+        <a href="#introduction">Introduction</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="#lifecycle">Case lifecycle</a>
+        <a href="#actions">Broker and underwriter actions</a>
+        <a href="#trace">Activity trace</a>
+        <a href="#api">API reference</a>
+        <a href="#environment">Environment variables</a>
+        <a href="#limits">Limits and safety</a>
+      </aside>
     </div>
   );
 }
