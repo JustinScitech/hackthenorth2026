@@ -142,6 +142,8 @@ const eventLabels: Record<string, string> = {
   source_discovery_failed: "Public source search unavailable", public_source_confirmed: "Public source confirmed",
   property_context_started: "Looking up public property records", property_context_completed: "Public property records gathered",
   property_context_skipped: "Public records skipped", property_context_failed: "Public records unavailable",
+  verifier_started: "Verifying findings against the sources", verifier_flagged: "Verifier flagged a finding",
+  verifier_completed: "Findings verified", verifier_skipped: "Verification skipped",
   analysis_completed: "Guidelines checked",
   broker_response_received: "Broker response received", broker_follow_up_due: "Broker follow-up due",
   approved: "Review approved", declined: "Review declined", job_failed: "Analysis failed",
@@ -186,6 +188,10 @@ function traceDetail(event: AuditEvent): string | null {
   }
   if (event.eventType === "source_discovery_failed") return String(event.detail.reason ?? "The search did not complete");
   if (event.eventType === "public_source_confirmed") return `${event.detail.url}${event.detail.candidate ? " (discovered candidate)" : " (entered by the underwriter)"}`;
+  if (event.eventType === "verifier_started") return `Reading ${event.detail.claims ?? "the"} findings and the brief back against the broker notes, intake form, and public sources.`;
+  if (event.eventType === "verifier_flagged") return `${event.detail.label ?? event.detail.id}: "${event.detail.quote ?? ""}" was not found in the sources${event.detail.previousResult && event.detail.previousResult !== "brief" ? `; ${event.detail.previousResult} became refer` : ""}.`;
+  if (event.eventType === "verifier_completed") return `${event.detail.checked ?? 0} claims checked · ${event.detail.supported ?? 0} supported · ${event.detail.flagged ?? 0} flagged${Number(event.detail.overruled) ? ` · ${event.detail.overruled} model objections overruled by the source text` : ""}`;
+  if (event.eventType === "verifier_skipped") return String(event.detail.reason ?? "Verification was skipped");
   if (event.eventType === "property_context_skipped" || event.eventType === "property_context_failed") return String(event.detail.reason ?? "");
   if (event.eventType === "property_context_completed") return `${event.detail.ok} of ${event.detail.total} public datasets answered for ${event.detail.matched}`;
   if (event.eventType === "public_research_completed") {
@@ -226,6 +232,7 @@ function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobS
       : latest?.eventType === "public_research_started" ? "Astra is reviewing the supplied public source"
       : latest?.eventType === "source_discovery_started" ? "Astra is searching for the assessor record"
         : latest?.eventType === "guideline_check_started" ? "Astra is checking the carrier appetite"
+        : latest?.eventType === "verifier_started" ? "Astra is verifying the findings against the sources"
           : caseRecord.status === "received" ? "Astra is starting the analysis" : "Astra is reading the submission";
   }
   if (jobStatus === "QUEUED") return "Analysis queued";

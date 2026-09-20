@@ -12,6 +12,7 @@ import { evidenceFindings } from "./enrichment";
 import { gatherPropertyContext } from "./property-context";
 import { applyContextAdjustment, assessPropertyContext } from "./context-findings";
 import { discoverCaseSources } from "./source-discovery-activity";
+import { verifyCase } from "./verifier";
 
 export async function researchPublicSource(caseId: string): Promise<void> {
   const caseRecord = await getCase(caseId);
@@ -121,6 +122,7 @@ export async function checkCase(caseId: string): Promise<{ needsBroker: boolean 
     result.appetiteResult = applyContextAdjustment(result.appetiteResult, assessment);
     if (assessment.note) result.brief += ` ${assessment.note}`;
   }
+  await verifyCase(caseId, caseRecord, result);
   const status = result.question ? "waiting_for_broker" : "review_ready";
   await db.query(
     "UPDATE cases SET status = $2, findings = $3, question = $4, brief = $5, appetite_result = $6, updated_at = now() WHERE id = $1",
