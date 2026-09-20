@@ -9,6 +9,7 @@ npm run eval:update                # rewrite the baseline from a full run (only 
 EVAL_EXTRACTOR=pipeline npm run eval -- --suite extraction     # live Gemini + OpenAI + parser, resolved
 EVAL_EXTRACTOR=gemini-only npm run eval -- --suite extraction  # or openai-only: one model on its own
 EVAL_JUDGE=gemini npm run eval -- --suite brief-quality --suite verifier  # add the Gemini judge and live verifier as metrics
+EVAL_EXTRACTOR=pipeline npm run eval -- --suite case-journey   # live Gemini drafts and reply reading instead of the scripted model
 ```
 
 `data/eval-scorecard.json` holds the latest full result (ignored by Git).
@@ -19,7 +20,7 @@ EVAL_JUDGE=gemini npm run eval -- --suite brief-quality --suite verifier  # add 
 | --- | --- | --- |
 | `extraction` | The whole fact schema from broker notes: year built, three-year loss count, and every carrier appetite field, each as `{value, quote}`. Tracks `hallucinated` (value invented where the note has none), `missed`, and `wrong` in total and per field (`missed:premium`), plus `badQuote` for a quote that is not a verbatim substring of the note or, for the parser, not the line or sentence the case pins. Includes every fixture in `evals/agent-notes/`. | `src/agent/extraction-schema.ts` `parserReading` (`parseBrokerNotes` + `brokerAppetite`); with `EVAL_EXTRACTOR`, `src/agent/model.ts` |
 | `guidelines` | Carrier appetite review of a case: all eight per-factor results, when to ask the broker, fact provenance, and that a claim count never becomes loss dollars | `evaluateFacts`, `buildFacts` with `src/lib/case-appetite.ts` |
-| `case-journey` | Multi-revision cases: broker appetite lines override the submission, pause for the broker, resume on each reply, reach review with the right facts | The same functions joined the way `src/agent/activities.ts` joins replies |
+| `case-journey` | Multi-revision cases: broker appetite lines override the submission, pause for the broker, resume on typed or freeform replies (explicit lines are the floor, a scripted model reads the prose), reach review with the right facts. Every pause drafts the broker email, which must name each missing item and contain no figure the case does not have; a model draft that invents one falls back to the template | The same functions joined the way `src/agent/activities.ts` joins replies, plus `src/agent/correspondence.ts` |
 | `appetite` | Federato 2025 appetite thresholds per factor, score caps, nested exposure/claim derivation, currency | `src/federato/scoring.ts`, `derive.ts`, `schema.ts` |
 | `ranking` | Two-page queue: complete pagination, bucket ordering, tie stability, summaries and markdown agree with scores | `src/federato/triage.ts`, `presentation.ts` |
 | `counterfactual` | "What would change it": for each factor outside appetite or unknown, the smallest single-factor change that makes it pass, verified by re-scoring; nothing for passing cases; sentences never mention a passing factor; the required value is the exact edge the live scorer accepts | `src/federato/counterfactual.ts` |

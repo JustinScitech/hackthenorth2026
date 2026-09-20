@@ -6,7 +6,7 @@ import type { CaseRecord } from "../lib/types";
 const record: CaseRecord = {
   id: "case-1", insuredName: "Briefing property", state: "NY", tiv: 75_000_000, yearBuilt: 2015, losses: 0,
   sourceKey: "s", publicSourceUrl: null, sourceCandidates: [], origin: null, address: null, publicEvidence: null, propertyContext: null, extractionConflicts: [],
-  status: "review_ready", facts: null, findings: null, brief: "Score 49/100.", question: null, decision: null, reportDraft: null, reportDraftVersion: 0,
+  status: "review_ready", facts: null, findings: null, brief: "Score 49/100.", question: null, draftEmail: null, draftStatus: null, decision: null, reportDraft: null, reportDraftVersion: 0,
   error: null, analysisRevision: 0, createdAt: "2026-09-19T00:00:00Z", updatedAt: "2026-09-19T00:00:00Z",
   appetiteResult: {
     id: "case-1", account: "Briefing property", score: 49, rawScore: 79, recommendation: "Refer for appetite exceptions", explanation: "Score 49/100.", missingData: [],

@@ -445,6 +445,19 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .action-section form { display: grid; gap: 14px; }
 .action-section .primary-button { justify-self: start; }
 .decision-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+/* The agent's email to the broker: a ruled block inside the action card, approved text set as a letter. */
+.broker-draft { display: grid; gap: 12px; margin: 0 0 18px; padding: 14px 16px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius); background: var(--surface); }
+.broker-draft.is-approved { border-left-color: var(--border-strong); }
+.broker-draft-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.broker-draft-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--text); }
+.broker-draft-state { color: var(--muted); }
+.broker-draft.is-approved .broker-draft-state { color: var(--accent-ink); }
+.broker-draft form { display: grid; gap: 12px; }
+.broker-draft textarea { background: var(--card-bg); }
+.broker-draft .alert { margin: 0; }
+.action-section .broker-draft p { margin: 0; }
+.broker-draft-text { white-space: pre-wrap; font-family: var(--font-display); font-size: 15.5px; line-height: 1.6; color: var(--text); }
+.broker-draft > .subtle { font-size: 13px; }
 
 /* ---------- Agent at work: everything here animates only while the worker holds the case ---------- */
 .message-live { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--border-strong); color: var(--accent-ink); }

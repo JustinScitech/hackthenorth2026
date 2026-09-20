@@ -56,6 +56,7 @@ function mapCase(row: Record<string, unknown>): CaseRecord {
     status: row.status as CaseRecord["status"], facts: row.facts as CaseRecord["facts"],
     findings: row.findings as CaseRecord["findings"], brief: row.brief as string | null,
     question: row.question as string | null, decision: row.decision as string | null,
+    draftEmail: (row.draft_email as string | null) ?? null, draftStatus: (row.draft_status as CaseRecord["draftStatus"]) ?? null,
     reportDraft: row.report_draft as CaseRecord["reportDraft"],
     reportDraftVersion: Number(row.report_draft_version ?? 0),
     error: row.error as string | null, analysisRevision: Number(row.analysis_revision),
