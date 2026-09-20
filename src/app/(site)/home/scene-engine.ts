@@ -1,3 +1,4 @@
+import sceneAssets from "./scene-assets.json";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
@@ -163,6 +164,7 @@ export function createPropertyEngine(
     geometries.forEach((g) => g.dispose());
     materials.forEach((m) => m.dispose());
   };
+  let courtyardReflection: THREE.WebGLRenderTarget | null = null;
   let dirty = true;
   const decoder = new DRACOLoader()
     .setDecoderPath({
@@ -171,7 +173,7 @@ export function createPropertyEngine(
     })
     .setWorkerLimit(2);
   new GLTFLoader().setDRACOLoader(decoder).load(
-    "/models/engineering-7.glb",
+    sceneAssets.model,
     (gltf) => {
       decoder.dispose();
       if (disposed) {
@@ -219,6 +221,46 @@ export function createPropertyEngine(
         });
       });
       scene.add(gltf.scene);
+      // Capture the courtyard once for the mirror wall; orbiting never re-renders it.
+      const reflectiveParts = parts.filter((part) =>
+        ["signback", "annexglass"].includes(part.kind),
+      );
+      if (reflectiveParts.length) {
+        const reflectionScene = new THREE.Scene();
+        reflectionScene.background = new THREE.Color(0xc9d6d8);
+        reflectionScene.environment = environment.texture;
+        reflectionScene.environmentIntensity = 0.42;
+        const reflectedModel = gltf.scene.clone(true);
+        reflectedModel.traverse((object) => {
+          if (["signback", "sign", "annexglass"].includes(object.name.split("__")[0]))
+            object.visible = false;
+        });
+        reflectionScene.add(reflectedModel);
+        for (const object of scene.children) {
+          if (object instanceof THREE.Light) {
+            const light = object.clone();
+            light.castShadow = false;
+            reflectionScene.add(light);
+          }
+        }
+        const capture = new THREE.WebGLCubeRenderTarget(256, {
+          type: THREE.HalfFloatType,
+        });
+        const probe = new THREE.CubeCamera(0.1, 80, capture);
+        const filter = new THREE.PMREMGenerator(renderer);
+        probe.position.set(8.76, 1.35, -4.20);
+        probe.update(renderer, reflectionScene);
+        courtyardReflection = filter.fromCubemap(capture.texture);
+        for (const part of reflectiveParts)
+          for (const mat of part.materials) {
+            mat.envMap = courtyardReflection.texture;
+            mat.envMapIntensity = part.kind === "signback" ? 0.82 : 0.85;
+            mat.needsUpdate = true;
+          }
+        capture.dispose();
+        filter.dispose();
+        reflectionScene.clear();
+      }
       renderer.shadowMap.needsUpdate = true;
       dirty = true;
       canvas.dataset.loaded = "true";
@@ -306,6 +348,7 @@ export function createPropertyEngine(
     slowFrames = 0,
     measuredFrames = 0,
     frameTotal = 0;
+  let activePreset = "site";
   const flyTo = (
     view: {
       yaw: number;
@@ -447,7 +490,10 @@ export function createPropertyEngine(
     }
     if (event.key === "+" || event.key === "=") zoom(0.82);
     else if (event.key === "-") zoom(1.22);
-    else if (event.key === "Home") flyTo(CAMERA_VIEWS.site);
+    else if (event.key === "Home") {
+      activePreset = "site";
+      flyTo(CAMERA_VIEWS.site);
+    }
     else if (event.key.startsWith("Arrow")) {
       const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0),
         up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
@@ -508,8 +554,12 @@ export function createPropertyEngine(
           : "none";
       lastExpanded = state.expanded;
     }
+    // The atrium view can look upward from the entrance; exterior views stay above ground.
+    controls.maxPolarAngle =
+      activePreset === "atrium" && !state.selected ? 1.78 : 1.49;
     const resetting = state.resetView !== lastReset;
     if (resetting) {
+      activePreset = "site";
       interacted = false;
       lastGuide = "";
       flyTo(CAMERA_VIEWS.site);
@@ -533,6 +583,7 @@ export function createPropertyEngine(
     };
     if (state.selected !== lastSelection) {
       if (state.selected) {
+        activePreset = "site";
         interacted = true;
         focusInspection(state.selected, state.inspection.cutaway);
       } else flyTo(CAMERA_VIEWS.site);
@@ -544,7 +595,10 @@ export function createPropertyEngine(
         interacted = !resetting;
         if (state.command.action === "zoom-in") zoom(0.8);
         else if (state.command.action === "zoom-out") zoom(1.25);
-        else flyTo(CAMERA_VIEWS[state.command.action]);
+        else {
+          activePreset = state.command.action;
+          flyTo(CAMERA_VIEWS[state.command.action]);
+        }
       }
       lastCommand = state.command.revision;
     }
@@ -574,7 +628,9 @@ export function createPropertyEngine(
       }
     }
     const layer = state.selected ?? (interacted ? null : guide);
+    const atriumView = activePreset === "atrium" && !state.selected;
     const cutaway = Boolean(
+      atriumView ||
       (state.selected &&
         state.inspection.cutaway &&
         ["roof", "construction", "business", "fire"].includes(
@@ -624,7 +680,7 @@ export function createPropertyEngine(
     for (const part of parts) {
       let lift = 0,
         opacity =
-          part.kind === "canopyglass"
+          ["canopyglass", "atriumglass"].includes(part.kind)
             ? 0.3
             : part.kind === "atriumshell"
               ? 0.3
@@ -636,7 +692,7 @@ export function createPropertyEngine(
         opacity = state.selected === "roof" ? 0.95 : 0.09;
       }
       if (
-        ["shell", "atriumshell", "atriumwall"].includes(part.kind) &&
+        ["shell", "atriumshell", "atriumwall", "entrance"].includes(part.kind) &&
         cutaway &&
         state.selected !== "roof"
       )
@@ -655,6 +711,7 @@ export function createPropertyEngine(
           "shell",
           "atriumshell",
           "atriumwall",
+          "entrance",
           "upper",
         ].includes(part.kind)
       );
@@ -776,6 +833,7 @@ export function createPropertyEngine(
     canvas.removeEventListener("keydown", key);
     canvas.removeEventListener("webglcontextlost", contextLost);
     disposeRoot(scene);
+    courtyardReflection?.dispose();
     environment.dispose();
     sun.shadow.dispose();
     renderer.dispose();

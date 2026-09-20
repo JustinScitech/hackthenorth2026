@@ -1,6 +1,14 @@
 /** E7 camera and investigation adapters. Underwriting outputs are illustrative. */
 import type { RiskId } from "./demo-data";
-export type CameraPreset = "site" | "roof" | "street" | "plan" | "atrium";
+export type CameraPreset =
+  | "site"
+  | "roof"
+  | "street"
+  | "plan"
+  | "atrium"
+  | "entry"
+  | "rear"
+  | "bridge";
 export type CameraAction = CameraPreset | "zoom-in" | "zoom-out";
 export type CameraCommand = { action: CameraAction; revision: number };
 export type SceneInspection = { waterLevel: number; cutaway: boolean };
@@ -27,10 +35,31 @@ export const CAMERA_VIEWS: Record<CameraPreset, View & { label: string }> = {
   },
   street: {
     label: "E7 courtyard and cycle shelter",
-    yaw: 1.13,
-    pitch: 1.49,
-    zoom: 1.15,
-    target: [2.7, 1.45, -1.4],
+    yaw: 1.49,
+    pitch: 1.44,
+    zoom: 1.62,
+    target: [4.5, 3.5, -2.25],
+  },
+  entry: {
+    label: "Right-side stepped entrance",
+    yaw: 3.00,
+    pitch: 1.28,
+    zoom: 1.85,
+    target: [0.5, 2.4, -8.0],
+  },
+  bridge: {
+    label: "Left-side bridge connection",
+    yaw: -0.28,
+    pitch: 1.28,
+    zoom: 2.05,
+    target: [-3.8, 3.25, 2.35],
+  },
+  rear: {
+    label: "Rear atrium entrance",
+    yaw: -1.57,
+    pitch: 1.42,
+    zoom: 1.85,
+    target: [-4.0, 2.2, -2.4],
   },
   plan: {
     label: "Campus plan",
@@ -41,10 +70,10 @@ export const CAMERA_VIEWS: Record<CameraPreset, View & { label: string }> = {
   },
   atrium: {
     label: "Inside the E7 atrium",
-    yaw: 1.53,
-    pitch: 1.3,
-    zoom: 1.15,
-    target: [0, 3.7, -3.05],
+    yaw: 1.44,
+    pitch: 1.72,
+    zoom: 3.5,
+    target: [-1, 3.0, -3.05],
   },
 };
 export const INSPECTIONS: Record<

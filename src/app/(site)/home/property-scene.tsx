@@ -1,4 +1,5 @@
 "use client";
+import sceneAssets from "./scene-assets.json";
 import { useEffect, useRef, useState } from "react";
 import { RISK_SIGNALS, type RiskId } from "./demo-data";
 import type { CameraCommand, SceneInspection } from "./inspection-data";
@@ -102,7 +103,7 @@ export default function PropertyScene(props: Props) {
     <div className={styles.sceneRoot}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/models/engineering-7-poster.webp"
+        src={sceneAssets.poster}
         alt="Architectural interpretation of Waterloo Engineering 7, its patterned glass facade, atrium, road beneath the pedestrian bridge, and attached courtyard wing"
         className={`${styles.scenePoster} ${loaded && !fallback ? styles.posterHidden : ""}`}
         fetchPriority="high"

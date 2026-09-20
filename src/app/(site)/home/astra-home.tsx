@@ -1,4 +1,5 @@
 "use client";
+import sceneAssets from "./scene-assets.json";
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -58,7 +59,7 @@ const PropertyScene = dynamic(() => import("./property-scene"), {
       {/* A small, locally rendered poster paints before the 3D bundle loads. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/models/engineering-7-poster.webp"
+        src={sceneAssets.poster}
         alt="Photo-informed digital twin of Waterloo Engineering 7"
         className={styles.scenePoster}
         fetchPriority="high"
@@ -454,6 +455,9 @@ export function AstraHome() {
                   ["site", "Site"],
                   ["roof", "Roof"],
                   ["street", "Street"],
+                  ["bridge", "Bridge"],
+                  ["entry", "Steps"],
+                  ["rear", "Rear"],
                   ["atrium", "Atrium"],
                   ["plan", "Plan"],
                 ] as const
@@ -461,7 +465,11 @@ export function AstraHome() {
                 <button
                   type="button"
                   key={id}
-                  onClick={() => cameraAction(id)}
+                  onClick={() => {
+                    setSelected(null);
+                    if (["atrium", "entry", "bridge", "rear"].includes(id)) setExpanded(true);
+                    cameraAction(id);
+                  }}
                   disabled={!sceneAvailable}
                   aria-label={`Camera: ${label}`}
                   className={
