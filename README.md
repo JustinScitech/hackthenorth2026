@@ -10,18 +10,22 @@ Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Se
 
 The live planner prefers `Submission` and supplements missing evidence only from a uniquely linked Policy with matching insured, line, and effective date. Unmatched, ambiguous, and incomplete submissions remain visible. All lifecycle statuses are included and displayed. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
 
+## Quoting assistant
+
+`/quote` is a public, conversational tenant and car insurance estimator built for the Intact challenge. It reads a plain-language request, shows an estimate from the facts it has, and explains every remaining question. Every conversation is saved (facts only, never the text) and appears under **Quotes** in the workspace, so an advisor can pick up referrals. See [docs/quoting.md](docs/quoting.md) for the problem, how AI is used, the journey, and the assumptions. Demo rate tables only; nothing binds coverage.
+
 ## Interface
 
-The product is branded **Astra Risk**; the logo files live in `public/brand`. The site has a marketing homepage at `/`, in-site docs and an API reference at `/docs`, and the workspace under `/overview`, `/cases`, `/cases/new`, `/triage`, and `/settings`. The UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default; switch to light in **Settings** or with the sun/moon button in the header. The choice is saved in the browser.
+The product is branded **Astra Risk**; the logo files live in `public/brand`. The site has a marketing homepage at `/`, in-site docs and an API reference at `/docs`, and the workspace under `/overview`, `/cases`, `/cases/new`, `/quotes`, `/triage`, and `/settings`. The UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default; switch to light in **Settings** or with the sun/moon button in the header. The choice is saved in the browser.
 
 ## Stack
 
 - Next.js: case intake, progress, review, and API
 - PostgreSQL or Tiger Data: case records, durable jobs, retries, and audit events
 - MongoDB: broker submissions, replies, and public evidence (local container or Atlas)
-- Optional Gemini API: primary structured extraction from unstructured broker notes; deterministic fallback works without a key or available credits
-- Optional Browserbase: visit an explicitly supplied public source and attach a cited excerpt to the case
-- Optional Sentry: error monitoring, agent traces, and job, analysis, and eval metrics from the worker, web app, and browser, read back into the overview dashboard
+- Optional Gemini and OpenAI APIs: independent structured extraction from unstructured broker notes, resolved by agreement with a deterministic parser; the parser alone works without keys
+- Optional Browserbase: visit an explicitly supplied public source, read year built, construction, size, sprinklers, and flood zone from the page, and turn each into a cited finding that corroborates, contradicts, or adds to the broker facts
+- Optional Sentry: error monitoring, agent traces, structured logs, per-model-call AI spans, and job, analysis, and eval metrics from the worker, web app, and browser, read back into the overview dashboard; every event is scrubbed of submission text
 - Optional ElevenLabs: spoken underwriter review brief
 
 ## Code layout
@@ -89,7 +93,7 @@ A `redirect_uri_mismatch` from Google means the OAuth client does not list the e
 
 ## Checks
 
-Run `npm run typecheck`, `npm test`, and `npm run build`. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100. Most UI scenarios use fixture responses; one exercises the real PostgreSQL job and MongoDB lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
+Run `npm run typecheck`, `npm test`, and `npm run build`. `npm test` includes the offline agent evals in [evals/](evals/README.md): 189 cases across extraction, multi-source resolution, appetite review of cases, case journeys, public-source enrichment, Federato appetite scoring, queue ranking, quoting, and telemetry privacy, with a baseline ratchet that fails the build on any regression; `npm run eval` prints the scorecard. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100. Most UI scenarios use fixture responses; one exercises the real PostgreSQL job and MongoDB lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
 
 Run `npm run eval:underwriting` for the offline, versioned Federato appetite corpus. It checks every factor and writes a detailed report under ignored `data/`. For a live Gemini extraction eval, set `GEMINI_API_KEY` and run `npm run eval:agent`. It checks the model's year-built and three-year loss-count values, selected provenance, and exact carrier appetite findings across synthetic broker notes and any samples added under `evals/agent-notes/`. Calls are spaced to reduce per-minute rate-limit errors. The live eval fails if Gemini is unavailable or falls back to the parser. These text-based evals do not measure PDF ingestion or coverage decisions. See [the evaluation guide](docs/underwriting-evals.md) for adding PDF-grounded cases.
 

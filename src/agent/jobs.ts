@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { addAudit, db, getCase } from "../lib/db";
 import * as activityModule from "./activities";
-import { monitorActivities, recordJobMetrics, startAgentSpan } from "./monitoring";
+import { logAgentEvent, monitorActivities, recordJobMetrics, startAgentSpan } from "./monitoring";
 import { enqueueJob, type JobKind, type JobPayload } from "./job-queue";
 
 type Job = { id: string; case_id: string; kind: JobKind; payload: JobPayload; attempts: number; lease_token: string };
@@ -81,6 +81,7 @@ export async function processNextJob(): Promise<boolean> {
        WHERE id = $1 AND lease_token = $2`, [job.id, token, exhausted ? "failed" : "queued", exhausted, message.slice(0, 500)],
     );
     await addAudit(job.case_id, "job_retry", { kind: job.kind, attempt: job.attempts, exhausted, reason: message.slice(0, 160) }, `job-retry:${job.id}:${job.attempts}`);
+    logAgentEvent("job_retry", { caseId: job.case_id, jobId: job.id, kind: job.kind, attempt: job.attempts, exhausted });
     if (exhausted && job.kind !== "broker_follow_up") await failCase(job.case_id, message);
     recordJobMetrics(job.kind, exhausted ? "failed" : "retried", Date.now() - startedAt);
     console.error("Case job failed", job.id, message);

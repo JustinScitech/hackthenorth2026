@@ -15,6 +15,7 @@ export function SiteHeader() {
         <nav className="site-nav" aria-label="Site">
           <Link href="/#experience">Platform</Link>
           <Link href="/#underwriting">How it works</Link>
+          <Link href="/quote" aria-current={pathname.startsWith("/quote") ? "page" : undefined}>Get an estimate</Link>
           <Link href="/docs" aria-current={pathname.startsWith("/docs") ? "page" : undefined}>Documentation</Link>
         </nav>
         <div className="site-actions">
@@ -32,7 +33,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="site-footer-inner">
         <span>Astra Risk · Durable, human-reviewed underwriting. Demo guidelines only; nothing here binds coverage.</span>
-        <nav aria-label="Footer"><Link href="/docs">Docs</Link><Link href="/docs#api">API reference</Link><Link href="/overview">Workspace</Link><Link href="/settings">Settings</Link></nav>
+        <nav aria-label="Footer"><Link href="/quote">Get an estimate</Link><Link href="/docs">Docs</Link><Link href="/docs#api">API reference</Link><Link href="/overview">Workspace</Link><Link href="/settings">Settings</Link></nav>
       </div>
     </footer>
   );

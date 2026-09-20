@@ -10,16 +10,17 @@ test("flags differing values without treating missing values as a contradiction"
 });
 
 test("parser fallback is labeled when no model is configured", async () => {
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const keys = { GEMINI_API_KEY: process.env.GEMINI_API_KEY, OPENAI_API_KEY: process.env.OPENAI_API_KEY };
   delete process.env.GEMINI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
   try {
     const result = await extractNotes("The building was constructed in 2005 and had no losses in the past three years.");
     assert.deepEqual(result.extracted, { yearBuilt: 2005, losses: 0 });
     assert.deepEqual(result.fieldSources, { yearBuilt: "Parser", losses: "Parser" });
-    assert.deepEqual(result.attempts.map((attempt) => attempt.status), ["not_configured"]);
+    assert.deepEqual(result.confidence, { yearBuilt: 0.6, losses: 0.6 });
+    assert.deepEqual(result.attempts.map((attempt) => `${attempt.source}:${attempt.status}`), ["Gemini:not_configured", "OpenAI:not_configured"]);
   } finally {
-    if (geminiKey === undefined) delete process.env.GEMINI_API_KEY;
-    else process.env.GEMINI_API_KEY = geminiKey;
+    for (const [name, value] of Object.entries(keys)) { if (value === undefined) delete process.env[name]; else process.env[name] = value; }
   }
 });
 
