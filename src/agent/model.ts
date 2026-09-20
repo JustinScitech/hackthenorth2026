@@ -5,20 +5,23 @@ export { EXTRACTION_PROMPT, extractionSchema, GEMINI_WATERFALL, openaiSchema };
 
 type Candidate = { source: string; value: ExtractedFields };
 export type ModelSource = "Gemini" | "OpenAI";
-export type ModelAttempt = {
+/** One model call. `value` is the parsed JSON: the extraction fields by default, another shape when the caller supplies its own parser. */
+export type ModelAttempt<T = ExtractedFields> = {
   source: ModelSource;
   model: string;
   status: "not_configured" | "started" | "completed" | "failed";
   durationMs: number;
-  /** The values the model read, for traces and evals; `reading` carries the quotes behind them. */
-  value?: ExtractedFields;
+  /** The values the model read, for traces and evals; `reading` carries the quotes behind them (extraction only). */
+  value?: T;
   reading?: Reading;
   errorCode?: number;
   attemptCount?: number;
   usage?: TokenUsage;
 };
 
-type ModelObserver = (event: "started" | "completed" | "failed", attempt: ModelAttempt) => Promise<void>;
+export type ModelObserver<T = ExtractedFields> = (event: "started" | "completed" | "failed", attempt: ModelAttempt<T>) => Promise<void>;
+export type JsonParser<T> = (text: string) => T;
+type AttemptParser<T> = (text: string | undefined) => { value: T; reading?: Reading };
 
 export function shouldFallThroughGeminiError(error: unknown): boolean {
   const code = errorCode(error);
@@ -45,32 +48,40 @@ function readResponse(text: string | undefined, source: string): Reading {
   return reading;
 }
 
-async function runAttempt(source: ModelSource, model: string, text: string, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>, onEvent?: ModelObserver): Promise<ModelAttempt & { error?: unknown }> {
+/** The default parser: the extraction schema with quotes checked against the source text. */
+const extractionParser = (text: string): AttemptParser<ExtractedFields> => (raw) => { const reading = readResponse(raw, text); return { value: readingValues(reading), reading }; };
+/** Any other JSON shape: the caller's parser decides, and a malformed answer fails the attempt the same way. */
+const jsonParser = <T>(parse: JsonParser<T>): AttemptParser<T> => (raw) => { if (!raw) throw new Error("Empty model response"); return { value: parse(raw) }; };
+
+async function runAttempt<T>(source: ModelSource, model: string, parse: AttemptParser<T>, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>, onEvent?: ModelObserver<T>): Promise<ModelAttempt<T> & { error?: unknown }> {
   const started = performance.now();
   await onEvent?.("started", { source, model, status: "started", durationMs: 0 });
   try {
     const response = await generate();
-    const reading = readResponse(response.text, text);
-    const completed: ModelAttempt = { source, model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: readingValues(reading), reading, attemptCount: response.attemptCount ?? 1 };
+    const parsed = parse(response.text);
+    const completed: ModelAttempt<T> = { source, model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: parsed.value, reading: parsed.reading, attemptCount: response.attemptCount ?? 1 };
     await onEvent?.("completed", completed);
     return completed;
   } catch (error) {
-    const failed: ModelAttempt = { source, model, status: "failed", durationMs: Math.round(performance.now() - started), errorCode: errorCode(error), attemptCount: 1 };
-    console.warn(`${source} extraction unavailable`, model, error instanceof Error ? error.name : "UnknownError");
+    const failed: ModelAttempt<T> = { source, model, status: "failed", durationMs: Math.round(performance.now() - started), errorCode: errorCode(error), attemptCount: 1 };
+    console.warn(`${source} model unavailable`, model, error instanceof Error ? error.name : "UnknownError");
     await onEvent?.("failed", failed);
     return { ...failed, error };
   }
 }
 
-export async function runGeminiWaterfall(
+/** Tries each Gemini model in turn until one returns JSON the parser accepts; a malformed answer falls through like a transient error. `parse` swaps the extraction schema for another shape. */
+export async function runGeminiWaterfall<T = ExtractedFields>(
   generate: (model: string) => Promise<{ text?: string; modelVersion?: string; attemptCount?: number; usage?: TokenUsage }>,
-  onEvent?: ModelObserver,
+  onEvent?: ModelObserver<T>,
   models: readonly string[] = GEMINI_WATERFALL,
   text = "",
-): Promise<ModelAttempt[]> {
-  const attempts: ModelAttempt[] = [];
+  parse?: JsonParser<T>,
+): Promise<ModelAttempt<T>[]> {
+  const parser = parse ? jsonParser(parse) : extractionParser(text) as unknown as AttemptParser<T>;
+  const attempts: ModelAttempt<T>[] = [];
   for (const model of models) {
-    const { error, ...attempt } = await runAttempt("Gemini", model, text, () => generate(model), onEvent);
+    const { error, ...attempt } = await runAttempt("Gemini", model, parser, () => generate(model), onEvent);
     attempts.push(attempt);
     if (attempt.status === "completed" || !shouldFallThroughGeminiError(error)) break;
   }
@@ -86,7 +97,7 @@ async function geminiExtraction(text: string, onEvent?: ModelObserver): Promise<
 async function openaiExtraction(text: string, onEvent?: ModelObserver): Promise<ModelAttempt[]> {
   const model = openaiModel();
   if (!process.env.OPENAI_API_KEY) return [{ source: "OpenAI", model, status: "not_configured", durationMs: 0 }];
-  const { error: _error, ...attempt } = await runAttempt("OpenAI", model, text, () => openaiJson(model, EXTRACTION_PROMPT, text, openaiSchema), onEvent);
+  const { error: _error, ...attempt } = await runAttempt("OpenAI", model, extractionParser(text), () => openaiJson(model, EXTRACTION_PROMPT, text, openaiSchema), onEvent);
   return [attempt];
 }
 

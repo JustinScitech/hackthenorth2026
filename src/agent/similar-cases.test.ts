@@ -16,7 +16,7 @@ const record = (overrides: Partial<CaseRecord> = {}): CaseRecord => ({
     { id: "age", label: "Building age", result: "refer", detail: "Built 1921, older than the 1950 guideline", source: "Broker text via Parser" },
     { id: "losses", label: "Loss history", result: "unknown", detail: "No loss run supplied", source: "Intake form" },
   ],
-  brief: "Masonry office in Newark. One referral on building age; everything else passes.", question: null, decision: "Approved on the strength of the sprinkler retrofit.",
+  brief: "Masonry office in Newark. One referral on building age; everything else passes.", question: null, draftEmail: null, draftStatus: null, decision: "Approved on the strength of the sprinkler retrofit.",
   reportDraft: null, reportDraftVersion: 0, error: null, analysisRevision: 1, createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z",
   ...overrides,
 });

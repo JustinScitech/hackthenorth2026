@@ -59,6 +59,7 @@ export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[], preced
   if (caseRecord.appetiteResult?.adjustments?.length) lines.push(`Priority adjustments from public records (appetite-only score ${caseRecord.appetiteResult.baseScore}): ${caseRecord.appetiteResult.adjustments.map((item) => `${item.label} ${item.points > 0 ? "+" : ""}${item.points}`).join("; ")}`);
   if (caseRecord.brief) lines.push(`Review brief: ${caseRecord.brief}`);
   if (caseRecord.question) lines.push(`Open question for the broker: ${caseRecord.question}`);
+  if (caseRecord.draftEmail) lines.push(`Email to the broker (${caseRecord.draftStatus ?? "pending"}${caseRecord.draftStatus === "approved" ? ", recorded as sent" : ", not sent until the underwriter approves it"}): ${caseRecord.draftEmail}`);
   if (caseRecord.decision) lines.push(`Underwriter decision (${caseRecord.status}): ${caseRecord.decision}`);
   lines.push(...precedent);
   if (caseRecord.error) lines.push(`Analysis error: ${caseRecord.error}`);
