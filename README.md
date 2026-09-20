@@ -4,13 +4,19 @@ A durable, human-reviewed commercial property underwriting demo. PostgreSQL queu
 
 Cases and Federato triage share the supplied **2025 sample appetite guidelines** and the same eight-factor scorer. Both support human review and must not be used to bind coverage automatically.
 
-## Federato challenge triage
+## The Federato queue
 
-After ranking, **Download slides** exports an editable PowerPoint deck of the displayed results (top-ranked by default; all evaluated records after **Show all results**). The deck includes scope, scoring caveats, recommended actions, and factor evidence. Exact technical source paths remain in speaker notes rather than crowding the slides. Findings stay together where possible, and long content continues onto additional slides. **Print / save PDF** remains available separately. Slide export runs locally in the browser and does not send records to an external slide service.
+Open `/triage` (**Queue** in the sidebar) or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` for the live integration. The agent discovers the live schema, builds reference-aware queries, paginates every submission and each uniquely linked policy, and scores all of them against the 2025 appetite in about fifteen seconds. The last ranked queue is stored in PostgreSQL (`triage_reports`), so the page and the overview open with it and a fresh run is one click.
 
-Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` to enable this live integration. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local case database.
+Every row gets one of four dispositions in the carrier's own vocabulary (`src/federato/disposition.ts`): **Target**, **Acceptable**, **Needs information**, or **Outside appetite**, plus a one-line reason that quotes the observed figures and a next step. Rows that need information name each open answer, where it comes from (linked policy claims, the broker, the building schedule, a public property record), and what the submission becomes once the answers land. The queue orders itself by disposition first, then score; chips filter by line of business and disposition.
 
-The live planner prefers `Submission` and supplements missing evidence only from a uniquely linked Policy with matching insured, line, and effective date. Unmatched, ambiguous, and incomplete submissions remain visible. All lifecycle statuses are included and displayed. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
+**Open as case** turns a row into a case (`src/federato/open-case.ts`): verified facts become intake evidence, open answers stay blank so the review pauses and asks the broker, and the case records its origin and rank. A case that starts this way may have no state or TIV yet; the agent asks for them. **More** holds the slide export and print options; slides are built in the browser.
+
+The live planner prefers `Submission` and supplements missing evidence only from a uniquely linked Policy with matching insured, line, and effective date. Unmatched, ambiguous, and incomplete submissions remain visible with every lifecycle status. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
+
+## Model scorecard
+
+`/scorecard` shows how each reader scores on the same 31 broker notes: accuracy, invented values, missed and wrong fields, p50 and p95 latency, and list-price cost per 1,000 notes. Rules decide the appetite; the models only read. `npm run eval:scorecard` regenerates `evals/scorecards/extraction.json` with whatever keys the machine has (the parser always runs; Gemini and OpenAI need their keys).
 
 ## Quoting assistant
 
@@ -27,7 +33,7 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 - MongoDB: broker submissions, replies, and public evidence (local container or Atlas)
 - Optional Gemini and OpenAI APIs: independent structured extraction from unstructured broker notes, resolved by agreement with a deterministic parser; the parser alone works without keys
 - Public property records (no keys): with a property address, the worker geocodes it through the US Census geocoder and asks a dozen open datasets at once: FEMA NFHL flood zone, GloFAS river discharge and ten years of daily weather and elevation from Open-Meteo, USGS seismicity, NIFC wildfire-perimeter history, OpenStreetMap fire stations, hydrants, neighbouring hazards and the building, EPA ECHO regulated facilities, the US Drought Monitor, and OpenFEMA disaster declarations (the Census ACS tract needs a free `CENSUS_API_KEY`). Each becomes a cited finding, and the hazards move the priority score by a stated, bounded number of points listed beside the appetite score (`src/agent/context-sources.ts`, `context-findings.ts`)
-- Optional Browserbase: visit an explicitly supplied public source, read year built, construction, size, sprinklers, and flood zone from the page, and turn each into a cited finding that corroborates, contradicts, or adds to the broker facts
+- Optional Browserbase: visit an explicitly supplied public source, read year built, construction, size, sprinklers, and flood zone from the page, and turn each into a cited finding that corroborates, contradicts, or adds to the broker facts. When no source URL is supplied, a Browserbase session searches for the county assessor record and ranks 2–3 candidates (government domain, state match, insured-name overlap) for the underwriter to confirm on the case page; nothing is fetched until they do. With Gemini configured, a second model read of the page must quote it verbatim; the regex parser is the floor and any disagreement becomes a referral rather than a replacement
 - Optional Sentry: error monitoring, agent traces, structured logs, per-model-call AI spans, and job, analysis, and eval metrics from the worker, web app, and browser, read back into the overview dashboard; every event is scrubbed of submission text
 - Optional ElevenLabs: spoken underwriter review brief, and a voice conversation with the agent on the case page (speech-to-text in, speech back out)
 
@@ -37,6 +43,7 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 - `src/agent/activities.ts`: retryable I/O and idempotent case/audit transitions
 - `src/agent/analysis.ts` and `model.ts`: shared carrier appetite checks, Gemini extraction, deterministic fallback, and conflict detection
 - `src/agent/public-source.ts`: bounded Browserbase evidence capture; public URL validation is separate
+- `src/agent/source-discovery.ts`: search-result parsing and the pure `rankCandidates()` scorer behind the source picker; `src/agent/evidence-model.ts`: the quote-checked Gemini pass merged over the parser signals
 - `src/agent/worker.ts`: continuously running job worker
 - `src/lib`: shared case types, PostgreSQL access, and MongoDB documents
 - `src/app`: web UI and HTTP endpoints; it does not execute agent activities
@@ -60,7 +67,7 @@ If **Continue with Google** is disabled, check `GOOGLE_CLIENT_ID`, `GOOGLE_CLIEN
 
 MongoDB starts with `docker compose up -d` and is the only document store. For the Atlas prize, use an actual Atlas connection string instead; a local container is only a development substitute. `DATABASE_URL` can point to a Tiger Data PostgreSQL instance for case/audit state, but merely changing the hostname does not establish prize eligibility.
 
-Set only the integrations you want in `.env` (see `.env.sponsors.example`): `BROWSERBASE_API_KEY` enables public-source visits, `SENTRY_DSN` enables worker monitoring, `GEMINI_API_KEY` enables an independent extraction check, and `ELEVENLABS_API_KEY` enables audio briefs. All are optional. The public-source field accepts an explicit HTTPS URL; it does not discover or profile people. External page text is displayed as evidence, not treated as a verified underwriting fact or used to approve coverage.
+Set only the integrations you want in `.env` (see `.env.sponsors.example`): `BROWSERBASE_API_KEY` enables public-source visits, `SENTRY_DSN` enables worker monitoring, `GEMINI_API_KEY` enables an independent extraction check, and `ELEVENLABS_API_KEY` enables audio briefs. All are optional. The public-source field accepts an explicit HTTPS URL; without one, discovery searches only for the property's assessor record, offers URLs that pass the same HTTPS guard, and waits for the underwriter to confirm. It does not discover or profile people. External page text is displayed as evidence, not treated as a verified underwriting fact or used to approve coverage.
 
 The **Agent quality** section on `/overview` uses local PostgreSQL case and audit data for 30-day outcomes, extraction source counts, and average time to the first guideline check. `npm run eval:agent` writes its latest aggregate result to `agent_eval_runs`; run `npm run db:migrate` after updating before using the dashboard. With `SENTRY_DSN` configured, the worker also emits extraction, model-duration, analysis-outcome, decision, and job metrics to Sentry, traces each job and activity as a span, and `npm run eval:agent` reports per-run and per-fixture eval metrics. With `SENTRY_AUTH_TOKEN` (plus `SENTRY_ORG` and `SENTRY_PROJECT`) the same page adds a **Sentry telemetry** panel that reads those errors, spans, and metrics back from the Sentry API on the server, caches them for a minute, and never sends the token to the browser. Without the token, the panel explains what to set and the local metrics still work. Do not store raw submission text in telemetry.
 

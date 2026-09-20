@@ -1,12 +1,25 @@
 import Browserbase from "@browserbasehq/sdk";
 import type { Browser } from "playwright-core";
-import { extractEvidenceSignals } from "./enrichment";
+import { extractEvidence } from "./evidence-model";
 import type { PublicEvidence } from "../lib/types";
 import { publicSourceUrl } from "./public-source-url";
 
 export type { PublicEvidence };
 
-export async function browsePublicSource(value: string, signal?: AbortSignal): Promise<PublicEvidence> {
+export type CapturedPage = { url: string; title: string; text: string };
+
+/** Fetches the page in a Browserbase session and reads its signals: the regex parser, then the model pass when Gemini is configured. */
+export async function browsePublicSource(value: string, capture: (value: string, signal?: AbortSignal) => Promise<CapturedPage> = capturePublicPage, signal?: AbortSignal): Promise<PublicEvidence> {
+  signal?.throwIfAborted();
+  const { url, title, text } = await capture(value, signal);
+  signal?.throwIfAborted();
+  // Signals come from the whole page; only a short excerpt is stored for display. The browser session is already released here.
+  const { signals, conflicts, model } = await extractEvidence(text.slice(0, 50_000));
+  signal?.throwIfAborted();
+  return { url, title, excerpt: text.slice(0, 1200), signals, conflicts, extraction: model };
+}
+
+export async function capturePublicPage(value: string, signal?: AbortSignal): Promise<CapturedPage> {
   signal?.throwIfAborted();
   const url = publicSourceUrl(value);
   const browserbase = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY, timeout: 30_000, maxRetries: 1 });
@@ -34,8 +47,7 @@ export async function browsePublicSource(value: string, signal?: AbortSignal): P
     const title = (await page.title()).slice(0, 200);
     const text = (await page.locator("body").innerText({ timeout: 10_000 })).replace(/\s+/g, " ").trim();
     if (!text) throw new Error("The source page has no readable text.");
-    // Signals come from the whole page; only a short excerpt is stored for display.
-    return { url: finalUrl.toString(), title, excerpt: text.slice(0, 1200), signals: extractEvidenceSignals(text.slice(0, 50_000)) };
+    return { url: finalUrl.toString(), title, text };
   } finally {
     signal?.removeEventListener("abort", closeOnAbort);
     await browser?.close().catch(() => {});

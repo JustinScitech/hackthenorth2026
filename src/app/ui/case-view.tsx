@@ -3,14 +3,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowSquareOut, Check, Clock, FileText, ListChecks, MapPin, PaperPlaneTilt, ShieldCheck, WarningCircle, X } from "@phosphor-icons/react/dist/ssr";
-import type { AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/types";
+import type { AppetiteFieldFacts, AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/types";
+import { APPETITE_FACT_ROWS, describeCandidate, formatFactValue, type FactField } from "./fact-evidence";
 import { Mark } from "./logo";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
 import { AgentChat, type ChatTurn } from "./agent-chat";
 import { CasePdfExport } from "./case-pdf-export";
 import { CaseReportEditor } from "./case-report-editor";
-import { summarizeSubmission } from "@/federato/presentation";
+import { SourcePicker } from "./source-picker";
+import { NextStepPanel } from "./next-step";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
 function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
@@ -19,8 +21,27 @@ function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
 
 type ActionKind = "approve" | "decline";
 
-function FactRow<T>({ label, fact, format = String }: { label: string; fact: Fact<T>; format?: (value: T) => string }) {
-  return <div className="fact-row"><span>{label}</span><strong>{fact.value === null ? "Not provided" : format(fact.value)}</strong><small>{fact.source} · {Math.round(fact.confidence * 100)}% confidence</small></div>;
+/** One fact with its provenance: the value, where it came from, the sentence it was read from, and any reader that disagreed. */
+function FactRow<T extends string | number | boolean>({ label, fact, field, format }: { label: string; fact: Fact<T>; field?: FactField; format?: (value: T) => string }) {
+  const show = format ?? ((value: T) => field ? formatFactValue(field, value) : String(value));
+  return <div className="fact-row">
+    <span>{label}</span>
+    <strong>{fact.value === null ? "Not provided" : show(fact.value)}</strong>
+    <small>{fact.source} · {Math.round(fact.confidence * 100)}% confidence</small>
+    {fact.quote && <q className="fact-quote">{fact.quote}</q>}
+    {field && fact.candidates && fact.candidates.length > 0 && <ul className="fact-candidates" aria-label={`Readers that disagree on ${label.toLowerCase()}`}>
+      {fact.candidates.map((candidate) => <li key={candidate.source}><span>{describeCandidate(field, candidate)}</span>{candidate.quote && <q>{candidate.quote}</q>}</li>)}
+    </ul>}
+  </div>;
+}
+
+/** The eight carrier appetite fields, each with its own source, once extraction has resolved them per field. */
+function AppetiteEvidence({ fields }: { fields: AppetiteFieldFacts | undefined }) {
+  if (!fields) return null;
+  return <section className="detail-section" aria-labelledby="appetite-facts-title">
+    <div className="section-heading"><h2 id="appetite-facts-title">Appetite evidence</h2><ListChecks size={16} aria-hidden="true" /></div>
+    <div className="fact-list">{APPETITE_FACT_ROWS.map(([field, label]) => fields[field] ? <FactRow key={field} label={label} field={field} fact={fields[field]!} /> : null)}</div>
+  </section>;
 }
 
 function Findings({ caseRecord }: { caseRecord: CaseRecord }) {
@@ -116,6 +137,8 @@ const eventLabels: Record<string, string> = {
   public_research_started: "Public source visit started",
   public_research_skipped: "Public research skipped", public_research_completed: "Public source reviewed",
   public_research_failed: "Public research unavailable", guideline_check_started: "Checking carrier appetite",
+  source_discovery_started: "Searching for a public source", source_discovery_completed: "Public source candidates found",
+  source_discovery_failed: "Public source search unavailable", public_source_confirmed: "Public source confirmed",
   property_context_started: "Looking up public property records", property_context_completed: "Public property records gathered",
   property_context_skipped: "Public records skipped", property_context_failed: "Public records unavailable",
   analysis_completed: "Guidelines checked",
@@ -156,11 +179,18 @@ function traceDetail(event: AuditEvent): string | null {
     return `Guideline checks · ${event.detail.pass} passed · ${event.detail.refer} referred · ${event.detail.unknown} unknown`;
   }
   if (event.eventType === "public_research_skipped") return String(event.detail.reason ?? "Public research was skipped");
+  if (event.eventType === "source_discovery_completed") {
+    const candidates = Array.isArray(event.detail.candidates) ? event.detail.candidates as { url: string; confidence: number }[] : [];
+    return candidates.length ? `${candidates.length} candidate page${candidates.length === 1 ? "" : "s"} for the underwriter to confirm · best ${candidates[0].confidence.toFixed(2)}` : "No likely assessor record found; a URL can be entered on the case";
+  }
+  if (event.eventType === "source_discovery_failed") return String(event.detail.reason ?? "The search did not complete");
+  if (event.eventType === "public_source_confirmed") return `${event.detail.url}${event.detail.candidate ? " (discovered candidate)" : " (entered by the underwriter)"}`;
   if (event.eventType === "property_context_skipped" || event.eventType === "property_context_failed") return String(event.detail.reason ?? "");
   if (event.eventType === "property_context_completed") return `${event.detail.ok} of ${event.detail.total} public datasets answered for ${event.detail.matched}`;
   if (event.eventType === "public_research_completed") {
     const signals = Array.isArray(event.detail.signals) ? event.detail.signals as string[] : [];
-    return signals.length ? `Public source saved as evidence · ${signals.length} signal${signals.length === 1 ? "" : "s"}: ${signals.join(", ")}` : "Public source saved as evidence";
+    const conflicts = Number(event.detail.conflicts ?? 0);
+    return (signals.length ? `Public source saved as evidence · ${signals.length} signal${signals.length === 1 ? "" : "s"}: ${signals.join(", ")}` : "Public source saved as evidence") + (conflicts ? ` · ${conflicts} parser/model conflict${conflicts === 1 ? "" : "s"} referred` : "");
   }
   if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; the case is still waiting on the broker";
   if (event.eventType === "public_research_failed" || event.eventType === "job_retry" || event.eventType === "job_failed") return String(event.detail.reason ?? "The step could not complete.");
@@ -170,7 +200,7 @@ function traceDetail(event: AuditEvent): string | null {
 function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; working: boolean; jobStatus: JobStatus }) {
   const latest = audit.at(-1);
   const active = working && jobStatus === "RUNNING" && latest && (latest.eventType.endsWith("_started") || latest.eventType === "case_created");
-  return <details className={`analysis-trace${working ? " is-working" : ""}`} open={working}>
+  return <section className="analysis-trace-region" aria-label="Activity trace"><details className={`analysis-trace${working ? " is-working" : ""}`} open={working}>
     <summary className="trace-header"><span><ListChecks size={16} /> Agent activity <small>{audit.length} recorded steps · {working ? "live" : "saved"}</small></span><span className="trace-toggle">{working ? "Live updates" : "View steps"}</span></summary>
     <ol className="trace-list" aria-label="Agent activity history">{audit.map((event) => {
       const isActive = active && event.id === latest.id;
@@ -180,7 +210,7 @@ function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; wor
         {traceDetail(event) && <p>{traceDetail(event)}</p>}
       </li>;
     })}</ol>
-  </details>;
+  </details></section>;
 }
 
 function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobStatus): string {
@@ -194,6 +224,7 @@ function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobS
       : /_model_failed$/.test(latest?.eventType ?? "") ? "Astra is extracting with the fallback parser"
       : latest?.eventType === "extraction_completed" ? "Astra has the facts and is moving to the guidelines"
       : latest?.eventType === "public_research_started" ? "Astra is reviewing the supplied public source"
+      : latest?.eventType === "source_discovery_started" ? "Astra is searching for the assessor record"
         : latest?.eventType === "guideline_check_started" ? "Astra is checking the carrier appetite"
           : caseRecord.status === "received" ? "Astra is starting the analysis" : "Astra is reading the submission";
   }
@@ -275,12 +306,12 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
 }
 
 
-export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, stopping, onStop, onResponse, onDecision, onReportSaved }: {
+export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, stopping, onStop, onResponse, onDecision, onReportSaved, onSourceConfirmed }: {
   id: string; caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean; stopping: boolean; onStop: () => void;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
-  onReportSaved: () => void;
+  onReportSaved: () => void; onSourceConfirmed: () => void;
 }) {
   const working = isProcessing(caseRecord, jobStatus);
   useElapsedSeconds(id, working);
@@ -297,7 +328,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
     {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
     <div className="conversation-message request-message">
       <div className="message-avatar requester-avatar"><FileText size={16} aria-hidden="true" /></div>
-      <div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state} property · ${caseRecord.tiv.toLocaleString()} total insured value</p><time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div>
+      <div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state ? `${caseRecord.state} property` : "Primary state pending"} · {caseRecord.tiv === null ? "insured value pending" : `$${caseRecord.tiv.toLocaleString()} total insured value`}</p>{caseRecord.origin && <p className="case-origin">Opened from the Federato queue: {caseRecord.origin.resource} {caseRecord.origin.id}, ranked {caseRecord.origin.rank} of {caseRecord.origin.of}{caseRecord.origin.lifecycleStatus && caseRecord.origin.lifecycleStatus !== "unknown" ? ` · ${caseRecord.origin.lifecycleStatus}` : ""}.</p>}<time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div>
     </div>
     <div className="conversation-message agent-message">
       <div className={`message-avatar agent-avatar${working ? " is-working" : ""}`}>{working && <span className="ring ring-fast" aria-hidden="true"><i /></span>}{working ? <Mark size={20} /> : <ShieldCheck size={18} weight="duotone" aria-hidden="true" />}</div>
@@ -306,13 +337,15 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {working ? <AgentWorking caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} /> : <JobProgress caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} />}
         {caseRecord.status === "failed" && <div className="alert"><WarningCircle size={17} aria-hidden="true" />{caseRecord.error ?? "Analysis failed."}</div>}
         {caseRecord.brief ? <p className="brief">{caseRecord.brief}</p> : !working && caseRecord.status !== "stopped" && <p className="brief">Analysis is in progress.</p>}
-        {caseRecord.appetiteResult && <section className="detail-section appetite-recommendation" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100{caseRecord.appetiteResult.adjustments?.length ? ` (appetite ${caseRecord.appetiteResult.baseScore}, public records ${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score) >= 0 ? "+" : ""}${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score)})` : ""}</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
+        {caseRecord.appetiteResult && <NextStepPanel result={caseRecord.appetiteResult} origin={caseRecord.origin} />}
         {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} working={working} jobStatus={jobStatus} />
-        {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
+        {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" field="yearBuilt" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" field="losses" fact={caseRecord.facts.losses} /></div></section>}
+        <AppetiteEvidence fields={caseRecord.facts?.appetite?.fields} />
         <Findings caseRecord={caseRecord} />
         <PropertyContextSection context={caseRecord.propertyContext} result={caseRecord.appetiteResult} />
+        {!working && <SourcePicker key={`${id}:${caseRecord.analysisRevision}`} id={id} caseRecord={caseRecord} onConfirmed={onSourceConfirmed} />}
         {caseRecord.publicEvidence && <section className="detail-section" aria-labelledby="evidence-title"><div className="section-heading"><h2 id="evidence-title">Public-source evidence</h2><ArrowSquareOut size={16} aria-hidden="true" /></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><div className="source-line"><a className="text-link" href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><span>External source; verify before relying on it.</span></div></section>}
       </div>
     </div>

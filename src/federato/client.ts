@@ -1,7 +1,27 @@
 import { z } from "zod";
 
-const AUTH_URL = "https://auth.product.federato.ai/oauth/token";
-const API_URL = "https://product.federato.ai/integrations-api/handlers/federato-hack-north?outputOnly=true";
+export const defaultEndpoints = {
+  authUrl: "https://auth.product.federato.ai/oauth/token",
+  audience: "https://product.federato.ai/core-api",
+  handlerUrl: "https://product.federato.ai/integrations-api/handlers/federato-hack-north?outputOnly=true",
+};
+type Endpoints = typeof defaultEndpoints;
+const endpointVariables: Record<keyof Endpoints, string> = { authUrl: "FEDERATO_AUTH_URL", audience: "FEDERATO_AUDIENCE", handlerUrl: "FEDERATO_HANDLER_URL" };
+
+export function validateEndpoints(overrides: Partial<Endpoints>): Endpoints {
+  const endpoints = { ...defaultEndpoints };
+  for (const key of Object.keys(defaultEndpoints) as (keyof Endpoints)[]) {
+    const value = overrides[key]?.trim() || defaultEndpoints[key];
+    let url: URL;
+    try { url = new URL(value); }
+    catch { throw new Error(`${endpointVariables[key]} must be a valid HTTPS URL.`); }
+    if (url.origin !== new URL(defaultEndpoints[key]).origin || url.username || url.password || url.hash) {
+      throw new Error(`${endpointVariables[key]} must use the trusted Federato HTTPS origin without embedded credentials or fragments.`);
+    }
+    endpoints[key] = url.href;
+  }
+  return endpoints;
+}
 const tokenSchema = z.object({ access_token: z.string().min(1), expires_in: z.number().positive() });
 // The handler accepts a Mongo-flavored pipeline. Only resource is required by the API.
 export type Query = {
@@ -19,15 +39,17 @@ export interface DataClient { schema(signal?: AbortSignal): Promise<unknown>; qu
 
 export class FederatoClient implements DataClient {
   private token?: { value: string; expiresAt: number };
-  constructor(private readonly credentials: { clientId: string; clientSecret: string }, private readonly request: typeof fetch = fetch) {
+  private readonly endpoints: Endpoints;
+  constructor(private readonly credentials: { clientId: string; clientSecret: string }, private readonly request: typeof fetch = fetch, endpoints: Partial<Endpoints> = {}) {
+    this.endpoints = validateEndpoints(endpoints);
     if (!credentials.clientId || !credentials.clientSecret) throw new Error("Set FEDERATO_CLIENT_ID and FEDERATO_CLIENT_SECRET on the server to run live triage.");
   }
   private async accessToken(signal?: AbortSignal): Promise<string> {
     signal?.throwIfAborted();
     if (this.token && this.token.expiresAt > Date.now() + 60_000) return this.token.value;
-    const response = await this.request(AUTH_URL, {
+    const response = await this.request(this.endpoints.authUrl, {
       method: "POST", headers: { "Content-Type": "application/json" }, redirect: "error", cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000),
-      body: JSON.stringify({ client_id: this.credentials.clientId, client_secret: this.credentials.clientSecret, audience: "https://product.federato.ai/core-api", grant_type: "client_credentials" }),
+      body: JSON.stringify({ client_id: this.credentials.clientId, client_secret: this.credentials.clientSecret, audience: this.endpoints.audience, grant_type: "client_credentials" }),
     });
     if (!response.ok) throw new Error(`Federato authentication failed (HTTP ${response.status}). Check the organizer-issued credentials.`);
     const parsed = tokenSchema.safeParse(await response.json());
@@ -39,7 +61,7 @@ export class FederatoClient implements DataClient {
     for (let attempt = 0; attempt < 3; attempt++) {
       signal?.throwIfAborted();
       const token = await this.accessToken(signal);
-      const response = await this.request(API_URL, {
+      const response = await this.request(this.endpoints.handlerUrl, {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action, ...(payload ? { payload } : {}) }),
         redirect: "error", cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(25_000)]) : AbortSignal.timeout(25_000),

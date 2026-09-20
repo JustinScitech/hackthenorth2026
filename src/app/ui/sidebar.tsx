@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Briefcase, Gear, List, ListNumbers, Moon, Plus, Receipt, SquaresFour, Sun, Tray, X } from "@phosphor-icons/react/dist/ssr";
+import { BookOpen, Briefcase, ChartBar, Gear, List, ListNumbers, Moon, Plus, Receipt, SquaresFour, Sun, Tray, X } from "@phosphor-icons/react/dist/ssr";
 import { useTheme } from "./theme";
 import { Mark, Wordmark } from "./logo";
 import { AccountModal, avatarInitial } from "./account-modal";
@@ -56,6 +56,7 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
         <div className="workspace"><Briefcase size={18} /><span>Commercial property<small>Demo workspace</small></span></div>
         <nav className="nav-group" aria-label="Workspace">
           <NavLink href="/overview" active={pathname === "/overview"}><SquaresFour size={17} />Overview</NavLink>
+          <NavLink href="/triage" active={pathname.startsWith("/triage")}><ListNumbers size={17} />Queue<span className="nav-badge">live</span></NavLink>
           <div className="nav-row">
             <NavLink href="/cases" active={isCases}><Tray size={17} />Cases</NavLink>
             <Link className="nav-add" href="/cases/new" aria-label="Create case" title="Create case"><Plus size={15} /></Link>
@@ -63,10 +64,13 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
           <div className="nav-sub">
             <NavLink href="/cases/new" active={isNewCase}><Plus size={14} />Create case</NavLink>
           </div>
+        </nav>
+        <nav className="nav-group nav-secondary" aria-label="Other demos">
+          <span className="nav-heading">Other demos</span>
           <NavLink href="/quotes" active={pathname.startsWith("/quotes")}><Receipt size={17} />Quotes</NavLink>
-          <NavLink href="/triage" active={pathname.startsWith("/triage")}><ListNumbers size={17} />Federato triage<span className="nav-badge">live</span></NavLink>
         </nav>
         <div className="sidebar-bottom">
+          <NavLink href="/scorecard" active={false}><ChartBar size={17} />Model scorecard</NavLink>
           <NavLink href="/docs" active={false}><BookOpen size={17} />Docs and API reference</NavLink>
           <NavLink href="/" active={false}><Mark size={17} />Home</NavLink>
           <button className="sidebar-user" type="button" aria-label="Account and settings" {...accountButton}>

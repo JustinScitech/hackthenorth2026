@@ -91,6 +91,6 @@ export function CaseDetail({ id }: { id: string }) {
     key={id} id={id} caseRecord={data.case} audit={data.audit} jobStatus={data.jobStatus} error={error} voiceAvailable={data.voiceAvailable}
     response={response} setResponse={setResponse} reason={reason} setReason={setReason}
     submitting={submitting} stopping={stopping} onStop={() => void stopCase()} onResponse={() => void sendAction("broker_response")}
-    onDecision={(kind) => void sendAction(kind)} onReportSaved={() => void refresh()}
+    onDecision={(kind) => void sendAction(kind)} onReportSaved={() => void refresh()} onSourceConfirmed={() => void refresh()}
   />;
 }

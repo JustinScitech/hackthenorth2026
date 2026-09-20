@@ -9,7 +9,7 @@ export type SubmissionSummary = {
   questions: string[];
 };
 
-export const rankingExplanation = "Ordered by priority score (highest first), then underlying match score, then record ID. Appetite exceptions cap priority at 49; missing required data caps it at 69. Match scores show weighted guideline matches; approval is a separate decision.";
+export const rankingExplanation = "Ordered by disposition first (verified matches, then open answers, then exceptions), then priority score, then underlying match score, then record ID. Appetite exceptions cap priority at 49; missing required data caps it at 69. Match scores show weighted guideline matches; approval is a separate decision.";
 
 export function resourceLabels(resource: string) {
   return resource === "Policy" ? { singular: "Policy", plural: "policies" } : resource === "Submission" ? { singular: "Submission", plural: "submissions" } : { singular: resource, plural: `${resource} records` };

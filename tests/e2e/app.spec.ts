@@ -3,6 +3,7 @@ import { Client } from "pg";
 import PDFDocument from "pdfkit";
 import { e2eDatabaseUrl } from "../../scripts/e2e-env";
 import { test, expect } from "./fixtures";
+import { queueFixture, routeQueue } from "./queue-fixture";
 
 async function insurancePdf() {
   return new Promise<Buffer>((resolve, reject) => {
@@ -57,7 +58,7 @@ test("public pages are accessible and protected pages require sign-in", async ({
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Underwriting that");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Documentation" }).click();
   await expect(page).toHaveURL(/\/docs$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("How to use Astra Risk");
+  await expect(page.getByRole("heading", { level: 1, name: "How to use Astra Risk" })).toBeVisible();
   await page.goto("/cases");
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("button", { name: /Google/ })).toBeDisabled();
@@ -221,10 +222,10 @@ test("case trace shows live progress and broker and underwriter actions", async 
   await page.goto(`/cases/${id}`);
   await expect(page.getByRole("status")).toContainText("Astra is extracting the broker facts");
   await expect(page.getByRole("status")).toContainText("Reading the submission and broker responses");
-  await expect(page.locator(".analysis-trace")).toContainText("Model extraction started");
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Model extraction started");
   status = "waiting_for_broker";
   await page.reload();
-  await expect(page.locator(".analysis-trace")).toContainText("Facts extracted");
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Facts extracted");
   await page.getByLabel("Broker response").fill("Built in 2012 and fully sprinklered.");
   await page.getByRole("button", { name: "Add response and resume" }).click();
   await expect(page.getByRole("heading", { name: "Underwriter decision" })).toBeVisible();
@@ -254,22 +255,22 @@ test("underwriter can decline with a recorded rationale", async ({ authenticated
   expect(action).toMatchObject({ kind: "decline", reason: "Value outside demo appetite." });
 });
 
-test("triage presents ranked results, query reasoning, and errors", async ({ authenticatedPage: page }) => {
+test("the queue lists every ranked submission with a disposition, its reasoning, and errors", async ({ authenticatedPage: page }) => {
+  const report = queueFixture([{ id: 1, account: "Top Office" }, { id: 2, account: "Second Warehouse", patch: { premium: null } }, { id: 3, account: "Fleet Auto", patch: { line_of_business: "auto" } }]);
+  await routeQueue(page, { status: 200, body: report });
   await page.goto("/triage");
-  await page.route("**/api/triage", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-    resource: "Submission", total: 2, evaluated: 2, truncated: false, generatedAt: new Date().toISOString(), guidelineVersion: "2025",
-    top: 1, reasoning: ["Selected commercial property records"], trace: [{ reason: "Available queue", query: {}, returned: 2 }],
-    topSubmissions: [{ id: "a", account: "Top Office", score: 92, rawScore: 92, missingData: [], recommendation: "Review first", explanation: "Strong appetite match", criteria: [{ factor: "Territory", status: "target", points: 10, maximum: 10, detail: "Eligible", source: "State" }] }],
-    ranked: [{ id: "a", account: "Top Office", score: 92, rawScore: 92, missingData: [], recommendation: "Review first", explanation: "Strong appetite match", criteria: [] }, { id: "b", account: "Second Warehouse", score: 70, rawScore: 70, missingData: [], recommendation: "Review", explanation: "Needs review", criteria: [] }],
-  }) }));
-  await page.getByRole("button", { name: "Rank live records" }).click();
+  await page.getByRole("button", { name: "Rank the live queue" }).first().click();
   await expect(page.getByRole("heading", { name: "Top Office" })).toBeVisible();
-  await page.getByText("Query reasoning and scoring method").click();
-  await expect(page.getByText("Selected commercial property records")).toBeVisible();
-  await page.getByRole("button", { name: "Show all results" }).click();
   await expect(page.getByRole("heading", { name: "Second Warehouse" })).toBeVisible();
-  await page.route("**/api/triage", async (route) => route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"Federato unavailable"}' }));
-  await page.getByRole("button", { name: "Rank live records" }).click();
+  await expect(page.locator(".queue-row").first().locator(".disposition").first()).toHaveText("Target");
+  await expect(page.getByRole("heading", { name: "Fleet Auto" })).toHaveCount(0);
+  await page.getByRole("button", { name: /All lines/ }).click();
+  await expect(page.getByRole("heading", { name: "Fleet Auto" })).toBeVisible();
+  await expect(page.locator(".queue-row").last().locator(".disposition").first()).toHaveText("Outside appetite");
+  await page.getByText(/How the queue was read/).click();
+  await expect(page.getByText("Selected commercial property records")).toBeVisible();
+  await routeQueue(page, { status: 503, body: { error: "Federato unavailable" } });
+  await page.getByRole("button", { name: "Rank again" }).click();
   await expect(page.locator(".triage-heading ~ [aria-live] [role=alert]")).toContainText("Federato unavailable");
 });
 
@@ -433,4 +434,34 @@ test("voice mode opens a hands-free conversation with the transcript alongside",
   await expect(dialog.getByRole("status")).toHaveText(/Muted|Thinking/);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+});
+
+test("a case without a source URL offers the source picker, and a confirmed URL re-runs the checks", async ({ authenticatedPage: page, seedCase }) => {
+  test.setTimeout(90_000);
+  await page.goto("/cases/new");
+  await page.locator(".sample-select-trigger").click();
+  await page.getByRole("menuitemradio", { name: /New York restaurant/ }).click();
+  await page.getByRole("button", { name: "Start analysis" }).click();
+  await expect(page).toHaveURL(/\/cases\/[0-9a-f-]{36}$/);
+  const id = page.url().split("/").pop()!;
+  await expect(page.getByRole("heading", { name: "Broker information needed" })).toBeVisible({ timeout: 40_000 });
+  // Browserbase is off in E2E, so discovery is skipped and the picker offers the manual field alone.
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Public research skipped");
+  await expect(page.getByRole("heading", { name: "Public source to research" })).toBeVisible();
+  const origin = { headers: { origin: "http://localhost:3100" } };
+  expect((await page.request.post(`/api/cases/${id}/source`, { ...origin, data: { url: "http://example.com/parcel/1" } })).status()).toBe(400);
+  expect((await page.request.post(`/api/cases/${id}/source`, { ...origin, data: { url: "https://localhost/parcel/1" } })).status()).toBe(400);
+  expect((await page.request.post(`/api/cases/${id}/source`, { data: { url: "https://example.com/parcel/1" } })).status()).toBe(403);
+  await page.getByLabel("Source URL").fill("https://example.com/parcel/1");
+  await page.getByRole("button", { name: "Confirm and research" }).click();
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Public source confirmed", { timeout: 40_000 });
+  await expect(page.getByRole("heading", { name: "Public source to research" })).toHaveCount(0);
+  await expect.poll(async () => (await (await page.request.get(`/api/cases/${id}`)).json()).case.status, { timeout: 40_000 }).toBe("waiting_for_broker");
+  const record = (await (await page.request.get(`/api/cases/${id}`)).json()).case;
+  expect(record.publicSourceUrl).toBe("https://example.com/parcel/1");
+  expect(record.analysisRevision).toBe(1);
+  expect((await page.request.post(`/api/cases/${id}/source`, { ...origin, data: { url: "https://example.com/parcel/2" } })).status()).toBe(409);
+  // A case the agent is still working on cannot have its source changed under it.
+  const busy = await seedCase({ status: "extracting" });
+  expect((await page.request.post(`/api/cases/${busy}/source`, { ...origin, data: { url: "https://example.com/parcel/1" } })).status()).toBe(409);
 });

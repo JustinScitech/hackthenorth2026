@@ -90,12 +90,16 @@ export async function runTriage(client: DataClient, options: { resource?: string
     if (!enrichmentComplete) evidenceNote = "Policy lookup reached its record limit; uniqueness cannot be established, so policy enrichment was not used.";
     const derived = deriveFacts(scoringRow, scoringPlan, asOf);
     const result = scoreSubmission(derived.row, derived.mapping, plan.id, asOf);
+    if (result.facts) result.facts.lossLowerBound = derived.lossLowerBound;
     for (const criterion of result.criteria) {
       criterion.source = derived.sources[criterion.concept] ?? criterion.source;
       if (criterion.concept === "lossValue" && criterion.status === "unknown" && derived.lossLowerBound !== null) criterion.detail += ` Observed policy claims total at least $${derived.lossLowerBound.toLocaleString("en-US")}; complete five-year account history is unverified.`;
     }
     return { ...result, evidenceNote, lifecycleStatus: typeof row.status === "string" ? row.status : "unknown" };
-  }).sort((a, b) => b.score - a.score || b.rawScore - a.rawScore || a.id.localeCompare(b.id, "en", { numeric: true }));
+  });
+  // Verified matches first, then open answers, then exceptions; within a tier the score orders the queue.
+  const tier = (item: typeof ranked[number]) => item.criteria.some((criterion) => criterion.status === "outside") ? 2 : item.missingData.length ? 1 : 0;
+  ranked.sort((a, b) => tier(a) - tier(b) || b.score - a.score || b.rawScore - a.rawScore || a.id.localeCompare(b.id, "en", { numeric: true }));
   return { resource: plan.resource, guidelineVersion, generatedAt: asOf.toISOString(), total, evaluated: ranked.length, truncated, enrichmentComplete, top, schema, mapping: plan.mapping, reasoning: plan.reasoning, trace, ranked, topSubmissions: ranked.slice(0, top) };
 }
 export type TriageReport = Awaited<ReturnType<typeof runTriage>>;

@@ -16,7 +16,7 @@ export function CaseList() {
     if (!right.appetiteResult) return -1;
     return right.appetiteResult.score - left.appetiteResult.score || right.appetiteResult.rawScore - left.appetiteResult.rawScore || left.id.localeCompare(right.id, "en", { numeric: true });
   });
-  const rows = needle ? ranked.filter((record) => `${record.insuredName} ${record.state} ${record.status}`.toLowerCase().includes(needle)) : ranked;
+  const rows = needle ? ranked.filter((record) => `${record.insuredName} ${record.state ?? ""} ${record.status}`.toLowerCase().includes(needle)) : ranked;
 
   return (
     <main className="shell">
@@ -39,7 +39,7 @@ export function CaseList() {
           <div className="case-list">
             {rows.map((record) => (
               <Link className="case-row" href={`/cases/${record.id}`} key={record.id}>
-                <div className="case-main"><strong>{record.insuredName}</strong><span>{record.state} · ${record.tiv.toLocaleString()} TIV</span><span>{record.appetiteResult ? `Match ${record.appetiteResult.rawScore}/100 · Priority ${record.appetiteResult.score}/100` : "Not scored against carrier appetite"}</span></div>
+                <div className="case-main"><strong>{record.insuredName}</strong><span>{record.state ?? "State pending"} · {record.tiv === null ? "TIV pending" : `$${record.tiv.toLocaleString()} TIV`}</span><span>{record.appetiteResult ? `Match ${record.appetiteResult.rawScore}/100 · Priority ${record.appetiteResult.score}/100` : "Not scored against carrier appetite"}</span></div>
                 <Status value={record.status} />
                 <time dateTime={record.createdAt}>{new Date(record.createdAt).toLocaleDateString()}</time>
                 <ArrowRight className="row-arrow" size={16} aria-hidden="true" />

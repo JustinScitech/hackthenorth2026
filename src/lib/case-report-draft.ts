@@ -41,7 +41,7 @@ export function buildAgentReportSections(record: CaseRecord, audit: AuditEvent[]
 
   const submission = [
     `Insured: ${record.insuredName}`, `Location: ${record.state} property`,
-    `Total insured value: $${record.tiv.toLocaleString("en-US")}`,
+    `Total insured value: ${record.tiv === null ? "pending from the broker" : `$${record.tiv.toLocaleString("en-US")}`}`,
     `Submitted: ${timestamp(record.createdAt)}`, `Last updated: ${timestamp(record.updatedAt)}`,
   ];
   if (record.yearBuilt !== null) submission.push(`Submitted year built: ${record.yearBuilt}`);
@@ -83,7 +83,7 @@ export function buildAgentReportSections(record: CaseRecord, audit: AuditEvent[]
   if (record.findings?.length) {
     add("findings", record.appetiteResult ? "Carrier appetite checks" : "Legacy guideline checks", [
       ...(!record.appetiteResult ? ["These findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them."] : []),
-      ...record.findings.map((finding) => `${finding.label} - ${title(finding.result)}: ${finding.detail}\nSource: ${finding.source}`),
+      ...(record.findings ?? []).map((finding) => `${finding.label} - ${title(finding.result)}: ${finding.detail}\nSource: ${finding.source}`),
     ]);
   }
   if (record.extractionConflicts?.length) add("conflicts", "Extraction conflicts", record.extractionConflicts);
@@ -93,13 +93,14 @@ export function buildAgentReportSections(record: CaseRecord, audit: AuditEvent[]
     add("public-evidence", "Public source evidence", evidence ? [
       `Source: ${evidence.title || evidence.url}`, `URL: ${evidence.url}`, evidence.excerpt,
       ...(evidence.signals ?? []).map((signal) => `${title(signal.kind)}: ${value(signal.value)}\nSource quote: ${signal.quote}`),
+      ...(evidence.conflicts ?? []).map((conflict) => `Parser/model conflict: ${conflict}`),
       "External source; verify before relying on it.",
     ] : [`Source URL: ${record.publicSourceUrl}`, "Public source has not been reviewed yet."]);
   }
   if (record.question) add("broker-question", "Broker information requested", [record.question]);
   if (record.decision) add("decision", "Underwriter decision", [`Status: ${title(record.status)}`, record.decision]);
 
-  add("activity", "Activity history", audit.length ? audit.map((event) => {
+  add("activity", "Activity history", (audit ?? []).length ? (audit ?? []).map((event) => {
     const details = auditLines(event.detail);
     return `${timestamp(event.createdAt)} - ${title(event.eventType)}${details.length ? `\n${details.join("\n")}` : ""}`;
   }) : ["No activity has been recorded yet."]);

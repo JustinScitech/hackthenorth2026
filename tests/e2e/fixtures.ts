@@ -8,6 +8,7 @@ type Fixtures = {
   authenticatedPage: Page;
   seedCase: (options?: { insuredName?: string; status?: CaseStatus }) => Promise<string>;
   seedEvalRun: (passed: number, total: number) => Promise<void>;
+  seedTriageReport: (report: Record<string, unknown>) => Promise<void>;
 };
 
 async function withDatabase<T>(run: (client: Client) => Promise<T>): Promise<T> {
@@ -51,6 +52,20 @@ export const test = base.extend<Fixtures>({
         await db.query("DELETE FROM audit_events WHERE case_id = $1", [id]);
         await db.query("DELETE FROM cases WHERE id = $1", [id]);
       }
+    });
+  },
+  seedTriageReport: async ({}, use) => {
+    const ids: string[] = [];
+    await use(async (report) => {
+      const id = randomUUID();
+      ids.push(id);
+      await withDatabase((db) => db.query(
+        "INSERT INTO triage_reports (id, resource, generated_at, total, evaluated, report) VALUES ($1, $2, $3, $4, $5, $6)",
+        [id, String(report.resource ?? "Submission"), String(report.generatedAt ?? new Date().toISOString()), Number(report.total ?? 0), Number(report.evaluated ?? 0), JSON.stringify(report)],
+      ).then(() => undefined));
+    });
+    await withDatabase(async (db) => {
+      for (const id of ids) await db.query("DELETE FROM triage_reports WHERE id = $1", [id]);
     });
   },
   seedEvalRun: async ({}, use) => {

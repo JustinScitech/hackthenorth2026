@@ -84,7 +84,7 @@ test("case page shows public-source signals as cited findings", async ({ authent
   await expect(checks).toContainText("source: Public source: assessor.example.gov (unverified)");
   await expect(checks).toContainText("Special Flood Hazard Area");
   await expect(page.getByText("50% confidence")).toBeVisible();
-  const trace = page.locator(".analysis-trace");
+  const trace = page.getByRole("region", { name: "Activity trace" });
   await expect(trace).toContainText("2 signals: yearBuilt, floodZone");
   await expect(page.getByRole("heading", { name: "Public-source evidence" })).toBeVisible();
 });
@@ -115,7 +115,7 @@ test("a public quote conversation appears in the workspace quotes list", async (
   expect(saved).toMatchObject({ product: "tenant", status: "estimate", province: "NS", turns: 2, heard: { contentsValue: 30000, deductible: 2500 } });
   expect(JSON.stringify(saved)).not.toContain("Halifax");
 
-  await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Quotes" }).click();
+  await page.getByRole("navigation", { name: "Other demos" }).getByRole("link", { name: "Quotes" }).click();
   await expect(page).toHaveURL(/\/quotes$/);
 
   const db = new Client({ connectionString: e2eDatabaseUrl() });

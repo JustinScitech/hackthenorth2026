@@ -56,6 +56,12 @@ async function runJob(job: Job, signal: AbortSignal) {
   } else if (job.kind === "decision") {
     if (!job.payload.actionId) throw new Error("Missing decision action ID");
     if (record.status === "review_ready") await finalizeDecision(job.case_id, job.payload.actionId);
+  } else if (job.kind === "research") {
+    // The underwriter confirmed a discovered source: fetch it and re-run the checks so its evidence joins the findings.
+    if (!["waiting_for_broker", "review_ready"].includes(record.status)) return;
+    await researchPublicSource(job.case_id);
+    await checkCase(job.case_id);
+    await scheduleFollowUp(job.case_id);
   } else {
     const { revision, reminderNumber } = job.payload;
     if (record.status !== "waiting_for_broker" || record.analysisRevision !== revision || !reminderNumber) return;

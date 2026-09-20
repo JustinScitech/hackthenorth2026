@@ -1,5 +1,5 @@
 import { BROKER_UPDATE_SEPARATOR, buildFacts, evaluateFacts } from "./analysis";
-import { mergeCaseAppetite } from "../lib/case-appetite";
+import { resolveCaseAppetite } from "./appetite-resolution";
 import { addAudit, db, getCase } from "../lib/db";
 import { extractNotes } from "./model";
 import { getText } from "../lib/storage";
@@ -10,6 +10,7 @@ import { browsePublicSource } from "./public-source";
 import { evidenceFindings } from "./enrichment";
 import { gatherPropertyContext } from "./property-context";
 import { applyContextAdjustment, assessPropertyContext } from "./context-findings";
+import { discoverCaseSources } from "./source-discovery-activity";
 
 export async function ensureCaseActive(caseId: string, signal?: AbortSignal): Promise<void> {
   signal?.throwIfAborted();
@@ -22,22 +23,20 @@ export async function researchPublicSource(caseId: string, signal?: AbortSignal)
   await ensureCaseActive(caseId, signal);
   const caseRecord = await getCase(caseId);
   if (!caseRecord) throw new Error(`Case ${caseId} not found`);
-  if (!caseRecord.publicSourceUrl) {
-    await addAudit(caseId, "public_research_skipped", { reason: "No public source URL supplied" }, `research-skipped:${caseId}`);
-    return;
-  }
+  // No URL from the broker: search for the assessor record and let the underwriter confirm one (see source-discovery-activity.ts).
+  if (!caseRecord.publicSourceUrl) { await discoverCaseSources(caseRecord); return; }
   if (!process.env.BROWSERBASE_API_KEY) {
     await addAudit(caseId, "public_research_skipped", { reason: "Browserbase is not configured" }, `research-skipped:${caseId}`);
     return;
   }
   await addAudit(caseId, "public_research_started", {}, `research-started:${caseId}`);
   try {
-    const evidence = await browsePublicSource(caseRecord.publicSourceUrl, signal);
+    const evidence = await browsePublicSource(caseRecord.publicSourceUrl, undefined, signal);
     await ensureCaseActive(caseId, signal);
     await putMongoEvidence(caseId, evidence);
     const saved = await db.query("UPDATE cases SET public_evidence = $2, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId, JSON.stringify(evidence)]);
     if (!saved.rowCount) return;
-    await addAudit(caseId, "public_research_completed", { url: evidence.url, signals: (evidence.signals ?? []).map((signal) => signal.kind) }, `research:${caseId}`);
+    await addAudit(caseId, "public_research_completed", { url: evidence.url, signals: (evidence.signals ?? []).map((signal) => signal.kind), conflicts: (evidence.conflicts ?? []).length, model: evidence.extraction?.status }, `research:${caseId}`);
     logAgentEvent("public_research_completed", { caseId, signals: (evidence.signals ?? []).length });
   } catch (error) {
     if (signal?.aborted || error instanceof DOMException && error.name === "AbortError") throw error;
@@ -103,8 +102,8 @@ export async function extractCase(caseId: string, signal?: AbortSignal): Promise
     }, `${provider}:${event}:${caseId}:${caseRecord.analysisRevision}:${attempt.model}`);
   }, signal);
   await ensureCaseActive(caseId, signal);
-  const appetite = mergeCaseAppetite(texts[0], caseRecord.appetite, texts.slice(1).join("\n"));
-  const facts = buildFacts({ ...caseRecord, appetite }, extraction.extracted);
+  const appetite = resolveCaseAppetite(texts[0], caseRecord.appetite, texts.slice(1).join("\n"), extraction.fields);
+  const facts = buildFacts({ ...caseRecord, appetite: appetite.value }, extraction.extracted, { ...extraction.fields, appetite: appetite.fields });
   if (caseRecord.yearBuilt === null && facts.yearBuilt.value !== null) { facts.yearBuilt.source = `Broker text via ${extraction.fieldSources.yearBuilt}`; facts.yearBuilt.confidence = extraction.confidence.yearBuilt; }
   if (caseRecord.losses === null && facts.losses.value !== null) { facts.losses.source = `Broker text via ${extraction.fieldSources.losses}`; facts.losses.confidence = extraction.confidence.losses; }
   const saved = await db.query("UPDATE cases SET facts = $2, extraction_conflicts = $3, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId, JSON.stringify(facts), JSON.stringify(extraction.conflicts)]);
