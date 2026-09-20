@@ -151,6 +151,13 @@ function sentenceFor(text: string, concept: RegExp, value: RegExp): string | nul
   return matches.length ? matches[matches.length - 1] : null;
 }
 
+/** The last explicit "Field: value" line per appetite field, so a parser-backed fact can cite it. */
+export function appetiteLines(text: string): Partial<Record<AppetiteField, string>> {
+  const lines: Partial<Record<AppetiteField, string>> = {};
+  for (const line of text.split(/\r?\n/)) for (const key of Object.keys(brokerAppetite(line)) as AppetiteField[]) lines[key] = line.trim();
+  return lines;
+}
+
 /**
  * The deterministic reading: `parseBrokerNotes` for the year and claim count,
  * `brokerAppetite` for the explicit "Field: value" lines, each with the line
@@ -163,8 +170,7 @@ export function parserReading(text: string): Reading {
   const countPattern = notes.losses === null ? null : notes.losses <= 10 ? `\\b(?:${notes.losses}|${countWords[notes.losses]})\\b` : `\\b${notes.losses}\\b`;
   reading.losses = { value: notes.losses, quote: countPattern === null ? null : sentenceFor(text, /\b(?:loss|losses|claim|claims)\b/i, new RegExp(countPattern, "i")) };
   const appetite = brokerAppetite(text);
-  const lineFor: Partial<Record<AppetiteField, string>> = {};
-  for (const line of text.split(/\r?\n/)) for (const key of Object.keys(brokerAppetite(line)) as AppetiteField[]) lineFor[key] = line.trim();
+  const lineFor = appetiteLines(text);
   for (const field of APPETITE_FIELDS) {
     const value = appetite[field] ?? null;
     Object.assign(reading, { [field]: { value, quote: value === null ? null : lineFor[field] ?? null } });

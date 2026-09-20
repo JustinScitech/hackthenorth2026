@@ -1,6 +1,6 @@
 import { brokerAppetite, mergeCaseAppetite, type CaseAppetite } from "../lib/case-appetite";
 import type { AppetiteFieldFacts, AppetiteFieldValue, Fact, FactCandidate } from "../lib/types";
-import { APPETITE_FIELDS, type AppetiteField } from "./extraction-schema";
+import { APPETITE_FIELDS, appetiteLines, type AppetiteField } from "./extraction-schema";
 import type { Resolved } from "./resolution";
 
 /** What the readers resolved per appetite field from the joined broker text, as `extractNotes` reports it. */
@@ -10,13 +10,6 @@ export type ResolvedAppetite = { value: CaseAppetite; fields: AppetiteFieldFacts
 const notProvided: Fact<AppetiteFieldValue> = { value: null, source: "Not provided", confidence: 0 };
 /** The parser alone backs an explicit line, so it carries the same confidence the resolver gives a lone parser value. */
 const LINE_CONFIDENCE = 0.6;
-
-/** The last explicit "Field: value" line per appetite field, so a parser-backed fact can cite it. */
-function appetiteLines(text: string): Partial<Record<AppetiteField, string>> {
-  const lines: Partial<Record<AppetiteField, string>> = {};
-  for (const line of text.split(/\r?\n/)) for (const key of Object.keys(brokerAppetite(line)) as AppetiteField[]) lines[key] = line.trim();
-  return lines;
-}
 
 /**
  * The same merge as `mergeCaseAppetite`, with each field's provenance kept:
