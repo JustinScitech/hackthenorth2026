@@ -84,6 +84,8 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     results.push({ id, score: record.appetiteResult.score, rawScore: record.appetiteResult.rawScore, business });
   }
   await page.goto("/cases");
+  // The list loads after the page paints; wait for both rows before reading the order.
+  for (const result of results) await expect(page.locator(`.case-row[href="/cases/${result.id}"]`)).toBeVisible();
   const links = await page.locator(".case-row").evaluateAll((elements) => elements.map((element) => element.getAttribute("href")));
   expect(links.indexOf(`/cases/${results[0].id}`)).toBeLessThan(links.indexOf(`/cases/${results[1].id}`));
 });

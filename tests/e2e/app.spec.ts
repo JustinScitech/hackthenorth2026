@@ -9,7 +9,7 @@ test("public pages are accessible and protected pages require sign-in", async ({
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Underwriting that");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Documentation" }).click();
   await expect(page).toHaveURL(/\/docs$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("How to use Astra Risk");
+  await expect(page.getByRole("heading", { level: 1, name: "How to use Astra Risk" })).toBeVisible();
   await page.goto("/cases");
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("button", { name: /Google/ })).toBeDisabled();
