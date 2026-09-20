@@ -1,5 +1,6 @@
 import { readValues, type Concept, type Mapping } from "./schema";
 import { classify, type Disposition } from "./disposition";
+import type { Counterfactual } from "./counterfactual";
 
 export type Criterion = { concept: Concept; factor: string; status: "target" | "acceptable" | "outside" | "unknown"; points: number; maximum: number; detail: string; source: string };
 export type ScoreAdjustment = { label: string; points: number; detail: string; source: string };
@@ -15,6 +16,8 @@ export type RankedSubmission = {
   determining?: string[];
   /** For Needs information: the disposition once every open answer lands inside appetite. */
   ifResolved?: Disposition | null;
+  /** The smallest single-factor changes that would make a failing or unknown factor pass; see counterfactual.ts. */
+  counterfactuals?: Counterfactual[];
 };
 export const guidelineVersion = "Federato HTN 2026 / 2025 sample commercial property appetite";
 const targetStates = ["OH", "PA", "MD", "CO", "CA", "FL"];

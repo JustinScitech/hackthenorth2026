@@ -89,3 +89,34 @@ test("per-field appetite facts ride along and name the source of each appetite f
   assert.equal(result.findings.find((finding) => finding.id === "year")?.source, "Intake form");
   assert.equal(buildFacts({ state: "CO", tiv: 1, yearBuilt: null, losses: null }, { yearBuilt: null, losses: null }).appetite?.fields, undefined);
 });
+
+test("evaluation attaches counterfactuals to the result, the brief and the finding they belong to", () => {
+  const facts = buildFacts({ insuredName: "Old building", appetite, state: "CO", tiv: 75_000_000, yearBuilt: 1975, losses: 0 }, { yearBuilt: null, losses: null });
+  const result = evaluateFacts(facts);
+  const [change] = result.appetiteResult.counterfactuals ?? [];
+  assert.ok(change, "expected a counterfactual for the pre-1990 building");
+  assert.equal(change.concept, "year");
+  assert.equal(change.condition, "Had the oldest building been built in 1991 or later, it would score 91 and pass.");
+  assert.ok(result.brief.endsWith(` What would change it: ${change.condition}`), result.brief);
+  assert.ok(result.brief.includes("underwriter makes the final decision"));
+  const year = result.findings.find((finding) => finding.id === "year")!;
+  assert.ok(year.detail.endsWith(` ${change.condition}`), year.detail);
+  assert.ok(result.findings.filter((finding) => finding.id !== "year").every((finding) => !finding.detail.includes("it would score")));
+  assert.equal(result.findings.length, 8);
+});
+
+test("a case inside appetite carries no counterfactuals and its brief is the plain explanation", () => {
+  const result = evaluateFacts(buildFacts({ insuredName: "Clean property", appetite, state: "CO", tiv: 75_000_000, yearBuilt: 2015, losses: 0 }, { yearBuilt: null, losses: null }));
+  assert.deepEqual(result.appetiteResult.counterfactuals, []);
+  assert.equal(result.brief, result.appetiteResult.explanation);
+  assert.ok(result.findings.every((finding) => !finding.detail.includes("it would score")));
+});
+
+test("an incomplete loss history is explained as something to confirm, not something to change", () => {
+  const result = evaluateFacts(buildFacts({ insuredName: "Gap property", appetite: { ...appetite, lossHistoryComplete: false }, state: "CO", tiv: 75_000_000, yearBuilt: 2015, losses: 0 }, { yearBuilt: null, losses: null }));
+  const change = result.appetiteResult.counterfactuals?.find((item) => item.concept === "lossValue");
+  assert.ok(change);
+  assert.equal(change.status, "unknown");
+  assert.equal(change.condition, "If five-year losses were confirmed to be under $100,000, it would score 94 and pass.");
+  assert.equal(change.sentence, "This is incomplete at 69/100. If five-year losses were confirmed to be under $100,000, it would score 94 and pass.");
+});

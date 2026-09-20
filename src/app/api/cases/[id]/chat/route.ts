@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { answerCaseQuestion, caseBriefing, type ChatTurn } from "@/agent/chat";
 import { streamChatResponse } from "@/agent/chat-stream";
+import { findSimilarCases, precedentLines } from "@/agent/similar-cases";
 import { speak, transcribe, voiceConfigured } from "@/agent/voice";
 import { requireApiSession } from "@/lib/auth-access";
 import { getAudit, getCase } from "@/lib/db";
@@ -75,13 +76,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return reject("Could not load this case. Check local services.", 503);
   }
 
+  // Both response modes use the same case briefing and similar-case context.
+  const precedent = precedentLines((await findSimilarCases(id)).cases);
   if (!spoken && !wantVoice && request.headers.get("accept")?.includes("text/event-stream")) {
-    return streamChatResponse(caseBriefing(caseRecord, audit), history, question);
+    return streamChatResponse(caseBriefing(caseRecord, audit, precedent), history, question);
   }
 
   let answer;
   try {
-    answer = await answerCaseQuestion(caseRecord, audit, history, question);
+    answer = await answerCaseQuestion(caseRecord, audit, history, question, precedent);
   } catch (error) {
     console.error("Agent chat unavailable", error instanceof Error ? error.name : "UnknownError");
     return reject("The agent is unavailable right now. Try again in a moment.", 503);

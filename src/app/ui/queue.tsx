@@ -180,6 +180,7 @@ export function Queue() {
               <p className="queue-why">{step.why}</p>
               <p className="queue-action"><strong>Next:</strong> {step.action}</p>
               {step.disposition === "Needs information" && step.questions.length <= 3 && <ul className="queue-questions">{step.questions.map((question) => <li key={question.item}><strong>{question.item}</strong>: {question.source}</li>)}</ul>}
+              {(item.counterfactuals?.length ?? 0) > 0 && <ul className="queue-changes" aria-label="What would change it">{item.counterfactuals!.map((change) => <li key={change.concept}><strong>{change.factor}</strong>: {change.condition}</li>)}</ul>}
               <details className="queue-details review-plan">
                 <summary>Review checklist · {plan.exceptions} exceptions · {plan.gaps} evidence gaps</summary>
                 <ReviewResult result={item} label={labels?.singular} embedded defaultExpanded />

@@ -21,17 +21,19 @@ EVAL_EXTRACTOR=gemini-only npm run eval -- --suite extraction  # or openai-only:
 | `case-journey` | Multi-revision cases: broker appetite lines override the submission, pause for the broker, resume on each reply, reach review with the right facts | The same functions joined the way `src/agent/activities.ts` joins replies |
 | `appetite` | Federato 2025 appetite thresholds per factor, score caps, nested exposure/claim derivation, currency | `src/federato/scoring.ts`, `derive.ts`, `schema.ts` |
 | `ranking` | Two-page queue: complete pagination, bucket ordering, tie stability, summaries and markdown agree with scores | `src/federato/triage.ts`, `presentation.ts` |
+| `counterfactual` | "What would change it": for each factor outside appetite or unknown, the smallest single-factor change that makes it pass, verified by re-scoring; nothing for passing cases; sentences never mention a passing factor; the required value is the exact edge the live scorer accepts | `src/federato/counterfactual.ts` |
 | `resolution` | One fact from several sources (intake, Gemini, OpenAI, parser) for every value type in the schema: precedence, agreement, confidence, visible conflicts, and a quote that only ever comes from a source that stated the winning value | `src/agent/resolution.ts` |
 | `enrichment` | Public pages fetched by Browserbase become cited structured signals; signals corroborate, contradict, or add findings without replacing facts. The model pass (`merge:` cases) must quote the page, keeps the parser as the floor, and turns parser/model disagreement into a conflict rather than an overwrite | `src/agent/enrichment.ts`, `src/agent/evidence-model.ts` |
 | `discovery` | Source discovery for cases without a URL: a saved search page is ranked so the county assessor outranks listings and other states, only guarded HTTPS URLs are offered, and nothing relevant means no candidates | `src/agent/source-discovery.ts` |
 | `quote` | Intact tenant/auto quoting: required facts, referrals to a person, explained factors, monotonic pricing, conversational intake | `src/quote/rating.ts`, `src/quote/intake.ts` |
 | `telemetry` | Sentry events, logs, and spans never carry submission text | `src/agent/monitoring.ts` |
+| `similar-cases` | Precedent retrieval over synthetic briefs: nearest decided neighbours share state, construction and decision; the case never appears in its own results; the summary line counts exactly the returned set and cites only stored referred findings. Runs on the deterministic local embedding; the Atlas `$vectorSearch` case runs only when `MONGODB_URI` is an Atlas URI | `src/agent/similar-cases.ts`, `src/lib/mongo.ts` |
 
 ## Prize-track coverage
 
 | Devpost prize | Judged on | Suites |
 | --- | --- | --- |
-| Federato | ingest, enrich with real-world data, appetite insights | `appetite`, `ranking`, `enrichment`, `case-journey` |
+| Federato | ingest, enrich with real-world data, appetite insights | `appetite`, `ranking`, `counterfactual`, `enrichment`, `case-journey` |
 | Rox | messy, incomplete, conflicting sources; decisions under uncertainty | `extraction`, `resolution`, `guidelines` |
 | Intact | car/tenant quoting via AI; estimate or next step; accessibility | `quote` |
 | Browserbase | Browserbase meaningfully powers the experience with real web data | `enrichment`, `discovery` (live fetch and search are exercised by E2E, not here) |

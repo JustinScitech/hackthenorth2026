@@ -37,6 +37,28 @@ Compose waits for PostgreSQL and MongoDB, runs the schema migration, then starts
 
 If work stalls, inspect worker logs and the `case_jobs` table. Jobs retry three times with backoff; a crashed worker's lease expires and another worker can reclaim the job. The 24-hour broker follow-up is an audit event, not a sent message.
 
+## Similar past cases (MongoDB `case_memory`)
+
+After every guideline check and every underwriter decision, the worker embeds the case briefing (the same text Astra reads) with Gemini (`gemini-embedding-001`, 768 dimensions, cosine) and upserts one document per case into the `case_memory` collection: `{ _id: caseId, embedding, status, decision, briefSummary, refers[], state, insuredName, analysisRevision, updatedAt }`. The case page and Astra's briefing then show the three nearest decided cases as precedent ("3 similar past cases: 2 approved, 1 declined — the decline cited Building age"), with the cited reason copied from that case's stored referred findings. Without `GEMINI_API_KEY` the feature skips silently; `GEMINI_EMBEDDING_MODEL` overrides the model, but the index dimensions below must match whatever model is used.
+
+The lookup has two paths, and the worker/web logs say which ran (`[similar-cases] atlas search ...` or `[similar-cases] cosine search ... (vector search unavailable: ...)`):
+
+- **Atlas Vector Search** (`$vectorSearch`) when `MONGODB_URI` points at Atlas and the index below exists and is queryable.
+- **In-app cosine similarity** over the collection everywhere else: local MongoDB 7 in Docker or Homebrew has no search indexes, and Atlas answers the same way until the index has built. The collection is small (one document per case), so this is a few milliseconds.
+
+Create the index once per Atlas cluster, either with `npm run mongo:vector-index` (uses `MONGODB_URI`; on local MongoDB it prints `unsupported` and does nothing) or in the Atlas UI under **Search → Create Search Index → Atlas Vector Search → JSON Editor**, on database `underwriting_agent` (or `MONGODB_DB`), collection `case_memory`, index name `case_memory_vector`:
+
+```json
+{
+  "fields": [
+    { "type": "vector", "path": "embedding", "numDimensions": 768, "similarity": "cosine" },
+    { "type": "filter", "path": "status" }
+  ]
+}
+```
+
+The `status` filter field lets the query ask only for approved or declined cases. The MongoDB client runs the Stable API without strict mode because `$vectorSearch` is outside the Stable API. `npm run eval -- --suite similar-cases` exercises the Atlas path only when `MONGODB_URI` is an Atlas URI; the run writes and removes twelve `eval-similar-*` documents in `case_memory`.
+
 ## Vercel without a worker
 
 If the web app runs on Vercel instead of this VM, skip the `worker` container: deployed routes drain the queue themselves after responding, and `/api/jobs/run` drains when pinged with `Authorization: Bearer <CRON_SECRET>`. Set `CRON_SECRET` in the Vercel project (`./scripts/vercel-env.sh` does this from `.env`), keep the daily cron in `vercel.json`, and optionally add a free external pinger every minute or two for quicker retries. See the README's Vercel section for the details.

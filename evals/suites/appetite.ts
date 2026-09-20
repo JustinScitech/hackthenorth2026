@@ -1,6 +1,7 @@
 import { planQuery } from "../../src/federato/schema";
 import { scoreSubmission, type Criterion } from "../../src/federato/scoring";
 import { deriveFacts } from "../../src/federato/derive";
+import { counterfactuals } from "../../src/federato/counterfactual";
 import { same, type CaseResult, type Suite } from "../runner";
 
 /**
@@ -107,6 +108,11 @@ function check(item: Case, plan: typeof flatPlan, nested: boolean): CaseResult {
   if (result.criteria.length !== 8) problems.push(`${result.criteria.length} criteria expected 8`);
   if (!result.explanation.includes("underwriter makes the final decision")) problems.push("explanation must state that an underwriter decides");
   if (!same(result.criteria.map((criterion) => criterion.factor), ["Submission type", "Line of business", "Primary risk state", "Total insured value", "Total premium", "Building age", "Construction mix", "Five-year loss value"])) problems.push("factor order changed");
+  // Counterfactuals probe the scorer with patched copies; the row and its score must come out untouched.
+  const suggestions = counterfactuals(derived.row, derived.mapping, "id", asOf);
+  const again = scoreSubmission(derived.row, derived.mapping, "id", asOf);
+  if (!same(again, result)) problems.push("computing counterfactuals changed the score");
+  if (result.recommendation === "Review for acceptance" ? suggestions.length > 0 : suggestions.some((entry) => !["outside", "unknown"].includes(result.criteria.find((criterion) => criterion.concept === entry.concept)?.status ?? ""))) problems.push("counterfactuals disagree with the criteria");
   return { name: item.name, passed: problems.length === 0, detail: problems.join("; ") || undefined, note: item.note };
 }
 

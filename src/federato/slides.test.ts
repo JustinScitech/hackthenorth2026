@@ -72,3 +72,13 @@ test("evidence blocks stay together and leave space above the footer", () => {
     }
   }
 });
+
+test("record slides say what would change the outcome when the scorer found a gap", () => {
+  const report = fixture();
+  const condition = "Had five-year losses been under $100,000, it would score 83 and pass.";
+  report.topSubmissions[0].counterfactuals = [{ concept: "lossValue", factor: "Five-year loss value", status: "outside", currentValue: 250_000, requiredValue: 99_999, projectedScore: 83, projectedAction: "Review for acceptance", patch: { lossValue: 99_999 }, condition, sentence: `This is outside appetite at 49/100. ${condition}` }];
+  const text = buildTriageSlides(report).flatMap((page) => [page.title, ...page.lines]).join(" ");
+  assert.ok(text.includes(`What would change it: ${condition}`), text);
+  const plain = buildTriageSlides({ ...fixture(), topSubmissions: [{ ...fixture().topSubmissions[0], counterfactuals: [] }] }).flatMap((page) => page.lines).join(" ");
+  assert.ok(!plain.includes("What would change it"));
+});
