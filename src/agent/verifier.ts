@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { describeCounterfactuals } from "../federato/counterfactual";
 import { scoreSubmission, type RankedSubmission } from "../federato/scoring";
 import { caseMapping } from "../lib/case-appetite";
 import { addAudit as addAuditToDb, db } from "../lib/db";
@@ -102,10 +103,12 @@ export function appetiteGuideText(): string {
 
 const sign = (points: number) => `${points > 0 ? "+" : ""}${points}`;
 
-/** What the scorer computed, in the notation the brief uses, so "Score 49/100" and "flood zone -10" read as sourced. */
-export function scoringText(result: Pick<RankedSubmission, "score" | "rawScore" | "recommendation"> & Partial<Pick<RankedSubmission, "baseScore" | "adjustments">>): string {
+/** What the scorer computed, in the notation the brief uses, so "Score 49/100", "flood zone -10", and "built in 1991 or later" read as the reviewer's own arithmetic. */
+export function scoringText(result: Pick<RankedSubmission, "score" | "rawScore" | "recommendation"> & Partial<Pick<RankedSubmission, "baseScore" | "adjustments" | "counterfactuals">>): string {
   const lines = [`Score ${result.score}/100 (raw ${result.rawScore}-point match score, capped at ${result.score}). Recommendation: ${result.recommendation.toLowerCase()}.`];
   if (result.adjustments?.length) lines.push(`Public property records: ${result.adjustments.map((item) => `${item.label} ${sign(item.points)}`).join("; ")}; priority ${result.baseScore ?? result.score} → ${result.score}.`);
+  const counterfactuals = describeCounterfactuals(result.counterfactuals);
+  if (counterfactuals) lines.push(counterfactuals);
   return lines.join("\n");
 }
 

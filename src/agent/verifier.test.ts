@@ -70,6 +70,10 @@ test("reviewer scoring is a source, so score notation in the brief is never an i
   assert.equal(flaggable({ id: "brief", supported: false, reason: "Score not in sources", quote: "39/100" }, adjustedBrief, corpus), false);
   assert.equal(flaggable({ id: "brief", supported: false, reason: "Points not in sources", quote: "Flood zone -10" }, adjustedBrief, corpus), false);
   assert.equal(flaggable({ id: "brief", supported: false, reason: "No flood losses", quote: "$2,000,000" }, `${adjustedBrief} The insured reported $2,000,000 in flood losses.`, corpus), true);
+  // Counterfactual conditions are the scorer's own arithmetic too: "1991 or later" is not a fact about the submission.
+  const withCounterfactual = scoringText({ score: 49, rawScore: 79, recommendation: "Refer for appetite exceptions", counterfactuals: [{ concept: "year", factor: "Building age", status: "outside", currentValue: 1985, requiredValue: 1991, projectedScore: 91, projectedAction: "Review for acceptance", patch: { year: 1991 }, condition: "Had the oldest building been built in 1991 or later, it would score 91 and pass.", sentence: "" }] });
+  assert.match(withCounterfactual, /\nWhat would change it: Had the oldest building been built in 1991 or later, it would score 91 and pass\.$/);
+  assert.equal(flaggable({ id: "brief", supported: false, reason: "1991 not in sources", quote: "1991" }, `${brief} What would change it: Had the oldest building been built in 1991 or later, it would score 91 and pass.`, renderSources({ ...sources, scoring: withCounterfactual })), false);
 });
 
 test("unsupported findings are downgraded to refer with a Verifier prefix; supported ones are untouched", async () => {

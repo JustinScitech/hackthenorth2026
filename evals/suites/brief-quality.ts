@@ -18,7 +18,8 @@ import { sleep, type CaseResult, type Suite } from "../runner";
  * With EVAL_JUDGE=gemini the same rubric is also scored by Gemini; both views
  * land in the scorecard metrics and the judge's disagreements in the detail.
  */
-export const MAX_BRIEF_SENTENCES = 10;
+/** The most checkCase can say: four scoring sentences, up to three counterfactuals, conflict, public source, property records, and two verifier notes. */
+export const MAX_BRIEF_SENTENCES = 12;
 
 export type Rubric = { citesSources: boolean; noInventedNumbers: boolean; statesRecommendation: boolean; underSentenceLimit: boolean };
 const rubricItems = ["citesSources", "noInventedNumbers", "statesRecommendation", "underSentenceLimit"] as const;
