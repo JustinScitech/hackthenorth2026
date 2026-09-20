@@ -7,7 +7,8 @@ import type { AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/
 import { Mark } from "./logo";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
-import { AgentChat } from "./agent-chat";
+import { AgentChat, type ChatTurn } from "./agent-chat";
+import { CasePdfExport } from "./case-pdf-export";
 import { summarizeSubmission } from "@/federato/presentation";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
@@ -277,9 +278,11 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
 }) {
   const working = isProcessing(caseRecord, jobStatus);
   useElapsedSeconds(id, working);
+  const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
   return <main className="shell shell-narrow conversation">
     <div className="case-toolbar">
       <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><Link href="/cases">Cases</Link><span className="sep">/</span><span className="current">{caseRecord.insuredName}</span></p>
+      <CasePdfExport id={id} conversation={chatTurns.map(({ role, text }) => ({ role, text }))} />
       <span className="case-id-label">case {id.slice(0, 8)}</span>
       <Status value={caseRecord.status} />
     </div>
@@ -305,7 +308,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
       </div>
     </div>
     <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} /></div>
-    {!working && <div className="conversation-action"><AgentChat id={id} voiceAvailable={voiceAvailable} /></div>}
+    {!working && <div className="conversation-action"><AgentChat id={id} voiceAvailable={voiceAvailable} turns={chatTurns} setTurns={setChatTurns} /></div>}
     <p className="demo-note">New analyses use the supplied 2025 commercial property appetite. Quoting and binding stay with the carrier.</p>
   </main>;
 }

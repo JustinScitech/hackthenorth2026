@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { ChatCircleDots, PaperPlaneTilt, ShieldCheck, SpeakerHigh, Stop, User, WarningCircle, Waveform } from "@phosphor-icons/react/dist/ssr";
 import { VoiceMode } from "./voice-mode";
 
-type Turn = { id: number; role: "you" | "agent"; text: string; audio?: string };
+export type ChatTurn = { id: number; role: "you" | "agent"; text: string; audio?: string };
 type Reply = { question: string; spoken: boolean; reply: string; model: string | null; audio: string | null; error?: string };
 
 /** Talk to the agent about this case, by typing or in a voice conversation. The thread lives on the page; the case record stays as it is. */
-export function AgentChat({ id, voiceAvailable }: { id: string; voiceAvailable: boolean }) {
-  const [turns, setTurns] = useState<Turn[]>([]);
+export function AgentChat({ id, voiceAvailable, turns, setTurns }: { id: string; voiceAvailable: boolean; turns: ChatTurn[]; setTurns: Dispatch<SetStateAction<ChatTurn[]>> }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [speakReplies, setSpeakReplies] = useState(voiceAvailable);
