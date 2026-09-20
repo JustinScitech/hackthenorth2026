@@ -107,8 +107,6 @@ export async function extractCase(caseId: string, signal?: AbortSignal): Promise
   await ensureCaseActive(caseId, signal);
   const appetite = resolveCaseAppetite(texts[0], caseRecord.appetite, texts.slice(1).join("\n"), extraction.fields);
   const facts = buildFacts({ ...caseRecord, appetite: appetite.value }, extraction.extracted, { ...extraction.fields, appetite: appetite.fields });
-  if (caseRecord.yearBuilt === null && facts.yearBuilt.value !== null) { facts.yearBuilt.source = `Broker text via ${extraction.fieldSources.yearBuilt}`; facts.yearBuilt.confidence = extraction.confidence.yearBuilt; }
-  if (caseRecord.losses === null && facts.losses.value !== null) { facts.losses.source = `Broker text via ${extraction.fieldSources.losses}`; facts.losses.confidence = extraction.confidence.losses; }
   const saved = await db.query("UPDATE cases SET facts = $2, extraction_conflicts = $3, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId, JSON.stringify(facts), JSON.stringify(extraction.conflicts)]);
   if (!saved.rowCount) throw new DOMException("Case analysis stopped", "AbortError");
   await addAudit(caseId, "extraction_completed", {
@@ -148,12 +146,12 @@ export async function checkCase(caseId: string, signal?: AbortSignal): Promise<{
     if (assessment.note) result.brief += ` ${assessment.note}`;
   }
   await verifyCase(caseId, caseRecord, result);
+  await ensureCaseActive(caseId, signal);
   const status = result.question ? "waiting_for_broker" : "review_ready";
+  await draftCaseEmail(caseId, caseRecord, result, signal);
+  await ensureCaseActive(caseId, signal);
   const saved = await db.query(
     "UPDATE cases SET status = $2, findings = $3, question = $4, brief = $5, appetite_result = $6, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id",
-  await draftCaseEmail(caseId, caseRecord, result);
-  await db.query(
-    "UPDATE cases SET status = $2, findings = $3, question = $4, brief = $5, appetite_result = $6, updated_at = now() WHERE id = $1",
     [caseId, status, JSON.stringify(result.findings), result.question, result.brief, JSON.stringify(result.appetiteResult)],
   );
   if (!saved.rowCount) throw new DOMException("Case analysis stopped", "AbortError");

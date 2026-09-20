@@ -44,6 +44,26 @@ test("PDF upload pre-fills case fields from labeled insurance evidence", async (
   await expect(page.getByLabel("Submission text")).toHaveValue(/Named insured: Northline Fabrication/);
 });
 
+test("uploaded PDF evidence is included when starting a case", async ({ authenticatedPage: page }) => {
+  const id = randomUUID();
+  let submission: Record<string, unknown> | undefined;
+  await page.route("**/api/cases", async (route) => {
+    submission = route.request().postDataJSON();
+    await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id }) });
+  });
+  await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+    case: { id, insuredName: "Northline Fabrication", state: "CO", tiv: 6250000, status: "received", brief: null, facts: null, findings: null, publicEvidence: null, createdAt: new Date().toISOString() },
+    audit: [], jobStatus: "RUNNING", voiceAvailable: false,
+  }) }));
+  await page.goto("/cases/new");
+  await page.locator('input[type="file"]').setInputFiles({ name: "northline.pdf", mimeType: "application/pdf", buffer: await insurancePdf() });
+  await expect(page.getByLabel("Insured name")).toHaveValue("Northline Fabrication");
+  await page.getByRole("button", { name: "Start analysis" }).click();
+  await expect(page).toHaveURL(new RegExp(`/cases/${id}$`));
+  expect(submission).toMatchObject({ insuredName: "Northline Fabrication", state: "CO", tiv: 6250000, sourceFilename: "northline.pdf" });
+  expect(submission?.brokerNotes).toContain("Named insured: Northline Fabrication");
+});
+
 test("PDF upload shows standalone appetite triage", async ({ authenticatedPage: page }) => {
   await page.goto("/triage");
   await page.getByRole("region", { name: "Analyze one insurance PDF" }).locator('input[type="file"]').setInputFiles({ name: "northline.pdf", mimeType: "application/pdf", buffer: await insurancePdf() });
