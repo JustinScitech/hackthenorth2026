@@ -37,6 +37,9 @@ add BROWSERBASE_API_KEY    "$BROWSERBASE_API_KEY"
 add ELEVENLABS_API_KEY     "$ELEVENLABS_API_KEY"
 add GOOGLE_CLIENT_ID       "$GOOGLE_CLIENT_ID"
 add GOOGLE_CLIENT_SECRET   "$GOOGLE_CLIENT_SECRET"
+# Organizer-issued Federato credentials; live triage refuses to run without both.
+add FEDERATO_CLIENT_ID     "$FEDERATO_CLIENT_ID"
+add FEDERATO_CLIENT_SECRET "$FEDERATO_CLIENT_SECRET"
 
 # Sentry: the DSN is public; the auth token uploads source maps at build time and powers the
 # Sentry panel on /overview. It stays server-side (no NEXT_PUBLIC_ prefix).
