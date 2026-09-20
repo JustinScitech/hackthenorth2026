@@ -71,6 +71,21 @@ async function main() {
       model text,
       created_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS quotes (
+      id uuid PRIMARY KEY,
+      product text CHECK (product IN ('tenant', 'auto')),
+      status text NOT NULL CHECK (status IN ('choosing', 'needs_info', 'estimate', 'refer')),
+      province text,
+      estimate jsonb,
+      heard jsonb NOT NULL DEFAULT '{}'::jsonb,
+      open_questions integer NOT NULL DEFAULT 0,
+      referral text,
+      model text,
+      turns integer NOT NULL DEFAULT 1,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS quotes_updated_at_idx ON quotes(updated_at DESC);
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_source_url text;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS appetite jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS appetite_result jsonb;

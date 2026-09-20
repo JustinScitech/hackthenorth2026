@@ -1,12 +1,13 @@
-import { buildFacts, evaluateFacts } from "./analysis";
+import { BROKER_UPDATE_SEPARATOR, buildFacts, evaluateFacts } from "./analysis";
 import { brokerAppetite, caseAppetiteSchema } from "../lib/case-appetite";
 import { addAudit, db, getCase } from "../lib/db";
 import { extractNotes } from "./model";
 import { getText } from "../lib/storage";
 import { putMongoEvidence } from "../lib/mongo";
 import type { Facts } from "../lib/types";
-import { captureAgentError, recordAnalysisMetrics, recordDecisionMetric, recordExtractionMetrics } from "./monitoring";
+import { captureAgentError, logAgentEvent, recordAnalysisMetrics, recordDecisionMetric, recordExtractionMetrics } from "./monitoring";
 import { browsePublicSource } from "./public-source";
+import { evidenceFindings } from "./enrichment";
 
 export async function researchPublicSource(caseId: string): Promise<void> {
   const caseRecord = await getCase(caseId);
@@ -24,7 +25,8 @@ export async function researchPublicSource(caseId: string): Promise<void> {
     const evidence = await browsePublicSource(caseRecord.publicSourceUrl);
     await putMongoEvidence(caseId, evidence);
     await db.query("UPDATE cases SET public_evidence = $2, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(evidence)]);
-    await addAudit(caseId, "public_research_completed", { url: evidence.url }, `research:${caseId}`);
+    await addAudit(caseId, "public_research_completed", { url: evidence.url, signals: (evidence.signals ?? []).map((signal) => signal.kind) }, `research:${caseId}`);
+    logAgentEvent("public_research_completed", { caseId, signals: (evidence.signals ?? []).length });
   } catch (error) {
     captureAgentError(error);
     await addAudit(caseId, "public_research_failed", { reason: error instanceof Error ? error.message.slice(0, 160) : "Unknown error" }, `research-failed:${caseId}`);
@@ -41,18 +43,19 @@ export async function extractCase(caseId: string): Promise<void> {
     [caseId],
   );
   const texts = await Promise.all([caseRecord.sourceKey, ...responseRows.rows.map((row) => String(row.source_key))].map(getText));
-  const providers = [process.env.GEMINI_API_KEY && "Gemini"].filter(Boolean);
+  const providers = [process.env.GEMINI_API_KEY && "Gemini", process.env.OPENAI_API_KEY && "OpenAI"].filter(Boolean);
   if (providers.length) await addAudit(caseId, "model_extraction_started", { providers, revision: caseRecord.analysisRevision }, `model-started:${caseId}:${caseRecord.analysisRevision}`);
-  const extraction = await extractNotes(texts.join("\n\n--- BROKER UPDATE ---\n\n"), async (event, attempt) => {
-    await addAudit(caseId, `gemini_model_${event}`, {
+  const extraction = await extractNotes(texts.join(BROKER_UPDATE_SEPARATOR), async (event, attempt) => {
+    const provider = attempt.source.toLowerCase();
+    await addAudit(caseId, `${provider}_model_${event}`, {
       model: attempt.model, durationMs: attempt.durationMs, errorCode: attempt.errorCode,
       revision: caseRecord.analysisRevision,
-    }, `gemini:${event}:${caseId}:${caseRecord.analysisRevision}:${attempt.model}`);
+    }, `${provider}:${event}:${caseId}:${caseRecord.analysisRevision}:${attempt.model}`);
   });
   const appetite = caseAppetiteSchema.parse({ ...brokerAppetite(texts[0]), ...caseRecord.appetite, ...brokerAppetite(texts.slice(1).join("\n")) });
   const facts = buildFacts({ ...caseRecord, appetite }, extraction.extracted);
-  if (caseRecord.yearBuilt === null && facts.yearBuilt.value !== null) facts.yearBuilt.source = `Broker text via ${extraction.fieldSources.yearBuilt}`;
-  if (caseRecord.losses === null && facts.losses.value !== null) facts.losses.source = `Broker text via ${extraction.fieldSources.losses}`;
+  if (caseRecord.yearBuilt === null && facts.yearBuilt.value !== null) { facts.yearBuilt.source = `Broker text via ${extraction.fieldSources.yearBuilt}`; facts.yearBuilt.confidence = extraction.confidence.yearBuilt; }
+  if (caseRecord.losses === null && facts.losses.value !== null) { facts.losses.source = `Broker text via ${extraction.fieldSources.losses}`; facts.losses.confidence = extraction.confidence.losses; }
   await db.query("UPDATE cases SET facts = $2, extraction_conflicts = $3, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(facts), JSON.stringify(extraction.conflicts)]);
   await addAudit(caseId, "extraction_completed", {
     revision: caseRecord.analysisRevision,
@@ -63,6 +66,7 @@ export async function extractCase(caseId: string): Promise<void> {
     appliedSources: { yearBuilt: facts.yearBuilt.source, losses: facts.losses.source },
   }, `extraction:${caseId}:${caseRecord.analysisRevision}`);
   recordExtractionMetrics(extraction.attempts);
+  logAgentEvent("extraction_completed", { caseId, revision: caseRecord.analysisRevision, conflicts: extraction.conflicts.length, models: extraction.attempts.filter((attempt) => attempt.status === "completed").map((attempt) => attempt.model) });
 }
 
 export async function checkCase(caseId: string): Promise<{ needsBroker: boolean }> {
@@ -76,6 +80,11 @@ export async function checkCase(caseId: string): Promise<{ needsBroker: boolean 
     result.findings.push({ id: `extraction_conflict_${index}`, label: "Extraction conflict", result: "refer", detail: conflict, source: "Independent extraction" });
   }
   if (caseRecord.extractionConflicts.length) result.brief += " Verify conflicting extraction results before deciding.";
+  if (caseRecord.publicEvidence?.signals) {
+    const evidence = evidenceFindings(caseRecord.facts as Facts, caseRecord.publicEvidence, caseRecord.publicEvidence.signals);
+    result.findings.push(...evidence);
+    if (evidence.some((finding) => finding.result === "refer")) result.brief += " The public source raises a point to verify before deciding.";
+  }
   const status = result.question ? "waiting_for_broker" : "review_ready";
   await db.query(
     "UPDATE cases SET status = $2, findings = $3, question = $4, brief = $5, appetite_result = $6, updated_at = now() WHERE id = $1",
@@ -88,6 +97,7 @@ export async function checkCase(caseId: string): Promise<{ needsBroker: boolean 
     unknown: result.findings.filter((finding) => finding.result === "unknown").length,
   }, `analysis:${caseId}:${caseRecord.analysisRevision}`);
   recordAnalysisMetrics(result.findings, Boolean(result.question));
+  logAgentEvent("analysis_completed", { caseId, revision: caseRecord.analysisRevision, status, refer: result.findings.filter((finding) => finding.result === "refer").length });
   return { needsBroker: Boolean(result.question) };
 }
 
@@ -146,6 +156,7 @@ export async function finalizeDecision(caseId: string, actionId: string): Promis
     );
     await client.query("COMMIT");
     recordDecisionMetric(status);
+    logAgentEvent("decision_recorded", { caseId, status });
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

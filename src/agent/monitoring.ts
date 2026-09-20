@@ -11,6 +11,57 @@ export type EvalRunResult = { passed: number; total: number; durationMs: number;
 const enabled = () => Boolean(process.env.SENTRY_DSN);
 let initialized = false;
 
+const SAFE_TEXT = /^[\w.:/@+-]{1,64}$/;
+/** True for identifiers, model names, statuses, and enums; false for anything that reads like prose. */
+function isSafeScalar(value: unknown): value is string | number | boolean {
+  return typeof value === "number" || typeof value === "boolean" || (typeof value === "string" && SAFE_TEXT.test(value));
+}
+
+function scrubValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(scrubValue).filter((item) => item !== undefined);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, scrubValue(item)]).filter(([, item]) => item !== undefined));
+  }
+  return isSafeScalar(value) ? value : undefined;
+}
+
+/** Strips anything that could carry submission text before an event leaves the process. */
+export function scrubEvent<T extends object>(event: T): T {
+  const { request: _request, ...rest } = event as Record<string, unknown>;
+  const scrubbed: Record<string, unknown> = { ...rest };
+  for (const key of ["extra", "contexts", "tags", "user", "breadcrumbs"]) {
+    if (key in scrubbed) scrubbed[key] = scrubValue(scrubbed[key]);
+  }
+  return scrubbed as T;
+}
+
+/** The only thing Sentry learns about an error: its class, never its message. */
+export function agentErrorMessage(error: unknown): string {
+  return `Agent error: ${error instanceof Error ? error.name : "UnknownError"}`;
+}
+
+/** Log attributes safe to ship: identifiers, counts, statuses; never free text. Lists become their length. */
+export function redactForLog(detail: Record<string, unknown>): Record<string, string | number | boolean> {
+  const attributes: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(detail)) {
+    if (isSafeScalar(value)) attributes[key] = value;
+    else if (Array.isArray(value)) attributes[key] = value.every(isSafeScalar) && value.length <= 8 ? value.join(",") : value.length;
+  }
+  return attributes;
+}
+
+/** Sentry Logs: one structured line per agent step with scrubbed attributes. */
+export function logAgentEvent(message: string, detail: Record<string, unknown> = {}) {
+  if (!enabled()) return;
+  Sentry.logger.info(message, redactForLog(detail));
+}
+
+/** Sentry AI agent monitoring: one gen_ai span per model call, carrying only the model name and outcome. */
+export function traceModelCall<T>(system: "gemini" | "openai", model: string, call: () => Promise<T>): Promise<T> {
+  if (!enabled()) return call();
+  return Sentry.startSpan({ name: `${system} ${model}`, op: "gen_ai.generate_content", attributes: { "gen_ai.system": system, "gen_ai.request.model": model } }, call);
+}
+
 /**
  * Initializes Sentry for a non-Next.js process (the worker or the eval script). Events carry only
  * error names, metric attributes, and span timings; broker text is never attached.
@@ -26,9 +77,9 @@ export function initMonitoring(processName = "worker") {
     sendDefaultPii: false,
     serverName: processName,
     initialScope: { tags: { process: processName } },
+    enableLogs: true,
     beforeSend(event) {
-      if (event.request) delete event.request;
-      return event;
+      return scrubEvent(event);
     },
   });
 }
@@ -40,7 +91,7 @@ export function captureAgentError(error: unknown, context: Attributes = {}) {
     scope.setTag("agent.error", name);
     scope.setFingerprint(["agent-error", name]);
     scope.setContext("agent", context);
-    Sentry.captureMessage(`Agent error: ${name}`, "error");
+    Sentry.captureMessage(agentErrorMessage(error), "error");
   });
 }
 

@@ -279,6 +279,7 @@ export function AstraHome() {
           <nav className={ui.navLinks} aria-label="Main navigation">
             <a href="#experience">Platform</a>
             <a href="#underwriting">How it works</a>
+            <Link href="/quote">Get an estimate</Link>
             <Link href="/docs">
               Documentation
               <ArrowUpRight size={12} />
@@ -976,6 +977,10 @@ export function AstraHome() {
           </Link>
           <span>Every decision, shown with its evidence.</span>
           <nav aria-label="Footer navigation">
+            <Link href="/quote">
+              Get an estimate
+              <ArrowUpRight size={12} />
+            </Link>
             <Link href="/docs">
               Documentation
               <ArrowUpRight size={12} />
