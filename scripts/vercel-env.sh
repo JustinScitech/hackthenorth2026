@@ -16,6 +16,8 @@ add() {
 
 # Vercel cannot reach localhost. src/lib/env.ts picks these hosted targets when deployed
 # and adds the pg SSL compatibility flag itself, so the raw connection strings go in as-is.
+# Atlas checks its Network Access list before the TLS handshake completes, so MONGODB_ATLAS_URI only
+# works from Vercel once that list allows Vercel's egress (0.0.0.0/0 on Hobby). README, Deploying to Vercel.
 add TIGERDATA_DATABASE_URL "$TIGERDATA_DATABASE_URL"
 add MONGODB_ATLAS_URI      "$MONGODB_ATLAS_URI"
 add MONGODB_DB             "$MONGODB_DB"
