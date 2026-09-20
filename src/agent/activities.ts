@@ -71,6 +71,10 @@ export async function extractCase(caseId: string): Promise<void> {
     [caseId],
   );
   const texts = await Promise.all([caseRecord.sourceKey, ...responseRows.rows.map((row) => String(row.source_key))].map(getText));
+  await addAudit(caseId, "source_documents_loaded", {
+    revision: caseRecord.analysisRevision,
+    count: texts.length,
+  }, `sources-loaded:${caseId}:${caseRecord.analysisRevision}`);
   const providers = [process.env.GEMINI_API_KEY && "Gemini", process.env.OPENAI_API_KEY && "OpenAI"].filter(Boolean);
   if (providers.length) await addAudit(caseId, "model_extraction_started", { providers, revision: caseRecord.analysisRevision }, `model-started:${caseId}:${caseRecord.analysisRevision}`);
   const extraction = await extractNotes(texts.join(BROKER_UPDATE_SEPARATOR), async (event, attempt) => {

@@ -400,18 +400,23 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .finding strong { font-size: 14.5px; font-weight: 600; }
 .finding p { margin: 4px 0 8px; font-size: 13.5px; color: var(--text-secondary); }
 .analysis-trace { margin: 0 0 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); }
-.trace-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13.5px; font-weight: 500; color: var(--text-secondary); }
+.trace-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; cursor: pointer; font-size: 13.5px; font-weight: 500; color: var(--text-secondary); list-style: none; }
+.trace-header::-webkit-details-marker { display: none; }
+.analysis-trace[open] .trace-header { border-bottom: 1px solid var(--border); }
 .trace-header span { display: inline-flex; align-items: center; gap: 8px; }
 .trace-header span svg { color: var(--accent-ink); }
 .trace-header small { font-size: 11.5px; font-weight: 400; color: var(--muted); font-family: var(--font-mono); }
+.trace-header .trace-toggle { font-size: 11.5px; color: var(--accent-ink); white-space: nowrap; }
 .trace-list { position: relative; list-style: none; margin: 0; padding: 14px 16px 6px 36px; }
 .trace-list::before { content: ""; position: absolute; top: 20px; bottom: 16px; left: 22px; width: 1px; background: var(--border-strong); }
 .trace-list li { position: relative; margin: 0 0 12px; animation: trace-in 0.4s ease both; }
 .trace-list li::before { content: ""; position: absolute; top: 6px; left: -17px; width: 5px; height: 5px; background: var(--card-bg); border: 1px solid var(--text); }
-.trace-list li:last-child::before { background: var(--accent); border-color: var(--accent); }
-.analysis-trace.is-working .trace-list li:last-child::before { animation: pulse 1.2s ease-in-out infinite; }
+.trace-list li[data-state="active"]::before { background: var(--accent); border-color: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+.trace-list li[data-state="failed"]::before { background: var(--amber-ink); border-color: var(--amber-ink); }
 .trace-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .trace-heading strong { font-size: 13px; font-weight: 600; }
+.trace-meta { display: inline-flex; align-items: center; gap: 8px; }
+.trace-meta em { font-style: normal; font-size: 10.5px; color: var(--accent-ink); }
 .trace-heading time { font-family: var(--font-mono); font-size: 10.5px; color: var(--faint); }
 .trace-list p { margin: 3px 0 0; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
 .conversation-action, .conversation > .demo-note { margin-left: 52px; }
@@ -456,18 +461,10 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .working-rail li[data-state="done"]::after { background: var(--text); }
 .working-rail li[data-state="active"] { color: var(--text); font-weight: 600; }
 .working-rail li[data-state="active"] .working-step { border-color: var(--accent); background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
-/* The agent's own commentary: what it is looking for now, and what each step meant. */
 .is-stalled { border-color: var(--border); }
 .is-stalled .ring i { background: conic-gradient(var(--amber-ink) 0 18%, transparent 26% 100%); animation-duration: 4.8s; }
 .working-stalled { background: var(--amber-tint); color: var(--text); }
 .working-focus { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--radius); background: var(--surface); font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
-.thinking { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
-.thinking li { position: relative; padding-left: 18px; font-size: 13.5px; line-height: 1.45; color: var(--text-secondary); transition: opacity 300ms ease; animation: trace-in 0.4s ease both; }
-.thinking li::before { content: ""; position: absolute; left: 2px; top: 7px; width: 6px; height: 6px; border-radius: 2px; background: var(--border-strong); }
-.thinking li strong { font-weight: 600; color: var(--text); }
-.thinking li p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
-.thinking li:not(.is-current) { opacity: 0.72; }
-.thinking li.is-current::before { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 /* Results are revealed as the agent produces them: each section rises in, and its rows follow. */
 .agent-message .brief, .agent-message .detail-section, .agent-message .analysis-trace, .conversation-action > * { animation: reveal 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .agent-message .detail-section .fact-row, .agent-message .detail-section .finding { animation: reveal 0.5s ease both; }
@@ -653,7 +650,7 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
   /* Opacity-only pulses carry no motion, so the agent's live state stays visible (Remote Desktop sessions report reduced motion). */
-  .message-live::before, .working-rail li[data-state="active"] .working-step, .thinking li.is-current::before, .analysis-trace.is-working .trace-list li:last-child::before, .status-received .status-dot, .status-extracting .status-dot, .status-checking .status-dot, .pending-tag::before { animation: pulse 1.4s ease-in-out infinite !important; }
+  .message-live::before, .working-rail li[data-state="active"] .working-step, .trace-list li[data-state="active"]::before, .status-received .status-dot, .status-extracting .status-dot, .status-checking .status-dot, .pending-tag::before { animation: pulse 1.4s ease-in-out infinite !important; }
   .working-ellipsis::after { animation: ellipsis 1.5s steps(4, end) infinite !important; }
   /* The travelling segment would otherwise freeze at one spot and look broken; show the whole outline breathing instead. */
   .ring i { background: var(--accent); transform: translate(-50%, -50%); animation: none !important; }
