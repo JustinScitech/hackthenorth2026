@@ -9,6 +9,7 @@ import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
 import { AgentChat, type ChatTurn } from "./agent-chat";
 import { CasePdfExport } from "./case-pdf-export";
+import { CaseReportEditor } from "./case-report-editor";
 import { summarizeSubmission } from "@/federato/presentation";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
@@ -270,11 +271,12 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
 }
 
 
-export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
+export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision, onReportSaved }: {
   id: string; caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
+  onReportSaved: () => void;
 }) {
   const working = isProcessing(caseRecord, jobStatus);
   useElapsedSeconds(id, working);
@@ -282,10 +284,11 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
   return <main className="shell shell-narrow conversation">
     <div className="case-toolbar">
       <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><Link href="/cases">Cases</Link><span className="sep">/</span><span className="current">{caseRecord.insuredName}</span></p>
-      <CasePdfExport id={id} conversation={chatTurns.map(({ role, text }) => ({ role, text }))} />
+      <CasePdfExport id={id} conversation={chatTurns.map(({ role, text, edited }) => ({ role, text, edited }))} />
       <span className="case-id-label">case {id.slice(0, 8)}</span>
       <Status value={caseRecord.status} />
     </div>
+    <CaseReportEditor key={`${id}:${caseRecord.analysisRevision}`} caseRecord={caseRecord} audit={audit} working={["received", "extracting", "checking"].includes(caseRecord.status)} onSaved={onReportSaved} />
     {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
     <div className="conversation-message request-message">
       <div className="message-avatar requester-avatar"><FileText size={16} aria-hidden="true" /></div>

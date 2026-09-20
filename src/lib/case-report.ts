@@ -2,7 +2,7 @@ import PDFDocument from "pdfkit";
 import { summarizeSubmission } from "@/federato/presentation";
 import type { AuditEvent, CaseRecord, Fact } from "./types";
 
-export type ReportConversationTurn = { role: "you" | "agent"; text: string };
+export type ReportConversationTurn = { role: "you" | "agent"; text: string; edited?: boolean };
 
 const ink = "#17233B";
 const muted = "#59667B";
@@ -90,6 +90,18 @@ export async function createCaseReportPdf(caseRecord: CaseRecord, audit: AuditEv
     row(name, value.value === null ? "Not provided" : format(value.value), `${value.source} | ${Math.round(value.confidence * 100)}% confidence`);
   }
 
+  function conversationSection() {
+    if (!conversation.length) return;
+    section("Conversation with the agent");
+    paragraph("This conversation is included from the current browser session.", muted);
+    for (const turn of conversation) {
+      space(38);
+      doc.font("Helvetica-Bold").fontSize(9).fillColor(muted).text(turn.role === "you" ? "Reviewer" : turn.edited ? "Underwriting agent - reviewer-edited reply" : "Underwriting agent", left, doc.y, { width });
+      doc.moveDown(0.25);
+      paragraph(turn.text);
+    }
+  }
+
   doc.rect(0, 0, doc.page.width, 14).fill(accent);
   doc.font("Helvetica-Bold").fontSize(10).fillColor(accent).text("ASTRA RISK  /  UNDERWRITING REVIEW", left, 50);
   doc.font("Helvetica-Bold").fontSize(24).fillColor(ink).text(caseRecord.insuredName, left, 76, { width });
@@ -97,6 +109,21 @@ export async function createCaseReportPdf(caseRecord: CaseRecord, audit: AuditEv
   doc.fontSize(8.5).text(`Generated ${date(new Date())}`, left, doc.y + 3, { width });
   doc.y += 10;
 
+  const editedSections = caseRecord.reportDraft?.analysisRevision === caseRecord.analysisRevision
+    ? caseRecord.reportDraft.sections : null;
+  if (editedSections) {
+    paragraph(`Reviewer-edited report saved by ${caseRecord.reportDraft!.editedBy} on ${date(caseRecord.reportDraft!.updatedAt)}. Original agent analysis remains in the case record.`, muted);
+    for (const part of editedSections) {
+      section(part.title);
+      for (const line of part.body.split("\n")) {
+        if (!line.trim()) { doc.moveDown(0.35); continue; }
+        const labeled = /^([^:]{1,40}):\s*(.+)$/.exec(line);
+        if (labeled && labeled[2].length < 500) row(labeled[1], labeled[2]);
+        else paragraph(line);
+      }
+    }
+    conversationSection();
+  } else {
   section("Agent assessment");
   paragraph(caseRecord.brief ?? "The agent has not completed its assessment.");
   if (caseRecord.error) row("Workflow error", caseRecord.error);
@@ -186,16 +213,7 @@ export async function createCaseReportPdf(caseRecord: CaseRecord, audit: AuditEv
     paragraph(caseRecord.decision);
   }
 
-  if (conversation.length) {
-    section("Conversation with the agent");
-    paragraph("This conversation is included from the current browser session.", muted);
-    for (const turn of conversation) {
-      space(38);
-      doc.font("Helvetica-Bold").fontSize(9).fillColor(muted).text(turn.role === "you" ? "Reviewer" : "Underwriting agent", left, doc.y, { width });
-      doc.moveDown(0.25);
-      paragraph(turn.text);
-    }
-  }
+  conversationSection();
 
   section("Activity history");
   if (audit.length) {
@@ -210,6 +228,7 @@ export async function createCaseReportPdf(caseRecord: CaseRecord, audit: AuditEv
       } else doc.moveDown(0.7);
     }
   } else paragraph("No activity has been recorded yet.", muted);
+  }
 
   const pages = doc.bufferedPageRange();
   for (let index = 0; index < pages.count; index++) {

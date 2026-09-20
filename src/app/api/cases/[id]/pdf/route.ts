@@ -7,7 +7,7 @@ import { createCaseReportPdf, type ReportConversationTurn } from "@/lib/case-rep
 export const runtime = "nodejs";
 
 const conversationSchema = z.array(z.object({
-  role: z.enum(["you", "agent"]), text: z.string().min(1).max(4000),
+  role: z.enum(["you", "agent"]), text: z.string().min(1).max(4000), edited: z.boolean().optional(),
 })).max(40);
 
 async function renderReport(id: string, conversation: ReportConversationTurn[] = []) {
