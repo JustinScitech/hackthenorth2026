@@ -175,7 +175,7 @@ const list = (items: unknown[]) => items.map((item) => FACT_NAMES[String(item)] 
 function stageFocus(caseRecord: CaseRecord): string {
   switch (caseRecord.status) {
     case "received": return "Eight factors determine appetite: submission type, line of business, primary risk state, insured value, premium, building age, construction mix, and five-year loss dollars. Account name and policy dates provide required context.";
-    case "extracting": return "Reading broker notes alongside supplied intake fields, recording sources, and flagging conflicts. Loss counts provide context but do not establish five-year loss dollars or complete account history.";
+    case "extracting": return "Reading broker notes alongside supplied intake fields, recording sources, and flagging conflicts. Loss counts are context; the five-year loss dollars and complete account history come from the broker's figures.";
     case "checking": return "Checking all eight carrier appetite factors and required account context. Missing evidence requires clarification; appetite exceptions require underwriter review. Public-source findings are separate from the appetite score.";
     default: return "";
   }
