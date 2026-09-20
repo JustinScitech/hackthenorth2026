@@ -103,9 +103,10 @@ test("a public quote conversation appears in the workspace quotes list", async (
   await expect(page.getByRole("heading", { name: "Quote requests" })).toBeVisible();
   const row = page.getByRole("article", { name: `Quote ${quoteId.slice(0, 8)}` });
   await expect(row).toContainText("Tenant insurance · NS");
-  await expect(row).toContainText("Estimate shown");
-  await expect(row).toContainText("2 turns");
-  await expect(row).toContainText("parser only");
+  await expect(row).toContainText("Estimate ready");
+  await expect(row).not.toContainText(/parser only|gemini|read with|turns/i);
+  await expect(row).toContainText("CAD / month · demo estimate");
+  await row.getByText("View request details").click();
   await expect(row.getByRole("definition").filter({ hasText: "$2,500" })).toBeVisible();
   await expect(row).not.toContainText("Halifax");
 
@@ -121,6 +122,31 @@ test("a public quote conversation appears in the workspace quotes list", async (
   const db = new Client({ connectionString: e2eDatabaseUrl() });
   await db.connect();
   try { await db.query("DELETE FROM quotes WHERE id = $1", [quoteId]); } finally { await db.end(); }
+});
+
+test("quote workspace filters requests and keeps technical details out of the review", async ({ authenticatedPage: page }) => {
+  const base = { province: "ON", estimate: null, heard: {}, openQuestions: 0, referral: null, model: "gemini-3.6-flash", turns: 2, createdAt: "2026-09-20T00:00:00Z", updatedAt: "2026-09-20T00:00:00Z" };
+  await page.route("**/api/quotes", (route) => route.fulfill({ json: { quotes: [
+    { ...base, id: "estimate-1", product: "auto", status: "estimate", heard: { annualKm: 15000, vehicleYear: 2020, winterTires: false }, estimate: { monthlyLow: 118, monthlyHigh: 144 } },
+    { ...base, id: "referral-1", product: "tenant", status: "refer", referral: "This request needs an advisor review." },
+    { ...base, id: "incomplete-1", product: null, status: "choosing" },
+  ] } }));
+  await page.goto("/quotes");
+  await expect(page.getByRole("article")).toHaveCount(3);
+  await expect(page.getByRole("main")).not.toContainText(/gemini|parser only|read with/i);
+  await page.getByRole("button", { name: "Advisor review" }).click();
+  await expect(page.getByRole("article")).toHaveCount(1);
+  await page.getByText("View request details").click();
+  await expect(page.getByRole("article")).toContainText("no referral has been sent");
+  await page.getByRole("button", { name: "Incomplete" }).click();
+  await expect(page.getByRole("article")).toContainText("Product not selected");
+  await page.getByRole("button", { name: "Estimates ready" }).click();
+  await page.getByText("View request details").click();
+  await expect(page.getByRole("definition").filter({ hasText: "15,000" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "2020" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "No" })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test("landing page and site chrome lead to the public assistant", async ({ page }) => {
