@@ -21,6 +21,8 @@ async function main() {
       brief text,
       question text,
       decision text,
+      report_draft jsonb,
+      report_draft_version integer NOT NULL DEFAULT 0,
       error text,
       analysis_revision integer NOT NULL DEFAULT 0,
       created_at timestamptz NOT NULL DEFAULT now(),
@@ -90,6 +92,8 @@ async function main() {
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS appetite jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS appetite_result jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_evidence jsonb;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS report_draft jsonb;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS report_draft_version integer NOT NULL DEFAULT 0;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS extraction_conflicts jsonb NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS address text;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS property_context jsonb;

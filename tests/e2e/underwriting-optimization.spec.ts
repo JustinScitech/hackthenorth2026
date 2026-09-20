@@ -7,12 +7,12 @@ test("the queue explains each submission, exports it, and opens it as a case the
   await page.goto("/triage");
   await page.getByRole("button", { name: "Rank the live queue" }).first().click();
   await expect(page.getByRole("heading", { name: "New property" })).toBeVisible();
-  await expect(page.locator(".queue-row").first().locator(".disposition")).toHaveText("Needs information");
-  await expect(page.getByText(/One answer decides it: total premium/)).toBeVisible();
-  await expect(page.getByText(/this becomes Target/)).toBeVisible();
-  await page.getByText("Evidence and sources").first().click();
-  await expect(page.getByRole("cell", { name: /Observed new\./ })).toBeVisible();
-  await page.locator(".tool-menu > summary").click();
+  await expect(page.getByText("Good match for review")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Queue review status" })).toContainText("Ready for review does not mean approved");
+  await page.getByText("Review checklist · 0 exceptions · 0 evidence gaps").click();
+  await expect(page.getByText("No unresolved appetite checks.", { exact: false })).toBeVisible();
+  await expect(page.getByText("New property matches the supplied carrier guidelines on the available information.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Print / save PDF" })).toBeVisible();
   await page.evaluate(() => { window.print = () => { (window as Window & { __printCalled?: boolean }).__printCalled = true; }; });
   await page.getByRole("button", { name: "Print / save PDF" }).click();
   await expect.poll(() => page.evaluate(() => (window as Window & { __printCalled?: boolean }).__printCalled)).toBe(true);

@@ -71,9 +71,9 @@ export function CaseDetail({ id }: { id: string }) {
   if (!data) return <main className="shell shell-narrow"><Link className="back-link" href="/cases"><ArrowLeft size={15} /> Cases</Link><div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error ?? "Case not found."}</div></main>;
 
   return <CaseView
-    id={id} caseRecord={data.case} audit={data.audit} jobStatus={data.jobStatus} error={error} voiceAvailable={data.voiceAvailable}
+    key={id} id={id} caseRecord={data.case} audit={data.audit} jobStatus={data.jobStatus} error={error} voiceAvailable={data.voiceAvailable}
     response={response} setResponse={setResponse} reason={reason} setReason={setReason}
     submitting={submitting} onResponse={() => void sendAction("broker_response")}
-    onDecision={(kind) => void sendAction(kind)}
+    onDecision={(kind) => void sendAction(kind)} onReportSaved={() => void refresh()}
   />;
 }
