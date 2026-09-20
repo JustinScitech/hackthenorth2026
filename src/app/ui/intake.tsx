@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import Link from "next/link";
 import { CaretDown, Check, FilePlus, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import { caseAppetiteSchema, type CaseAppetite } from "@/lib/case-appetite";
+import type { ParsedInsurancePdf } from "@/lib/insurance-pdf";
 
 function sampleAppetite(id: string): CaseAppetite {
   const year = new Date().getFullYear();
@@ -136,6 +137,8 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
   const [selectedSample, setSelectedSample] = useState(prefillSample ? "colorado" : "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pdfFilename, setPdfFilename] = useState("");
+  const [readingPdf, setReadingPdf] = useState(false);
 
   function update(field: keyof FormState, value: string) {
     setSelectedSample("");
@@ -147,6 +150,44 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
     setSelectedSample(id);
     setForm(sampleCases.find((sample) => sample.id === id)?.form ?? emptyForm);
     setError(null);
+    setPdfFilename("");
+  }
+
+  async function uploadPdf(file: File) {
+    setReadingPdf(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const response = await fetch("/api/documents/parse", { method: "POST", body });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Could not read the PDF.");
+      const parsed = data as ParsedInsurancePdf;
+      setSelectedSample("");
+      setPdfFilename(parsed.filename);
+      setForm((current) => {
+        const base = selectedSample ? emptyForm : current;
+        return {
+          ...base,
+          insuredName: base.insuredName || parsed.fields.insuredName,
+          state: base.state || parsed.fields.state,
+          tiv: base.tiv || (parsed.fields.tiv === null ? "" : String(parsed.fields.tiv)),
+          yearBuilt: base.yearBuilt || (parsed.fields.yearBuilt === null ? "" : String(parsed.fields.yearBuilt)),
+          losses: base.losses || (parsed.fields.losses === null ? "" : String(parsed.fields.losses)),
+          address: base.address || parsed.fields.address,
+          brokerNotes: base.brokerNotes ? `${base.brokerNotes}\n\n${parsed.text}` : parsed.text,
+        };
+      });
+      setAppetite((current) => ({
+        ...(selectedSample ? caseAppetiteSchema.parse({}) : current),
+        ...Object.fromEntries(Object.entries(parsed.fields.appetite).filter(([key, value]) =>
+          (selectedSample || current[key as keyof CaseAppetite] === null || current[key as keyof CaseAppetite] === false) && value !== null && value !== false)),
+      }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not read the PDF.");
+    } finally {
+      setReadingPdf(false);
+    }
   }
 
   async function createCase(event: FormEvent<HTMLFormElement>) {
@@ -160,6 +201,7 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
           insuredName: form.insuredName, state: form.state, tiv: Number(form.tiv),
           yearBuilt: form.yearBuilt ? Number(form.yearBuilt) : null,
           losses: form.losses ? Number(form.losses) : null, brokerNotes: form.brokerNotes,
+          sourceFilename: pdfFilename || undefined,
           publicSourceUrl: form.publicSourceUrl.trim() || null,
           address: form.address.trim() || null,
           appetite,
@@ -217,15 +259,18 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
           <div className="field-pair">{(["effective", "expiration"] as const).map((key) => <label key={key}>{key === "effective" ? "Effective date" : "Expiration date"}<input type="date" value={appetite[key] ?? ""} onChange={(event) => setAppetite({ ...appetite, [key]: event.target.value || null })} /></label>)}</div>
         </div>
         <div className="form-section">
-          <div className="form-section-title"><h2>Broker submission</h2><p>Paste the broker's notes. Unstructured text is fine; the agent extracts what it can and asks for the rest.</p></div>
-          <label>Submission text<textarea required minLength={10} maxLength={20000} rows={8} value={form.brokerNotes} onChange={(event) => update("brokerNotes", event.target.value)} placeholder="Paste the broker's submission details here..." /></label>
+          <div className="form-section-title"><h2>Broker submission</h2><p>Upload a text-based insurance PDF or paste the broker's notes. Review extracted fields before starting the case.</p></div>
+          <label>Insurance PDF <span className="optional">Optional · 4 MB maximum</span><input type="file" accept="application/pdf,.pdf" disabled={readingPdf || submitting} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadPdf(file); }} /></label>
+          {readingPdf && <p className="subtle" role="status">Reading PDF and filling available fields...</p>}
+          {pdfFilename && <p className="notice">Read {pdfFilename}. Confirm the form values; unlabeled fields remain blank.</p>}
+          <label>Submission text<textarea required minLength={10} maxLength={40000} rows={8} value={form.brokerNotes} onChange={(event) => update("brokerNotes", event.target.value)} placeholder="Paste the broker's submission details here..." /></label>
           <label>Property address <span className="optional">Optional</span><input maxLength={200} value={form.address} onChange={(event) => update("address", event.target.value)} placeholder="1600 Broadway, Denver, CO 80202" /></label>
           <p className="subtle">With an address the agent pulls the public record: flood zone, wildfire history, seismicity, ten years of weather, fire protection and neighbours, EPA sites, the census tract, drought, and disaster declarations.</p>
           <label>Public source URL <span className="optional">Optional</span><input type="url" maxLength={2000} value={form.publicSourceUrl} onChange={(event) => update("publicSourceUrl", event.target.value)} placeholder="https://example.com/property" /></label>
         </div>
         <div className="form-footer">
           <span className="subtle">2025 carrier appetite. A final decision requires underwriter review.</span>
-          <button className="primary-button" disabled={submitting} type="submit"><FilePlus size={16} />{submitting ? "Starting case..." : "Start analysis"}</button>
+          <button className="primary-button" disabled={submitting || readingPdf} type="submit"><FilePlus size={16} />{submitting ? "Starting case..." : "Start analysis"}</button>
         </div>
       </form>
     </main>

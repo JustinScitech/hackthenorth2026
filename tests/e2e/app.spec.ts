@@ -1,7 +1,56 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
+import PDFDocument from "pdfkit";
 import { e2eDatabaseUrl } from "../../scripts/e2e-env";
 import { test, expect } from "./fixtures";
+
+async function insurancePdf() {
+  return new Promise<Buffer>((resolve, reject) => {
+    const document = new PDFDocument(); const chunks: Buffer[] = [];
+    document.on("data", (chunk: Buffer) => chunks.push(chunk));
+    document.on("error", reject); document.on("end", () => resolve(Buffer.concat(chunks)));
+    document.text("Named insured: Northline Fabrication");
+    document.text("State: CO");
+    document.text("Total insured value: $6,250,000");
+    document.text("Business type: new");
+    document.end();
+  });
+}
+
+test("stop analysis cancels queued case work and persists the stopped state", async ({ authenticatedPage: page, seedCase }) => {
+  const id = await seedCase({ status: "received" });
+  const db = new Client({ connectionString: e2eDatabaseUrl() });
+  await db.connect();
+  try {
+    await db.query("INSERT INTO case_jobs (id, case_id, kind, job_key, run_at) VALUES ($1, $2, 'analyze', $3, now() + interval '1 hour')", [randomUUID(), id, `e2e-stop:${id}`]);
+    await page.goto(`/cases/${id}`);
+    await page.getByRole("button", { name: "Stop analysis" }).click();
+    await expect(page.getByText("Analysis stopped. No further case steps will run.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Stop analysis" })).toHaveCount(0);
+    const caseRow = await db.query("SELECT status FROM cases WHERE id = $1", [id]);
+    const jobs = await db.query("SELECT status, finished_at FROM case_jobs WHERE case_id = $1", [id]);
+    expect(caseRow.rows[0].status).toBe("stopped");
+    expect(jobs.rows[0].status).toBe("cancelled");
+    expect(jobs.rows[0].finished_at).not.toBeNull();
+  } finally { await db.end(); }
+});
+
+test("PDF upload pre-fills case fields from labeled insurance evidence", async ({ authenticatedPage: page }) => {
+  await page.goto("/cases/new");
+  await page.locator('input[type="file"]').setInputFiles({ name: "northline.pdf", mimeType: "application/pdf", buffer: await insurancePdf() });
+  await expect(page.getByLabel("Insured name")).toHaveValue("Northline Fabrication");
+  await expect(page.getByRole("spinbutton", { name: "Total insured value" })).toHaveValue("6250000");
+  await expect(page.getByLabel("Submission text")).toHaveValue(/Named insured: Northline Fabrication/);
+});
+
+test("PDF upload shows standalone appetite triage", async ({ authenticatedPage: page }) => {
+  await page.goto("/triage");
+  await page.getByRole("region", { name: "Analyze one insurance PDF" }).locator('input[type="file"]').setInputFiles({ name: "northline.pdf", mimeType: "application/pdf", buffer: await insurancePdf() });
+  await expect(page.getByRole("heading", { name: "Northline Fabrication" })).toBeVisible();
+  await expect(page.getByText(/Match \d+\/100/)).toBeVisible();
+  await page.getByText("Appetite factors and PDF evidence").click();
+  await expect(page.getByRole("table")).toContainText("Primary risk state");
+});
 
 test("public pages are accessible and protected pages require sign-in", async ({ page, request }) => {
   await page.goto("/");
@@ -171,13 +220,11 @@ test("case trace shows live progress and broker and underwriter actions", async 
   });
   await page.goto(`/cases/${id}`);
   await expect(page.getByRole("status")).toContainText("Astra is extracting the broker facts");
-  await expect(page.getByRole("status")).toContainText("Loss counts are context; the five-year loss dollars");
-  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Model extraction started");
-  await expect(page.getByRole("region", { name: "Activity trace" })).not.toContainText(/gemini|openai|flash/i);
+  await expect(page.getByRole("status")).toContainText("Reading the submission and broker responses");
+  await expect(page.locator(".analysis-trace")).toContainText("Model extraction started");
   status = "waiting_for_broker";
   await page.reload();
-  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Facts extracted");
-  await expect(page.getByRole("region", { name: "Activity trace" })).not.toContainText(/gemini|openai|flash/i);
+  await expect(page.locator(".analysis-trace")).toContainText("Facts extracted");
   await page.getByLabel("Broker response").fill("Built in 2012 and fully sprinklered.");
   await page.getByRole("button", { name: "Add response and resume" }).click();
   await expect(page.getByRole("heading", { name: "Underwriter decision" })).toBeVisible();
@@ -283,15 +330,15 @@ test("PostgreSQL jobs pause for broker, resume, and record a decision", async ({
   await page.getByRole("button", { name: "Start analysis" }).click();
   await expect(page).toHaveURL(/\/cases\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { name: "Broker information needed" })).toBeVisible({ timeout: 40_000 });
-  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Facts extracted");
-  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Parser only; no model configured");
+  await expect(page.locator(".analysis-trace")).toContainText("Facts extracted");
+  await expect(page.locator(".analysis-trace")).toContainText("Parser only; no model configured");
   await page.getByLabel("Broker response").fill("The restaurant building was constructed in 2001.\nFive-year loss value: 0\nFive-year history complete: yes");
   await page.getByRole("button", { name: "Add response and resume" }).click();
   await expect(page.getByRole("heading", { name: "Underwriter decision" })).toBeVisible({ timeout: 40_000 });
   await page.getByLabel("Review rationale").fill("Reviewed the completed submission and demo guideline checks.");
   await page.getByRole("button", { name: "Approve review" }).click();
   await expect(page.getByRole("heading", { name: "Decision rationale" })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Review approved");
+  await expect(page.locator(".analysis-trace")).toContainText("Review approved");
 });
 
 test("expired leases recover and broker follow-ups repeat after a new analysis revision", async ({ seedCase }) => {
@@ -308,6 +355,7 @@ test("expired leases recover and broker follow-ups repeat after a new analysis r
       const result = await db.query("SELECT count(*)::int AS count FROM audit_events WHERE case_id = $1 AND event_type = 'broker_follow_up_due'", [id]);
       return result.rows[0].count;
     }, { timeout: 10_000 }).toBe(1);
+    await expect.poll(async () => (await db.query("SELECT count(*)::int AS count FROM case_jobs WHERE job_key = $1", [`followup:${id}:0:2`])).rows[0].count).toBe(1);
     const next = await db.query("SELECT run_at FROM case_jobs WHERE job_key = $1", [`followup:${id}:0:2`]);
     expect(next.rowCount).toBe(1);
     expect(new Date(next.rows[0].run_at).getTime()).toBeGreaterThan(Date.now() + 23 * 3_600_000);

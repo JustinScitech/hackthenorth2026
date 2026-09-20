@@ -49,16 +49,19 @@ export function extractionConflicts(candidates: Candidate[]): string[] {
   return conflicts;
 }
 
-async function runAttempt(source: ModelSource, model: string, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>, onEvent?: ModelObserver): Promise<ModelAttempt & { error?: unknown }> {
+async function runAttempt(source: ModelSource, model: string, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>, onEvent?: ModelObserver, signal?: AbortSignal): Promise<ModelAttempt & { error?: unknown }> {
+  signal?.throwIfAborted();
   const started = performance.now();
   await onEvent?.("started", { source, model, status: "started", durationMs: 0 });
   try {
     const response = await generate();
+    signal?.throwIfAborted();
     if (!response.text) throw new Error("Empty model response");
     const completed: ModelAttempt = { source, model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: extractionSchema.parse(JSON.parse(response.text)), attemptCount: response.attemptCount ?? 1 };
     await onEvent?.("completed", completed);
     return completed;
   } catch (error) {
+    signal?.throwIfAborted();
     const failed: ModelAttempt = { source, model, status: "failed", durationMs: Math.round(performance.now() - started), errorCode: errorCode(error), attemptCount: 1 };
     console.warn(`${source} extraction unavailable`, model, error instanceof Error ? error.name : "UnknownError");
     await onEvent?.("failed", failed);
@@ -70,26 +73,27 @@ export async function runGeminiWaterfall(
   generate: (model: string) => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>,
   onEvent?: ModelObserver,
   models: readonly string[] = GEMINI_WATERFALL,
+  signal?: AbortSignal,
 ): Promise<ModelAttempt[]> {
   const attempts: ModelAttempt[] = [];
   for (const model of models) {
-    const { error, ...attempt } = await runAttempt("Gemini", model, () => generate(model), onEvent);
+    const { error, ...attempt } = await runAttempt("Gemini", model, () => generate(model), onEvent, signal);
     attempts.push(attempt);
     if (attempt.status === "completed" || !shouldFallThroughGeminiError(error)) break;
   }
   return attempts;
 }
 
-async function geminiExtraction(text: string, onEvent?: ModelObserver): Promise<ModelAttempt[]> {
+async function geminiExtraction(text: string, onEvent?: ModelObserver, signal?: AbortSignal): Promise<ModelAttempt[]> {
   const models = geminiModels();
   if (!process.env.GEMINI_API_KEY) return [{ source: "Gemini", model: models[0], status: "not_configured", durationMs: 0 }];
-  return runGeminiWaterfall((model) => geminiJson(model, EXTRACTION_PROMPT, text), onEvent, models);
+  return runGeminiWaterfall((model) => geminiJson(model, EXTRACTION_PROMPT, text, { signal }), onEvent, models, signal);
 }
 
-async function openaiExtraction(text: string, onEvent?: ModelObserver): Promise<ModelAttempt[]> {
+async function openaiExtraction(text: string, onEvent?: ModelObserver, signal?: AbortSignal): Promise<ModelAttempt[]> {
   const model = openaiModel();
   if (!process.env.OPENAI_API_KEY) return [{ source: "OpenAI", model, status: "not_configured", durationMs: 0 }];
-  const { error: _error, ...attempt } = await runAttempt("OpenAI", model, () => openaiJson(model, EXTRACTION_PROMPT, text, openaiSchema), onEvent);
+  const { error: _error, ...attempt } = await runAttempt("OpenAI", model, () => openaiJson(model, EXTRACTION_PROMPT, text, openaiSchema, { signal }), onEvent, signal);
   return [attempt];
 }
 
@@ -107,9 +111,11 @@ export type Extraction = {
  * each field by agreement. Models are ordered Gemini, OpenAI, then parser so a
  * tie between a model and the parser keeps the model at reduced confidence.
  */
-export async function extractNotes(text: string, onModelEvent?: ModelObserver): Promise<Extraction> {
+export async function extractNotes(text: string, onModelEvent?: ModelObserver, signal?: AbortSignal): Promise<Extraction> {
+  signal?.throwIfAborted();
   const parser = parseBrokerNotes(text);
-  const [geminiAttempts, openaiAttempts] = await Promise.all([geminiExtraction(text, onModelEvent), openaiExtraction(text, onModelEvent)]);
+  const [geminiAttempts, openaiAttempts] = await Promise.all([geminiExtraction(text, onModelEvent, signal), openaiExtraction(text, onModelEvent, signal)]);
+  signal?.throwIfAborted();
   const attempts = [...geminiAttempts, ...openaiAttempts];
   const completed = attempts.filter((attempt) => attempt.status === "completed" && attempt.value);
   const candidates: Candidate[] = [...completed.map((attempt) => ({ source: `${attempt.source} ${attempt.model}`, value: attempt.value! })), { source: "Parser", value: parser }];

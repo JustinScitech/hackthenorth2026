@@ -1,4 +1,4 @@
-import { geocode, SOURCES, type Geocoded, type SourceId, type SourceResult } from "./context-sources";
+import { geocode, SOURCES, withSourceAbort, type Geocoded, type SourceId, type SourceResult } from "./context-sources";
 
 /**
  * What the public record says about a property: where it is, and one result per dataset.
@@ -19,12 +19,15 @@ export function contextSource<T>(context: PropertyContext | null | undefined, id
 }
 
 /** Geocodes the address, then asks every dataset at once. A dataset that fails or times out is recorded as unavailable and the rest still land. */
-export async function gatherPropertyContext(address: string, asOf = new Date(), only?: SourceId[]): Promise<PropertyContext> {
+export async function gatherPropertyContext(address: string, asOf = new Date(), only?: SourceId[], signal?: AbortSignal): Promise<PropertyContext> {
+  return withSourceAbort(signal, async () => {
+  signal?.throwIfAborted();
   const { geocoded, url: geocodeUrl } = await geocode(address);
   const gatheredAt = asOf.toISOString();
   if (!geocoded) return { address, geocoded: null, geocodeUrl, sources: [], gatheredAt };
   const ids = (Object.keys(SOURCES) as SourceId[]).filter((id) => !only || only.includes(id));
   const settled = await Promise.allSettled(ids.map((id) => SOURCES[id].run(geocoded, asOf)));
+  signal?.throwIfAborted();
   const sources = settled.map((outcome, index): SourceResult => {
     const id = ids[index];
     if (outcome.status === "fulfilled") return outcome.value;
@@ -32,4 +35,5 @@ export async function gatherPropertyContext(address: string, asOf = new Date(), 
     return { id, label: SOURCES[id].label, status: "unavailable", url: "", summary: `Unavailable: ${reason.slice(0, 120)}.`, data: {}, ms: 0 };
   });
   return { address, geocoded, geocodeUrl, sources, gatheredAt };
+  });
 }

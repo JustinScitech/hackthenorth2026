@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle, DownloadSimple, Info, ListNumbers, Printer, Warning, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import type { TriageReport } from "@/federato/triage";
 import { rankingExplanation, resourceLabels, summarizeSubmission } from "@/federato/presentation";
 import { buildReviewPlan, summarizeQueue } from "@/federato/review-plan";
+import { PdfTriage } from "@/app/ui/pdf-triage";
+import { AppetiteCriteriaTable } from "@/app/ui/appetite-criteria-table";
 
 type Report = Omit<TriageReport, "schema">;
 export default function TriagePage() {
@@ -15,15 +17,20 @@ export default function TriagePage() {
   const [showAll, setShowAll] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [stopped, setStopped] = useState(false);
+  const runController = useRef<AbortController | null>(null);
   async function run() {
-    setLoading(true); setError(""); setExportError(""); setReport(null);
+    const controller = new AbortController();
+    runController.current = controller;
+    setLoading(true); setError(""); setExportError(""); setReport(null); setStopped(false);
     try {
-      const response = await fetch("/api/triage", { method: "POST" });
+      const response = await fetch("/api/triage", { method: "POST", signal: controller.signal });
       const data = await response.json();
+      controller.signal.throwIfAborted();
       if (!response.ok) throw new Error(data.error ?? "Unable to rank the queue.");
       setReport(data); setShowAll(false);
-    } catch (err) { setError(err instanceof Error ? err.message : "Unable to rank the queue."); }
-    finally { setLoading(false); }
+    } catch (err) { if (controller.signal.aborted) setStopped(true); else setError(err instanceof Error ? err.message : "Unable to rank the queue."); }
+    finally { if (runController.current === controller) runController.current = null; setLoading(false); }
   }
   async function downloadSlides() {
     if (!report || exporting) return;
@@ -45,13 +52,15 @@ export default function TriagePage() {
     <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><span className="current">Federato triage</span></p>
     <div className="page-heading triage-heading">
       <div><p className="eyebrow">Federato challenge</p><h1>{labels ? `${labels.singular} priorities` : "Underwriting priorities"}</h1><p className="subtle">Rank the API queue against the supplied 2025 commercial property appetite.</p></div>
-      <button className="primary-button" onClick={run} disabled={loading || exporting}><ListNumbers size={16} />{loading ? "Discovering and scoring…" : "Rank live records"}</button>
+      <div className="actions"><button className="primary-button" onClick={run} disabled={loading || exporting}><ListNumbers size={16} />{loading ? "Discovering and scoring…" : "Rank live records"}</button>{loading && <button className="quiet-button" type="button" onClick={() => runController.current?.abort()}>Stop ranking</button>}</div>
     </div>
     <p className="lede">Scores order the queue for human review. Approval and binding stay with the underwriter.</p>
     <div aria-live="polite">
       {loading && <div className="notice"><Info size={17} aria-hidden="true" />Discovering available fields and reading the queue. Large queues may take a few minutes.</div>}
       {error && <div role="alert" className="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
+      {stopped && <div className="notice" role="status">Live ranking stopped.</div>}
     </div>
+    <PdfTriage />
     {!report && !loading && !error && <div className="card"><p className="empty-state">Run triage to discover the resource and see ranked records, per-factor scores, and the reasoning behind each query.</p></div>}
     {report && <>
       <p className="triage-meta"><span>{report.evaluated} of {report.total} <code>{report.resource}</code> records evaluated</span><span aria-hidden="true">·</span><time dateTime={report.generatedAt}>{new Date(report.generatedAt).toLocaleString()}</time></p>
@@ -89,7 +98,7 @@ export default function TriagePage() {
               <p className="subtle">Checklist only: no documents have been requested and no exceptions have been approved.</p>
             </div>
           </details>
-          <details><summary>Appetite breakdown and data sources</summary><div className="triage-table-wrap"><table className="triage-table"><thead><tr><th>Factor</th><th>Result</th><th>Points</th><th>Evidence and rule</th></tr></thead><tbody>{item.criteria.map((criterion) => <tr key={criterion.factor}><th scope="row">{criterion.factor}</th><td>{criterion.status}</td><td>{criterion.points}/{criterion.maximum}</td><td>{criterion.detail}<small>Source: {criterion.source}</small></td></tr>)}</tbody></table></div></details>
+          <details><summary>Appetite breakdown and data sources</summary><AppetiteCriteriaTable criteria={item.criteria} detailed /></details>
         </article>; })}
       </div>
     </>}

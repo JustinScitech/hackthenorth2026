@@ -1,3 +1,10 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
+const sourceAbort = new AsyncLocalStorage<AbortSignal>();
+export function withSourceAbort<T>(signal: AbortSignal | undefined, work: () => Promise<T>): Promise<T> {
+  return signal ? sourceAbort.run(signal, work) : work();
+}
+
 /**
  * Public datasets that say something about a commercial property once it has coordinates.
  * Every source is a free HTTPS endpoint (only the Census data API wants a key), answers independently, and fails on its own:
@@ -31,7 +38,8 @@ export type SourceResult<T = Record<string, unknown>> = {
 const UA = { "User-Agent": "AstraRisk/1.0 (underwriting demo; public data lookup)" };
 
 async function getJson<T>(url: string, timeoutMs = 10_000, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(url, { ...init, headers: { ...UA, ...(init.headers ?? {}) }, signal: AbortSignal.timeout(timeoutMs) });
+  const signal = sourceAbort.getStore();
+  const response = await fetch(url, { ...init, headers: { ...UA, ...(init.headers ?? {}) }, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs) });
   if (!response.ok) throw Object.assign(new Error(`HTTP ${response.status} from ${new URL(url).host}`), { status: response.status });
   return response.json() as Promise<T>;
 }

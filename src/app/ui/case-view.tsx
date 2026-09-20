@@ -121,7 +121,7 @@ const eventLabels: Record<string, string> = {
   analysis_completed: "Guidelines checked",
   broker_response_received: "Broker response received", broker_follow_up_due: "Broker follow-up due",
   approved: "Review approved", declined: "Review declined", job_failed: "Analysis failed",
-  job_retry: "Retrying analysis", report_edited: "Report edited",
+  job_retry: "Retrying analysis", report_edited: "Report edited", analysis_stopped: "Analysis stopped",
 };
 
 function traceDetail(event: AuditEvent): string | null {
@@ -186,6 +186,7 @@ function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; wor
 function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobStatus): string {
   const latest = audit.at(-1);
   const processing = ["received", "extracting", "checking"].includes(caseRecord.status);
+  if (caseRecord.status === "stopped" || jobStatus === "STOPPED") return "Analysis stopped. No further case steps will run.";
   if (jobStatus === "FAILED") return "Analysis failed. Review the case error and activity trace.";
   if (processing && jobStatus === "RUNNING") {
     return latest?.eventType === "model_extraction_started" || /_model_started$/.test(latest?.eventType ?? "") ? "Astra is extracting the broker facts"
@@ -274,10 +275,10 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
 }
 
 
-export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision, onReportSaved }: {
+export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, stopping, onStop, onResponse, onDecision, onReportSaved }: {
   id: string; caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
-  reason: string; setReason: (value: string) => void; submitting: boolean;
+  reason: string; setReason: (value: string) => void; submitting: boolean; stopping: boolean; onStop: () => void;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
   onReportSaved: () => void;
 }) {
@@ -288,6 +289,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
     <div className="case-toolbar">
       <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><Link href="/cases">Cases</Link><span className="sep">/</span><span className="current">{caseRecord.insuredName}</span></p>
       <CasePdfExport id={id} conversation={chatTurns.map(({ role, text, edited }) => ({ role, text, edited }))} />
+      {["received", "extracting", "checking", "waiting_for_broker"].includes(caseRecord.status) && <button className="quiet-button stop-analysis" type="button" disabled={stopping} onClick={onStop}><X size={15} aria-hidden="true" />{stopping ? "Stopping..." : "Stop analysis"}</button>}
       <span className="case-id-label">case {id.slice(0, 8)}</span>
       <Status value={caseRecord.status} />
     </div>
@@ -303,7 +305,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         <p className="message-label">Underwriting agent{working && <span className="message-live">Working</span>}</p>
         {working ? <AgentWorking caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} /> : <JobProgress caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} />}
         {caseRecord.status === "failed" && <div className="alert"><WarningCircle size={17} aria-hidden="true" />{caseRecord.error ?? "Analysis failed."}</div>}
-        {caseRecord.brief ? <p className="brief">{caseRecord.brief}</p> : !working && <p className="brief">Analysis is in progress.</p>}
+        {caseRecord.brief ? <p className="brief">{caseRecord.brief}</p> : !working && caseRecord.status !== "stopped" && <p className="brief">Analysis is in progress.</p>}
         {caseRecord.appetiteResult && <section className="detail-section appetite-recommendation" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100{caseRecord.appetiteResult.adjustments?.length ? ` (appetite ${caseRecord.appetiteResult.baseScore}, public records ${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score) >= 0 ? "+" : ""}${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score)})` : ""}</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
         {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}

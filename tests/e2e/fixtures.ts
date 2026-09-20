@@ -3,7 +3,7 @@ import { test as base, expect, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { e2eDatabaseUrl } from "../../scripts/e2e-env";
 
-type CaseStatus = "received" | "extracting" | "checking" | "waiting_for_broker" | "review_ready" | "approved" | "declined" | "failed";
+type CaseStatus = "received" | "extracting" | "checking" | "waiting_for_broker" | "review_ready" | "approved" | "declined" | "failed" | "stopped";
 type Fixtures = {
   authenticatedPage: Page;
   seedCase: (options?: { insuredName?: string; status?: CaseStatus }) => Promise<string>;

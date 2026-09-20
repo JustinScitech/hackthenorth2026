@@ -66,9 +66,9 @@ export function buildAgentReportSections(record: CaseRecord, audit: AuditEvent[]
       `Recommended next step: ${summary.action}`, result.explanation,
       ...(result.evidenceNote ? [`Evidence note: ${result.evidenceNote}`] : []),
       ...(result.lifecycleStatus ? [`Lifecycle status: ${result.lifecycleStatus}`] : []),
-      ...(result.missingData.length ? [`Missing information: ${result.missingData.join(", ")}`] : []),
+      ...(result.missingData?.length ? [`Missing information: ${result.missingData.join(", ")}`] : []),
     ]);
-    add("appetite-factors", "Appetite factor breakdown", result.criteria.map((criterion) =>
+    add("appetite-factors", "Appetite factor breakdown", (result.criteria ?? []).map((criterion) =>
       `${criterion.factor} - ${title(criterion.status)} (${criterion.points}/${criterion.maximum} points): ${criterion.detail}\nSource: ${criterion.source}`));
   }
 
@@ -86,7 +86,7 @@ export function buildAgentReportSections(record: CaseRecord, audit: AuditEvent[]
       ...record.findings.map((finding) => `${finding.label} - ${title(finding.result)}: ${finding.detail}\nSource: ${finding.source}`),
     ]);
   }
-  if (record.extractionConflicts.length) add("conflicts", "Extraction conflicts", record.extractionConflicts);
+  if (record.extractionConflicts?.length) add("conflicts", "Extraction conflicts", record.extractionConflicts);
 
   if (record.publicEvidence || record.publicSourceUrl) {
     const evidence = record.publicEvidence;

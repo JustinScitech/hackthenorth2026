@@ -10,9 +10,10 @@ export type CaseStatus =
   | "review_ready"
   | "approved"
   | "declined"
-  | "failed";
+  | "failed"
+  | "stopped";
 
-export type JobStatus = "QUEUED" | "RUNNING" | "WAITING" | "COMPLETED" | "FAILED";
+export type JobStatus = "QUEUED" | "RUNNING" | "WAITING" | "COMPLETED" | "FAILED" | "STOPPED";
 
 export type Fact<T> = { value: T | null; source: string; confidence: number };
 

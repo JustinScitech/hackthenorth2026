@@ -60,7 +60,9 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     const record = (await (await page.request.get(`/api/cases/${id}`)).json()).case;
     expect(record.appetiteResult.criteria).toHaveLength(8);
     expect(record.appetiteResult.missingData).toEqual([]);
-    expect(record.appetiteResult.score).toBe(business === "new" ? 94 : 49);
+    expect(record.appetiteResult.baseScore).toBe(business === "new" ? 94 : 49);
+    expect(record.appetiteResult.score).toBeGreaterThanOrEqual(0);
+    expect(record.appetiteResult.score).toBeLessThanOrEqual(100);
     expect(record.appetiteResult.rawScore).toBe(business === "new" ? 94 : 86);
     if (business === "new") {
       const recommendation = page.getByRole("region", { name: "Appetite recommendation" });
@@ -77,6 +79,8 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     results.push({ id, score: record.appetiteResult.score, rawScore: record.appetiteResult.rawScore, business });
   }
   await page.goto("/cases");
+  await expect(page.locator(`.case-row[href="/cases/${results[0].id}"]`)).toBeVisible();
+  await expect(page.locator(`.case-row[href="/cases/${results[1].id}"]`)).toBeVisible();
   const links = await page.locator(".case-row").evaluateAll((elements) => elements.map((element) => element.getAttribute("href")));
   expect(links.indexOf(`/cases/${results[0].id}`)).toBeLessThan(links.indexOf(`/cases/${results[1].id}`));
 });

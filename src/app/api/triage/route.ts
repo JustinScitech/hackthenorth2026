@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   if (!origin || origin !== new URL(request.url).origin) return Response.json({ error: "Use the triage page on this site." }, { status: 403 });
   try {
     const { client, options } = liveConfiguration();
-    const report = await runTriage(client, options);
+    const report = await runTriage(client, { ...options, signal: request.signal });
     // Schema is retained in CLI reports; the UI needs only the plan and results.
     const { schema: _schema, ...result } = report;
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });

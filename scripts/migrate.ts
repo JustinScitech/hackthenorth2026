@@ -97,6 +97,8 @@ async function main() {
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS extraction_conflicts jsonb NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS address text;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS property_context jsonb;
+    ALTER TABLE case_jobs DROP CONSTRAINT IF EXISTS case_jobs_status_check;
+    ALTER TABLE case_jobs ADD CONSTRAINT case_jobs_status_check CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled'));
   `);
   const { runMigrations } = await getMigrations(auth.options);
   await runMigrations();

@@ -5,13 +5,14 @@ import { guidelineVersion, scoreSubmission } from "./scoring";
 
 type Trace = { reason: string; query: Query; returned: number; total: number }[];
 
-async function readQueue(client: DataClient, plan: Plan, maxRecords: number, trace: Trace) {
+async function readQueue(client: DataClient, plan: Plan, maxRecords: number, trace: Trace, signal?: AbortSignal) {
   const records = new Map<string, Record<string, unknown>>();
   let offset = 0, total: number | undefined;
   while (total === undefined || offset < total) {
+    signal?.throwIfAborted();
     if (offset >= maxRecords) break;
     const query = { resource: plan.resource, select: plan.select, sort: [{ field: plan.id, direction: "asc" }], pagination: { limit: Math.min(50, maxRecords - offset), offset } } satisfies Query;
-    const page = await client.query(query);
+    const page = await client.query(query, signal);
     trace.push({ reason: offset === 0 ? "Fetch all candidates with the discovered fields; do not discard incomplete submissions." : `The API reports ${page.total} candidates; fetch the next page before ranking the queue.`, query, returned: page.rows.length, total: page.total });
     if (total !== undefined && total !== page.total) throw new Error("Federato queue changed during pagination. Rerun triage for a consistent ranking.");
     total = page.total;
@@ -28,10 +29,11 @@ async function readQueue(client: DataClient, plan: Plan, maxRecords: number, tra
   return { records, total: total ?? 0, truncated: records.size < (total ?? 0) };
 }
 
-export async function runTriage(client: DataClient, options: { resource?: string; mapping?: Mapping; maxRecords?: number; top?: number; asOf?: Date } = {}) {
+export async function runTriage(client: DataClient, options: { resource?: string; mapping?: Mapping; maxRecords?: number; top?: number; asOf?: Date; signal?: AbortSignal } = {}) {
   const maxRecords = options.maxRecords ?? 1000, top = options.top ?? 20;
   if (!Number.isInteger(maxRecords) || maxRecords < 1 || maxRecords > 5000 || !Number.isInteger(top) || top < 1 || top > maxRecords) throw new Error("Invalid triage limits.");
-  const schema = await client.schema();
+  const schema = await client.schema(options.signal);
+  options.signal?.throwIfAborted();
   const plan = planQuery(schema, options);
   const discovered = schema as Schema;
   if (discovered[plan.resource].fields?.status) plan.select.status = true;
@@ -40,7 +42,7 @@ export async function runTriage(client: DataClient, options: { resource?: string
     if (insured?.$expand?.select && plan.leaves.some((leaf) => leaf.path === "insured.id")) insured.$expand.select.id = true;
   }
   const trace: Trace = [];
-  const { records, total, truncated } = await readQueue(client, plan, maxRecords, trace);
+  const { records, total, truncated } = await readQueue(client, plan, maxRecords, trace, options.signal);
   const asOf = options.asOf ?? new Date();
   let policyPlan: Plan | undefined;
   let enrichmentComplete = true;
@@ -52,7 +54,7 @@ export async function runTriage(client: DataClient, options: { resource?: string
     const insured = policyPlan.select.insured as { $expand?: { select?: Record<string, unknown> } } | undefined;
     if (insured?.$expand?.select && policyPlan.leaves.some((leaf) => leaf.path === "insured.id")) insured.$expand.select.id = true;
     plan.reasoning.push("Submission records lack some appetite evidence. Follow the discovered Policy.submission reference in a second bounded query. Enrich only a unique linked policy with matching insured, line, and effective date; never match by account name or discard unmatched submissions.");
-    const policies = await readQueue(client, policyPlan, maxRecords, trace);
+    const policies = await readQueue(client, policyPlan, maxRecords, trace, options.signal);
     enrichmentComplete = !policies.truncated;
     for (const policy of policies.records.values()) {
       const id = readValues(policy, "submission.id")[0];
@@ -61,6 +63,7 @@ export async function runTriage(client: DataClient, options: { resource?: string
       linked.set(key, [...(linked.get(key) ?? []), policy]);
     }
   }
+  options.signal?.throwIfAborted();
   const ranked = [...records.values()].map((row) => {
     let scoringPlan = plan;
     let scoringRow = row;

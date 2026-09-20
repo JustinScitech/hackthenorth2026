@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["pg"],
+  serverExternalPackages: ["pg", "pdfjs-dist"],
   turbopack: { root: process.cwd() },
   // playwright-core resolves browsers.json through a computed path, so the file tracer misses it
   // and every function importing the job queue failed to load on Vercel. Include it explicitly.
