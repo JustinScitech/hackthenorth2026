@@ -439,8 +439,13 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 @keyframes trace-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 /* ---------- Triage ---------- */
-.triage-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 20px; font-size: 13.5px; color: var(--muted); }
-.triage-plan { margin: 0 0 24px; }
+.triage-page > .subtle { margin-bottom: 24px; max-width: 100ch; line-height: 1.65; }
+.triage-page .section-heading { align-items: flex-start; flex-wrap: wrap; gap: 20px 32px; margin: 32px 0 20px; }
+.triage-page .section-heading h2 { margin-bottom: 8px; }
+.triage-page .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.triage-page .actions button { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; }
+.triage-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; font-size: 13.5px; color: var(--muted); }
+.triage-plan { margin: 24px 0 32px; }
 .triage-plan > summary, .triage-card summary { cursor: pointer; padding: 14px 24px; color: var(--accent-ink); font-size: 14px; font-weight: 500; list-style: none; display: flex; align-items: center; gap: 8px; }
 .triage-plan > summary::-webkit-details-marker, .triage-card summary::-webkit-details-marker { display: none; }
 .triage-plan > summary::before, .triage-card summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 120ms ease; margin-right: 2px; }
@@ -452,10 +457,31 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
 .triage-plan details { margin: 8px 0 12px; }
 .triage-plan details summary { padding: 8px 12px; font-size: 13px; }
 .triage-plan pre { margin: 6px 0 0; overflow: auto; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 12.5px; line-height: 1.55; }
-.triage-list { display: grid; gap: 16px; }
+.triage-list { display: grid; gap: 24px; }
 .triage-card { margin: 0; }
-.triage-card .card-header { flex-wrap: wrap; }
-.triage-card .card-header h2 { display: flex; align-items: center; gap: 12px; font-size: 21px; }
+.triage-card .card-header { flex-wrap: wrap; gap: 20px 32px; padding: 24px; }
+.triage-card .card-header h2 { display: flex; align-items: center; gap: 14px; font-size: 21px; flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.triage-card .rank { flex-shrink: 0; }
+.triage-scores { display: grid; gap: 8px; margin-left: auto; }
+.triage-scores > div { display: flex; align-items: baseline; justify-content: flex-end; gap: 12px; }
+.triage-scores p { margin: 0; text-align: right; }
+.triage-card .triage-provenance { margin: 0; padding: 18px 24px 0; font-size: 13px; line-height: 1.65; }
+.triage-card .card-body { padding: 24px; }
+.triage-card .decision-banner { padding: 18px; margin-bottom: 24px; }
+.triage-card .decision-banner > svg { flex-shrink: 0; margin-top: 3px; }
+.triage-card .decision-banner > div { gap: 8px; }
+.triage-card .decision-banner span { line-height: 1.7; }
+.triage-card .next-action { margin-bottom: 20px; }
+.triage-card .plain-facts { gap: 12px; line-height: 1.65; }
+.triage-card .technical-detail { margin-top: 24px; }
+@media (max-width: 600px) {
+  .triage-card .card-header, .triage-card .card-body { padding: 20px 16px; }
+  .triage-card .triage-provenance { padding: 16px 16px 0; }
+  .triage-card .decision-banner { padding: 14px; }
+  .triage-scores { margin-left: 0; }
+  .triage-scores > div { justify-content: flex-start; }
+  .triage-scores p { text-align: left; }
+}
 .rank { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 6px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .score { display: inline-flex; align-items: baseline; gap: 2px; font-family: var(--font-display); font-weight: 500; font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text); }
 .score small { font-size: 13px; font-weight: 400; color: var(--muted); font-family: var(--font-sans); }

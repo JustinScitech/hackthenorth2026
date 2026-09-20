@@ -30,7 +30,7 @@ export default function TriagePage() {
   }
   const rows = report ? showAll ? report.ranked : report.topSubmissions : [];
   const labels = report ? resourceLabels(report.resource) : null;
-  return <main className="shell">
+  return <main className="shell triage-page">
     <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><span className="current">Federato triage</span></p>
     <div className="page-heading triage-heading">
       <div><p className="eyebrow">Federato challenge</p><h1>{labels ? `${labels.singular} priorities` : "Underwriting priorities"}</h1><p className="subtle">Rank the API queue against the supplied 2025 commercial property appetite.</p></div>
@@ -59,12 +59,12 @@ export default function TriagePage() {
         </div>
       </details>
       <div className="section-heading"><div><h2>{showAll ? `All evaluated ${labels?.plural}` : `Top ${report.top} ${labels?.plural}`}</h2><p className="subtle">Start with the recommended action, then open the evidence when you need the detail.</p></div><div className="actions"><button className="quiet-button" onClick={downloadSummary}><DownloadSimple size={15} />Download summary</button><button className="quiet-button" onClick={() => window.print()}><Printer size={15} />Print / save PDF</button><button className="quiet-button" onClick={() => setShowAll(!showAll)}>{showAll ? "Show top results" : "Show all results"}</button></div></div>
-      <p className="subtle">{rankingExplanation}</p>
+      <p className="subtle triage-ranking-note">{rankingExplanation}</p>
       {!rows.length && <div className="card"><p className="empty-state">The API returned an empty queue.</p></div>}
       <div className="triage-list">
         {rows.map((item, index) => { const summary = summarizeSubmission(item); const Icon = summary.status === "positive" ? CheckCircle : summary.status === "refer" ? Warning : WarningCircle; return <article key={item.id} className="triage-card card">
-          <div className="card-header"><h2><span className="rank" aria-label={`Rank ${index + 1}`}>{index + 1}</span>{item.account}</h2><div><span className="subtle">Match score </span><span className="score">{item.rawScore}<small>/100</small></span><p className="subtle">Priority score: {item.score}/100</p></div></div>
-          <p className="subtle">Lifecycle status: {item.lifecycleStatus}. {item.evidenceNote}</p>
+          <div className="card-header"><h2><span className="rank" aria-label={`Rank ${index + 1}`}>{index + 1}</span>{item.account}</h2><div className="triage-scores"><div><span className="subtle">Match score</span><span className="score">{item.rawScore}<small>/100</small></span></div><p className="subtle">Priority score: {item.score}/100</p></div></div>
+          <p className="subtle triage-provenance">Lifecycle status: {item.lifecycleStatus}. {item.evidenceNote}</p>
           <div className="card-body"><div className={`decision-banner decision-${summary.status}`}><Icon size={18} aria-hidden="true" /><div><strong>{summary.title}</strong><span>{summary.plainExplanation}</span></div></div><p className="next-action"><strong>Next step:</strong> {summary.action}</p><div className="plain-facts">{summary.strengths.length > 0 && <div><strong>What supports this:</strong> {summary.strengths.join(", ")}</div>}{summary.questions.length > 0 && <div><strong>What to check:</strong> {summary.questions.join(", ")}</div>}</div><details className="technical-detail"><summary>Show the detailed reasoning</summary><p className="subtle" style={{ marginBottom: 10 }}><span className="annotation">{labels?.singular} {item.id}</span> {item.recommendation}</p><p>{item.explanation}</p></details></div>
           <details><summary>Appetite breakdown and data sources</summary><div className="triage-table-wrap"><table className="triage-table"><thead><tr><th>Factor</th><th>Result</th><th>Points</th><th>Evidence and rule</th></tr></thead><tbody>{item.criteria.map((criterion) => <tr key={criterion.factor}><th scope="row">{criterion.factor}</th><td>{criterion.status}</td><td>{criterion.points}/{criterion.maximum}</td><td>{criterion.detail}<small>Source: {criterion.source}</small></td></tr>)}</tbody></table></div></details>
         </article>; })}
