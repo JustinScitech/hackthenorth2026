@@ -11,32 +11,47 @@ const LEASE_SECONDS = 900;
 const FOLLOW_UP_HOURS = 24;
 
 // Each activity becomes an `agent.activity` span when SENTRY_DSN is set; otherwise these are the plain functions.
-const { checkCase, extractCase, failCase, finalizeDecision, recordBrokerFollowUp, recordBrokerResponse, researchPublicSource, researchPropertyContext } = monitorActivities(activityModule);
+const { checkCase, ensureCaseActive, extractCase, failCase, finalizeDecision, recordBrokerFollowUp, recordBrokerResponse, researchPublicSource, researchPropertyContext } = monitorActivities(activityModule);
 
-async function scheduleFollowUp(caseId: string) {
-  const record = await getCase(caseId);
-  if (record?.status !== "waiting_for_broker") return;
-  await enqueueJob(caseId, "broker_follow_up", `followup:${caseId}:${record.analysisRevision}:1`,
-    { revision: record.analysisRevision, reminderNumber: 1 }, FOLLOW_UP_HOURS * 3_600_000);
+async function scheduleFollowUp(caseId: string, reminderNumber = 1, expectedRevision?: number) {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query("SELECT status, analysis_revision FROM cases WHERE id = $1 FOR UPDATE", [caseId]);
+    const record = result.rows[0];
+    if (record?.status === "waiting_for_broker" && (expectedRevision === undefined || record.analysis_revision === expectedRevision)) {
+      await enqueueJob(caseId, "broker_follow_up", `followup:${caseId}:${record.analysis_revision}:${reminderNumber}`,
+        { revision: record.analysis_revision, reminderNumber }, FOLLOW_UP_HOURS * 3_600_000, client);
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
-async function runJob(job: Job) {
+async function runJob(job: Job, signal: AbortSignal) {
+  await ensureCaseActive(job.case_id, signal);
   const record = await getCase(job.case_id);
-  if (!record || ["approved", "declined", "failed"].includes(record.status)) return;
+  if (!record || ["approved", "declined", "failed", "stopped"].includes(record.status)) return;
   if (job.kind === "analyze") {
     if (record.status === "waiting_for_broker") { await scheduleFollowUp(job.case_id); return; }
     if (!["received", "extracting", "checking"].includes(record.status)) return;
-    await extractCase(job.case_id);
-    await researchPublicSource(job.case_id);
-    await researchPropertyContext(job.case_id);
-    await checkCase(job.case_id);
+    await extractCase(job.case_id, signal);
+    await researchPublicSource(job.case_id, signal);
+    await researchPropertyContext(job.case_id, signal);
+    await checkCase(job.case_id, signal);
+    await ensureCaseActive(job.case_id, signal);
     await scheduleFollowUp(job.case_id);
   } else if (job.kind === "broker_response") {
     if (!job.payload.actionId) throw new Error("Missing broker action ID");
     if (!["waiting_for_broker", "review_ready", "extracting", "checking"].includes(record.status)) return;
     await recordBrokerResponse(job.case_id, job.payload.actionId);
-    await extractCase(job.case_id);
-    await checkCase(job.case_id);
+    await extractCase(job.case_id, signal);
+    await checkCase(job.case_id, signal);
+    await ensureCaseActive(job.case_id, signal);
     await scheduleFollowUp(job.case_id);
   } else if (job.kind === "decision") {
     if (!job.payload.actionId) throw new Error("Missing decision action ID");
@@ -44,15 +59,15 @@ async function runJob(job: Job) {
   } else if (job.kind === "research") {
     // The underwriter confirmed a discovered source: fetch it and re-run the checks so its evidence joins the findings.
     if (!["waiting_for_broker", "review_ready"].includes(record.status)) return;
-    await researchPublicSource(job.case_id);
-    await checkCase(job.case_id);
+    await researchPublicSource(job.case_id, signal);
+    await checkCase(job.case_id, signal);
+    await ensureCaseActive(job.case_id, signal);
     await scheduleFollowUp(job.case_id);
   } else {
     const { revision, reminderNumber } = job.payload;
     if (record.status !== "waiting_for_broker" || record.analysisRevision !== revision || !reminderNumber) return;
     await recordBrokerFollowUp(job.case_id, revision, reminderNumber);
-    await enqueueJob(job.case_id, "broker_follow_up", `followup:${job.case_id}:${revision}:${reminderNumber + 1}`,
-      { revision, reminderNumber: reminderNumber + 1 }, FOLLOW_UP_HOURS * 3_600_000);
+    await scheduleFollowUp(job.case_id, reminderNumber + 1, revision);
   }
 }
 
@@ -70,15 +85,22 @@ export async function processNextJob(): Promise<boolean> {
   const job = claimed.rows[0];
   if (!job) return false;
   const startedAt = Date.now();
+  const controller = new AbortController();
+  const stopPoll = setInterval(() => {
+    void db.query("SELECT status FROM cases WHERE id = $1", [job.case_id])
+      .then((result) => { if (result.rows[0]?.status === "stopped") controller.abort(); })
+      .catch(console.error);
+  }, 1000);
   const heartbeat = setInterval(() => {
     void db.query(`UPDATE case_jobs SET lease_until = now() + ($3 * interval '1 second')
       WHERE id = $1 AND lease_token = $2 AND finished_at IS NULL`, [job.id, token, LEASE_SECONDS]).catch(console.error);
   }, 30_000);
   try {
-    await startAgentSpan(`underwriting.job.${job.kind}`, "agent.job", { "job.kind": job.kind, "job.attempt": job.attempts, "case.id": job.case_id }, () => runJob(job));
+    await startAgentSpan(`underwriting.job.${job.kind}`, "agent.job", { "job.kind": job.kind, "job.attempt": job.attempts, "case.id": job.case_id }, () => runJob(job, controller.signal));
     await db.query("UPDATE case_jobs SET status = 'completed', finished_at = now(), lease_token = NULL, updated_at = now() WHERE id = $1 AND lease_token = $2", [job.id, token]);
     recordJobMetrics(job.kind, "completed", Date.now() - startedAt);
   } catch (error) {
+    if (controller.signal.aborted || (await getCase(job.case_id))?.status === "stopped") return true;
     const message = error instanceof Error ? error.message : String(error);
     const exhausted = job.attempts >= MAX_ATTEMPTS;
     await db.query(
@@ -93,6 +115,7 @@ export async function processNextJob(): Promise<boolean> {
     recordJobMetrics(job.kind, exhausted ? "failed" : "retried", Date.now() - startedAt);
     console.error("Case job failed", job.id, message);
   } finally {
+    clearInterval(stopPoll);
     clearInterval(heartbeat);
   }
   return true;

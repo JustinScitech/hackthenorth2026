@@ -68,6 +68,8 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     expect(record.appetiteResult.missingData).toEqual([]);
     // Public property records may move the priority score; the appetite-only score is what the guideline pins.
     expect(record.appetiteResult.baseScore ?? record.appetiteResult.score).toBe(business === "new" ? 94 : 49);
+    expect(record.appetiteResult.score).toBeGreaterThanOrEqual(0);
+    expect(record.appetiteResult.score).toBeLessThanOrEqual(100);
     expect(record.appetiteResult.rawScore).toBe(business === "new" ? 94 : 86);
     if (business === "new") {
       const recommendation = page.getByRole("region", { name: "Where this stands" });

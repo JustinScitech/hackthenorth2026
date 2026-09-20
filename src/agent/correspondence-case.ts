@@ -23,9 +23,10 @@ async function loadCaseNotes(caseId: string, sourceKey: string): Promise<string>
  * Stores the email for this analysis revision as pending the underwriter's approval, or clears it
  * when nothing is missing. A previous revision's draft is replaced: each pause asks its own question.
  */
-export async function draftCaseEmail(caseId: string, caseRecord: CaseRecord, result: { question: string | null; findings: Finding[]; appetiteResult: RankedSubmission }): Promise<void> {
+export async function draftCaseEmail(caseId: string, caseRecord: CaseRecord, result: { question: string | null; findings: Finding[]; appetiteResult: RankedSubmission }, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
   if (!result.question) {
-    await db.query("UPDATE cases SET draft_email = NULL, draft_status = NULL WHERE id = $1", [caseId]);
+    await db.query("UPDATE cases SET draft_email = NULL, draft_status = NULL WHERE id = $1 AND status <> 'stopped'", [caseId]);
     return;
   }
   let notes = "";
@@ -36,7 +37,9 @@ export async function draftCaseEmail(caseId: string, caseRecord: CaseRecord, res
   }
   const missing = result.appetiteResult.missingData;
   const draft = await draftBrokerEmail({ ...caseRecord, notes }, missing, result.findings);
-  await db.query("UPDATE cases SET draft_email = $2, draft_status = 'pending', updated_at = now() WHERE id = $1", [caseId, draft.text]);
+  signal?.throwIfAborted();
+  const saved = await db.query("UPDATE cases SET draft_email = $2, draft_status = 'pending', updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId, draft.text]);
+  if (!saved.rowCount) throw new DOMException("Case analysis stopped", "AbortError");
   await addAudit(caseId, "broker_email_drafted", {
     revision: caseRecord.analysisRevision, source: draft.source, model: draft.model, durationMs: draft.durationMs, fallbackReason: draft.fallbackReason, missing,
   }, `draft:${caseId}:${caseRecord.analysisRevision}`);

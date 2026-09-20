@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowsClockwise, DownloadSimple, FolderPlus, Info, ListNumbers, Printer, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import { dispositionOrder, nextStep, type Disposition, type NextStep } from "@/federato/disposition";
@@ -10,6 +10,7 @@ import { buildReviewPlan, summarizeQueue } from "@/federato/review-plan";
 import type { StoredTriageReport } from "@/federato/reports";
 import type { RankedSubmission } from "@/federato/scoring";
 import { loadCases } from "./load-cases";
+import { PdfTriage } from "./pdf-triage";
 
 type Row = { item: RankedSubmission; rank: number; step: NextStep; property: boolean };
 type LineFilter = "property" | "all";
@@ -37,6 +38,8 @@ export function Queue() {
   const [report, setReport] = useState<StoredTriageReport | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(true);
   const [ranking, setRanking] = useState(false);
+  const [stopped, setStopped] = useState(false);
+  const runController = useRef<AbortController | null>(null);
   const [error, setError] = useState("");
   const [line, setLine] = useState<LineFilter>("property");
   const [bucket, setBucket] = useState<BucketFilter>("all");
@@ -67,14 +70,17 @@ export function Queue() {
   }, []);
 
   async function rank() {
-    setRanking(true); setError(""); setOpenError("");
+    const controller = new AbortController();
+    runController.current = controller;
+    setRanking(true); setStopped(false); setError(""); setOpenError("");
     try {
-      const response = await fetch("/api/triage", { method: "POST" });
+      const response = await fetch("/api/triage", { method: "POST", signal: controller.signal });
       const data = await response.json();
+      controller.signal.throwIfAborted();
       if (!response.ok) throw new Error(data.error ?? "Unable to rank the queue.");
       setReport(data); setBucket("all");
-    } catch (err) { setError(err instanceof Error ? err.message : "Unable to rank the queue."); }
-    finally { setRanking(false); }
+    } catch (err) { if (controller.signal.aborted) setStopped(true); else setError(err instanceof Error ? err.message : "Unable to rank the queue."); }
+    finally { if (runController.current === controller) runController.current = null; setRanking(false); }
   }
 
   async function openCase(row: Row) {
@@ -115,13 +121,15 @@ export function Queue() {
     <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><span className="current">Queue</span></p>
     <div className="page-heading triage-heading">
       <div><p className="eyebrow">Federato · live</p><h1>Queue</h1><p className="subtle">Every submission in the carrier&apos;s queue, read against the 2025 commercial property appetite. Each row says where it stands, why, and what would change it.</p></div>
-      <button className="primary-button" onClick={rank} disabled={ranking || exporting}><ListNumbers size={16} />{ranking ? "Reading the queue…" : report ? "Rank again" : "Rank the live queue"}</button>
+      <div className="actions"><button className="primary-button" onClick={rank} disabled={ranking || exporting}><ListNumbers size={16} />{ranking ? "Reading the queue…" : report ? "Rank again" : "Rank the live queue"}</button>{ranking && <button className="quiet-button" type="button" onClick={() => runController.current?.abort()}>Stop ranking</button>}</div>
     </div>
     <div aria-live="polite">
       {ranking && <div className="notice"><Info size={17} aria-hidden="true" />Discovering the schema, reading every submission and linked policy, and scoring the queue. About fifteen seconds.</div>}
+      {stopped && <div className="notice" role="status">Live ranking stopped.</div>}
       {error && <div role="alert" className="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
       {openError && <div role="alert" className="alert"><WarningCircle size={17} aria-hidden="true" />{openError}</div>}
     </div>
+    <PdfTriage />
     {!report && !ranking && !loadingLatest && !error && <div className="card"><div className="panel-empty"><span className="empty-icon"><ListNumbers size={22} /></span><strong>The queue has yet to be ranked.</strong><p>Rank it once and every submission gets a disposition, a one-line reason, and a next step. The result stays here for the next visit.</p><button className="primary-button accent" type="button" onClick={rank}>Rank the live queue</button></div></div>}
     {!report && loadingLatest && <p className="subtle">Loading the last ranked queue…</p>}
     {report && <>

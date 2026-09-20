@@ -15,7 +15,15 @@ import { discoverCaseSources } from "./source-discovery-activity";
 import { verifyCase } from "./verifier";
 import { draftCaseEmail } from "./correspondence-case";
 
-export async function researchPublicSource(caseId: string): Promise<void> {
+export async function ensureCaseActive(caseId: string, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
+  const result = await db.query("SELECT status FROM cases WHERE id = $1", [caseId]);
+  if (result.rows[0]?.status === "stopped") throw new DOMException("Case analysis stopped", "AbortError");
+  signal?.throwIfAborted();
+}
+
+export async function researchPublicSource(caseId: string, signal?: AbortSignal): Promise<void> {
+  await ensureCaseActive(caseId, signal);
   const caseRecord = await getCase(caseId);
   if (!caseRecord) throw new Error(`Case ${caseId} not found`);
   // No URL from the broker: search for the assessor record and let the underwriter confirm one (see source-discovery-activity.ts).
@@ -26,19 +34,23 @@ export async function researchPublicSource(caseId: string): Promise<void> {
   }
   await addAudit(caseId, "public_research_started", {}, `research-started:${caseId}`);
   try {
-    const evidence = await browsePublicSource(caseRecord.publicSourceUrl);
+    const evidence = await browsePublicSource(caseRecord.publicSourceUrl, undefined, signal);
+    await ensureCaseActive(caseId, signal);
     await putMongoEvidence(caseId, evidence);
-    await db.query("UPDATE cases SET public_evidence = $2, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(evidence)]);
+    const saved = await db.query("UPDATE cases SET public_evidence = $2, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId, JSON.stringify(evidence)]);
+    if (!saved.rowCount) return;
     await addAudit(caseId, "public_research_completed", { url: evidence.url, signals: (evidence.signals ?? []).map((signal) => signal.kind), conflicts: (evidence.conflicts ?? []).length, model: evidence.extraction?.status }, `research:${caseId}`);
     logAgentEvent("public_research_completed", { caseId, signals: (evidence.signals ?? []).length });
   } catch (error) {
+    if (signal?.aborted || error instanceof DOMException && error.name === "AbortError") throw error;
     captureAgentError(error);
     await addAudit(caseId, "public_research_failed", { reason: error instanceof Error ? error.message.slice(0, 160) : "Unknown error" }, `research-failed:${caseId}`);
   }
 }
 
 /** Pulls the public record for the property address, once per case. Every dataset answers on its own, so a partial result is still saved. */
-export async function researchPropertyContext(caseId: string): Promise<void> {
+export async function researchPropertyContext(caseId: string, signal?: AbortSignal): Promise<void> {
+  await ensureCaseActive(caseId, signal);
   const caseRecord = await getCase(caseId);
   if (!caseRecord) throw new Error(`Case ${caseId} not found`);
   if (!caseRecord.address) {
@@ -48,8 +60,10 @@ export async function researchPropertyContext(caseId: string): Promise<void> {
   if (caseRecord.propertyContext) return;
   await addAudit(caseId, "property_context_started", { address: caseRecord.address }, `context-started:${caseId}`);
   try {
-    const context = await gatherPropertyContext(caseRecord.address);
-    await db.query("UPDATE cases SET property_context = $2, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(context)]);
+    const context = await gatherPropertyContext(caseRecord.address, new Date(), undefined, signal);
+    await ensureCaseActive(caseId, signal);
+    const saved = await db.query("UPDATE cases SET property_context = $2, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId, JSON.stringify(context)]);
+    if (!saved.rowCount) return;
     const ok = context.sources.filter((source) => source.status === "ok").length;
     if (!context.geocoded) {
       await addAudit(caseId, "property_context_failed", { reason: "The address could not be geocoded" }, `context-failed:${caseId}`);
@@ -58,15 +72,18 @@ export async function researchPropertyContext(caseId: string): Promise<void> {
     await addAudit(caseId, "property_context_completed", { matched: context.geocoded.matchedAddress, ok, total: context.sources.length, unavailable: context.sources.filter((source) => source.status === "unavailable").map((source) => source.id) }, `context:${caseId}`);
     logAgentEvent("property_context_completed", { caseId, ok, total: context.sources.length });
   } catch (error) {
+    if (signal?.aborted || error instanceof DOMException && error.name === "AbortError") throw error;
     captureAgentError(error);
     await addAudit(caseId, "property_context_failed", { reason: error instanceof Error ? error.message.slice(0, 160) : "Unknown error" }, `context-failed:${caseId}`);
   }
 }
 
-export async function extractCase(caseId: string): Promise<void> {
+export async function extractCase(caseId: string, signal?: AbortSignal): Promise<void> {
+  await ensureCaseActive(caseId, signal);
   const caseRecord = await getCase(caseId);
   if (!caseRecord) throw new Error(`Case ${caseId} not found`);
-  await db.query("UPDATE cases SET status = 'extracting', error = NULL, updated_at = now() WHERE id = $1", [caseId]);
+  const started = await db.query("UPDATE cases SET status = 'extracting', error = NULL, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId]);
+  if (!started.rowCount) throw new DOMException("Case analysis stopped", "AbortError");
   await addAudit(caseId, "extraction_started", { revision: caseRecord.analysisRevision }, `extraction-started:${caseId}:${caseRecord.analysisRevision}`);
   const responseRows = await db.query(
     "SELECT source_key FROM case_actions WHERE case_id = $1 AND kind = 'broker_response' AND processed_at IS NOT NULL ORDER BY created_at",
@@ -80,15 +97,18 @@ export async function extractCase(caseId: string): Promise<void> {
   const providers = [process.env.GEMINI_API_KEY && "Gemini", process.env.OPENAI_API_KEY && "OpenAI"].filter(Boolean);
   if (providers.length) await addAudit(caseId, "model_extraction_started", { providers, revision: caseRecord.analysisRevision }, `model-started:${caseId}:${caseRecord.analysisRevision}`);
   const extraction = await extractNotes(texts.join(BROKER_UPDATE_SEPARATOR), async (event, attempt) => {
+    signal?.throwIfAborted();
     const provider = attempt.source.toLowerCase();
     await addAudit(caseId, `${provider}_model_${event}`, {
       model: attempt.model, durationMs: attempt.durationMs, errorCode: attempt.errorCode,
       revision: caseRecord.analysisRevision,
     }, `${provider}:${event}:${caseId}:${caseRecord.analysisRevision}:${attempt.model}`);
-  });
+  }, signal);
+  await ensureCaseActive(caseId, signal);
   const appetite = resolveCaseAppetite(texts[0], caseRecord.appetite, texts.slice(1).join("\n"), extraction.fields);
   const facts = buildFacts({ ...caseRecord, appetite: appetite.value }, extraction.extracted, { ...extraction.fields, appetite: appetite.fields });
-  await db.query("UPDATE cases SET facts = $2, extraction_conflicts = $3, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(facts), JSON.stringify(extraction.conflicts)]);
+  const saved = await db.query("UPDATE cases SET facts = $2, extraction_conflicts = $3, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId, JSON.stringify(facts), JSON.stringify(extraction.conflicts)]);
+  if (!saved.rowCount) throw new DOMException("Case analysis stopped", "AbortError");
   await addAudit(caseId, "extraction_completed", {
     revision: caseRecord.analysisRevision,
     sources: extraction.sources,
@@ -101,10 +121,12 @@ export async function extractCase(caseId: string): Promise<void> {
   logAgentEvent("extraction_completed", { caseId, revision: caseRecord.analysisRevision, conflicts: extraction.conflicts.length, models: extraction.attempts.filter((attempt) => attempt.status === "completed").map((attempt) => attempt.model) });
 }
 
-export async function checkCase(caseId: string): Promise<{ needsBroker: boolean }> {
+export async function checkCase(caseId: string, signal?: AbortSignal): Promise<{ needsBroker: boolean }> {
+  await ensureCaseActive(caseId, signal);
   const caseRecord = await getCase(caseId);
   if (!caseRecord?.facts) throw new Error(`Extracted facts missing for ${caseId}`);
-  await db.query("UPDATE cases SET status = 'checking', updated_at = now() WHERE id = $1", [caseId]);
+  const started = await db.query("UPDATE cases SET status = 'checking', updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId]);
+  if (!started.rowCount) throw new DOMException("Case analysis stopped", "AbortError");
   await addAudit(caseId, "guideline_check_started", { revision: caseRecord.analysisRevision }, `check-started:${caseId}:${caseRecord.analysisRevision}`);
   const result = evaluateFacts(caseRecord.facts as Facts);
   result.appetiteResult.id = caseId;
@@ -124,12 +146,15 @@ export async function checkCase(caseId: string): Promise<{ needsBroker: boolean 
     if (assessment.note) result.brief += ` ${assessment.note}`;
   }
   await verifyCase(caseId, caseRecord, result);
+  await ensureCaseActive(caseId, signal);
   const status = result.question ? "waiting_for_broker" : "review_ready";
-  await draftCaseEmail(caseId, caseRecord, result);
-  await db.query(
-    "UPDATE cases SET status = $2, findings = $3, question = $4, brief = $5, appetite_result = $6, updated_at = now() WHERE id = $1",
+  await draftCaseEmail(caseId, caseRecord, result, signal);
+  await ensureCaseActive(caseId, signal);
+  const saved = await db.query(
+    "UPDATE cases SET status = $2, findings = $3, question = $4, brief = $5, appetite_result = $6, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id",
     [caseId, status, JSON.stringify(result.findings), result.question, result.brief, JSON.stringify(result.appetiteResult)],
   );
+  if (!saved.rowCount) throw new DOMException("Case analysis stopped", "AbortError");
   await addAudit(caseId, "analysis_completed", {
     revision: caseRecord.analysisRevision, status,
     pass: result.findings.filter((finding) => finding.result === "pass").length,
@@ -153,7 +178,8 @@ export async function recordBrokerResponse(caseId: string, actionId: string): Pr
     if (!action.rows[0] || action.rows[0].kind !== "broker_response") throw new Error("Invalid broker response action");
     if (action.rows[0].processed_at) { await client.query("COMMIT"); return false; }
     await client.query("UPDATE case_actions SET processed_at = now() WHERE id = $1", [actionId]);
-    await client.query("UPDATE cases SET analysis_revision = analysis_revision + 1, updated_at = now() WHERE id = $1", [caseId]);
+    const updated = await client.query("UPDATE cases SET analysis_revision = analysis_revision + 1, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId]);
+    if (!updated.rowCount) throw new DOMException("Case analysis stopped", "AbortError");
     await client.query(
       "INSERT INTO audit_events (case_id, event_type, event_key, detail) VALUES ($1, 'broker_response_received', $2, $3) ON CONFLICT (event_key) DO NOTHING",
       [caseId, `action:${actionId}`, JSON.stringify({ actionId })],
@@ -208,6 +234,7 @@ export async function finalizeDecision(caseId: string, actionId: string): Promis
 }
 
 export async function failCase(caseId: string, reason: string): Promise<void> {
-  await db.query("UPDATE cases SET status = 'failed', error = $2, updated_at = now() WHERE id = $1", [caseId, reason.slice(0, 500)]);
+  const saved = await db.query("UPDATE cases SET status = 'failed', error = $2, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId, reason.slice(0, 500)]);
+  if (!saved.rowCount) return;
   await addAudit(caseId, "job_failed", { reason: reason.slice(0, 500) }, `failed:${caseId}`);
 }

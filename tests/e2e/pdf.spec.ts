@@ -31,6 +31,7 @@ test("reviewer edits are saved, shown, exported, and protected from stale writes
   await page.getByRole("button", { name: "Save edited report" }).click();
   await expect(page.getByText("Reviewer revised the assessment after checking the evidence.")).toBeVisible();
 
+  await expect.poll(async () => (await (await page.request.get(`/api/cases/${id}`)).json()).case.reportDraft?.sections?.[0]?.body).toBe("Reviewer revised the assessment after checking the evidence.");
   const saved = await (await page.request.get(`/api/cases/${id}`)).json();
   expect(saved.case.reportDraft.sections[0].body).toBe("Reviewer revised the assessment after checking the evidence.");
   expect(saved.case.reportDraftVersion).toBe(1);

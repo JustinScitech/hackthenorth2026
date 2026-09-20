@@ -53,16 +53,19 @@ const extractionParser = (text: string): AttemptParser<ExtractedFields> => (raw)
 /** Any other JSON shape: the caller's parser decides, and a malformed answer fails the attempt the same way. */
 const jsonParser = <T>(parse: JsonParser<T>): AttemptParser<T> => (raw) => { if (!raw) throw new Error("Empty model response"); return { value: parse(raw) }; };
 
-async function runAttempt<T>(source: ModelSource, model: string, parse: AttemptParser<T>, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>, onEvent?: ModelObserver<T>): Promise<ModelAttempt<T> & { error?: unknown }> {
+async function runAttempt<T>(source: ModelSource, model: string, parse: AttemptParser<T>, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number; usage?: TokenUsage }>, onEvent?: ModelObserver<T>, signal?: AbortSignal): Promise<ModelAttempt<T> & { error?: unknown }> {
+  signal?.throwIfAborted();
   const started = performance.now();
   await onEvent?.("started", { source, model, status: "started", durationMs: 0 });
   try {
     const response = await generate();
+    signal?.throwIfAborted();
     const parsed = parse(response.text);
-    const completed: ModelAttempt<T> = { source, model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: parsed.value, reading: parsed.reading, attemptCount: response.attemptCount ?? 1 };
+    const completed: ModelAttempt<T> = { source, model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: parsed.value, reading: parsed.reading, attemptCount: response.attemptCount ?? 1, usage: response.usage };
     await onEvent?.("completed", completed);
     return completed;
   } catch (error) {
+    signal?.throwIfAborted();
     const failed: ModelAttempt<T> = { source, model, status: "failed", durationMs: Math.round(performance.now() - started), errorCode: errorCode(error), attemptCount: 1 };
     console.warn(`${source} model unavailable`, model, error instanceof Error ? error.name : "UnknownError");
     await onEvent?.("failed", failed);
@@ -77,27 +80,28 @@ export async function runGeminiWaterfall<T = ExtractedFields>(
   models: readonly string[] = GEMINI_WATERFALL,
   text = "",
   parse?: JsonParser<T>,
+  signal?: AbortSignal,
 ): Promise<ModelAttempt<T>[]> {
   const parser = parse ? jsonParser(parse) : extractionParser(text) as unknown as AttemptParser<T>;
   const attempts: ModelAttempt<T>[] = [];
   for (const model of models) {
-    const { error, ...attempt } = await runAttempt("Gemini", model, parser, () => generate(model), onEvent);
+    const { error, ...attempt } = await runAttempt("Gemini", model, parser, () => generate(model), onEvent, signal);
     attempts.push(attempt);
     if (attempt.status === "completed" || !shouldFallThroughGeminiError(error)) break;
   }
   return attempts;
 }
 
-async function geminiExtraction(text: string, onEvent?: ModelObserver): Promise<ModelAttempt[]> {
+async function geminiExtraction(text: string, onEvent?: ModelObserver, signal?: AbortSignal): Promise<ModelAttempt[]> {
   const models = geminiModels();
   if (!process.env.GEMINI_API_KEY) return [{ source: "Gemini", model: models[0], status: "not_configured", durationMs: 0 }];
-  return runGeminiWaterfall((model) => geminiJson(model, EXTRACTION_PROMPT, text), onEvent, models, text);
+  return runGeminiWaterfall((model) => geminiJson(model, EXTRACTION_PROMPT, text, { signal }), onEvent, models, text, undefined, signal);
 }
 
-async function openaiExtraction(text: string, onEvent?: ModelObserver): Promise<ModelAttempt[]> {
+async function openaiExtraction(text: string, onEvent?: ModelObserver, signal?: AbortSignal): Promise<ModelAttempt[]> {
   const model = openaiModel();
   if (!process.env.OPENAI_API_KEY) return [{ source: "OpenAI", model, status: "not_configured", durationMs: 0 }];
-  const { error: _error, ...attempt } = await runAttempt("OpenAI", model, extractionParser(text), () => openaiJson(model, EXTRACTION_PROMPT, text, openaiSchema), onEvent);
+  const { error: _error, ...attempt } = await runAttempt("OpenAI", model, extractionParser(text), () => openaiJson(model, EXTRACTION_PROMPT, text, openaiSchema, { signal }), onEvent, signal);
   return [attempt];
 }
 
@@ -136,7 +140,9 @@ export function assembleExtraction(text: string, attempts: ModelAttempt[]): Extr
 }
 
 /** Runs every configured model alongside the parser; a model that fails, times out, or returns bad JSON is simply absent from the vote. */
-export async function extractNotes(text: string, onModelEvent?: ModelObserver): Promise<Extraction> {
-  const [geminiAttempts, openaiAttempts] = await Promise.all([geminiExtraction(text, onModelEvent), openaiExtraction(text, onModelEvent)]);
+export async function extractNotes(text: string, onModelEvent?: ModelObserver, signal?: AbortSignal): Promise<Extraction> {
+  signal?.throwIfAborted();
+  const [geminiAttempts, openaiAttempts] = await Promise.all([geminiExtraction(text, onModelEvent, signal), openaiExtraction(text, onModelEvent, signal)]);
+  signal?.throwIfAborted();
   return assembleExtraction(text, [...geminiAttempts, ...openaiAttempts]);
 }

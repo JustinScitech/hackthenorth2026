@@ -15,6 +15,7 @@ export function CaseDetail({ id }: { id: string }) {
   const [response, setResponse] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const actionRef = useRef<{ signature: string; id: string } | null>(null);
   const pollInterval = !data || ["received", "extracting", "checking"].includes(data.case.status) ? 1000 : 3000;
 
@@ -67,13 +68,29 @@ export function CaseDetail({ id }: { id: string }) {
     }
   }
 
+  async function stopCase() {
+    if (stopping) return;
+    setStopping(true);
+    setError(null);
+    try {
+      const result = await fetch(`/api/cases/${id}/stop`, { method: "POST" });
+      const payload = await result.json();
+      if (!result.ok) throw new Error(payload.error ?? "Could not stop the analysis.");
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not stop the analysis.");
+    } finally {
+      setStopping(false);
+    }
+  }
+
   if (loading && !data) return <main className="shell shell-narrow"><Link className="back-link" href="/cases"><ArrowLeft size={15} /> Cases</Link><div className="card"><p className="empty-state">Loading case...</p></div></main>;
   if (!data) return <main className="shell shell-narrow"><Link className="back-link" href="/cases"><ArrowLeft size={15} /> Cases</Link><div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error ?? "Case not found."}</div></main>;
 
   return <CaseView
     key={id} id={id} caseRecord={data.case} audit={data.audit} jobStatus={data.jobStatus} error={error} voiceAvailable={data.voiceAvailable}
     response={response} setResponse={setResponse} reason={reason} setReason={setReason}
-    submitting={submitting} onResponse={() => void sendAction("broker_response")}
+    submitting={submitting} stopping={stopping} onStop={() => void stopCase()} onResponse={() => void sendAction("broker_response")}
     onDecision={(kind) => void sendAction(kind)} onReportSaved={() => void refresh()} onSourceConfirmed={() => void refresh()}
   />;
 }
