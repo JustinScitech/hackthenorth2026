@@ -385,7 +385,7 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .detail-section > .brief { margin: 16px 20px; }
 .source-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 0 20px 16px; font-size: 13px; color: var(--muted); }
 .fact-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; padding: 6px 20px 10px; }
-.fact-row { display: grid; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); font-size: 12.5px; }
+.fact-row { display: grid; align-content: start; gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); font-size: 12.5px; }
 .fact-row:nth-last-child(-n + 2) { border-bottom: 0; }
 .fact-row span { color: var(--muted); }
 .fact-row strong { font-family: var(--font-display); font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }

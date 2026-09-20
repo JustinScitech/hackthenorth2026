@@ -167,7 +167,7 @@ export function parserReading(text: string): Reading {
   for (const line of text.split(/\r?\n/)) for (const key of Object.keys(brokerAppetite(line)) as AppetiteField[]) lineFor[key] = line.trim();
   for (const field of APPETITE_FIELDS) {
     const value = appetite[field] ?? null;
-    (reading[field] as FieldReading<typeof field>) = { value, quote: value === null ? null : lineFor[field] ?? null } as FieldReading<typeof field>;
+    Object.assign(reading, { [field]: { value, quote: value === null ? null : lineFor[field] ?? null } });
   }
   return reading;
 }
