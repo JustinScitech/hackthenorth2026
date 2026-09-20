@@ -41,7 +41,7 @@ test("blank intake appetite fields retain broker evidence through the real worke
   expect(record.appetiteResult.score).toBe(94);
 });
 
-test("real cases share carrier scoring, distinguish renewals, and rank the queue", async ({ authenticatedPage: page }) => {
+test("real cases share carrier scoring, distinguish renewals, and rank the queue", async ({ authenticatedPage: page }, testInfo) => {
   test.setTimeout(90_000);
   const results: { id: string; score: number; rawScore: number; business: string }[] = [];
   for (const business of ["new", "renewal"]) {
@@ -59,6 +59,18 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     expect(record.appetiteResult.missingData).toEqual([]);
     expect(record.appetiteResult.score).toBe(business === "new" ? 94 : 49);
     expect(record.appetiteResult.rawScore).toBe(business === "new" ? 94 : 86);
+    if (business === "new") {
+      const recommendation = page.getByRole("region", { name: "Appetite recommendation" });
+      expect(await recommendation.evaluate((element) => parseFloat(getComputedStyle(element).paddingLeft))).toBeGreaterThanOrEqual(16);
+      const decision = await page.getByRole("region", { name: "Underwriter decision" }).boundingBox();
+      const chat = await page.getByRole("region", { name: "Ask the agent" }).boundingBox();
+      expect(chat!.y - (decision!.y + decision!.height)).toBeGreaterThanOrEqual(24);
+      await page.screenshot({ path: testInfo.outputPath("case-desktop.png"), fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath("case-mobile.png"), fullPage: true });
+      await page.setViewportSize({ width: 1280, height: 720 });
+    }
     results.push({ id, score: record.appetiteResult.score, rawScore: record.appetiteResult.rawScore, business });
   }
   await page.goto("/cases");
