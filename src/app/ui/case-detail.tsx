@@ -5,8 +5,23 @@ import Link from "next/link";
 import { ArrowLeft, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import type { AuditEvent, CaseRecord, JobStatus } from "@/lib/types";
 import { CaseView } from "./case-view";
+import { readReviewStream } from "@/lib/review-stream";
 
 type Payload = { case: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus; voiceAvailable: boolean };
+
+function normalizePayload(payload: Payload): Payload {
+  return { ...payload, case: {
+    ...payload.case,
+    address: payload.case.address ?? null,
+    propertyContext: payload.case.propertyContext ?? null,
+    publicEvidence: payload.case.publicEvidence ?? null,
+    sourceCandidates: payload.case.sourceCandidates ?? null,
+    extractionConflicts: payload.case.extractionConflicts ?? [],
+    reportDraft: payload.case.reportDraft ?? null,
+    reportDraftVersion: payload.case.reportDraftVersion ?? 0,
+    analysisRevision: payload.case.analysisRevision ?? 0,
+  } };
+}
 
 export function CaseDetail({ id }: { id: string }) {
   const [data, setData] = useState<Payload | null>(null);
@@ -17,14 +32,13 @@ export function CaseDetail({ id }: { id: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [stopping, setStopping] = useState(false);
   const actionRef = useRef<{ signature: string; id: string } | null>(null);
-  const pollInterval = !data || ["received", "extracting", "checking"].includes(data.case.status) ? 1000 : 3000;
 
   const refresh = useCallback(async () => {
     try {
       const result = await fetch(`/api/cases/${id}`, { cache: "no-store" });
       const payload = await result.json();
       if (!result.ok) throw new Error(payload.error ?? "Could not load case.");
-      setData(payload);
+      setData(normalizePayload(payload));
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load case.");
@@ -34,15 +48,44 @@ export function CaseDetail({ id }: { id: string }) {
   }, [id]);
 
   useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function poll() {
-      await refresh();
-      if (!cancelled) timer = setTimeout(() => void poll(), pollInterval);
+    const abort = new AbortController();
+    let retry: ReturnType<typeof setTimeout>;
+    async function connect() {
+      try {
+        const response = await fetch(`/api/cases/${id}`, { headers: { Accept: "text/event-stream" }, cache: "no-store", signal: abort.signal });
+        if (abort.signal.aborted) return;
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(body.error ?? "Could not load case.");
+        }
+        if (response.headers.get("content-type")?.includes("text/event-stream")) {
+          await readReviewStream<Payload>(response, (event) => {
+            if (abort.signal.aborted || event.type !== "result") return;
+            setData(normalizePayload(event.data));
+            setError(null);
+            setLoading(false);
+          });
+        } else {
+          // Existing clients and test fixtures can still answer with one JSON snapshot.
+          const snapshot = await response.json() as Payload;
+          if (abort.signal.aborted) return;
+          setData(normalizePayload(snapshot));
+        }
+        if (abort.signal.aborted) return;
+        setError(null);
+        setLoading(false);
+      } catch (cause) {
+        if (!abort.signal.aborted) {
+          setError(cause instanceof Error ? cause.message : "Live case activity disconnected. Reconnecting…");
+          setLoading(false);
+        }
+      } finally {
+        if (!abort.signal.aborted) retry = setTimeout(() => void connect(), 1500);
+      }
     }
-    void poll();
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [refresh, pollInterval]);
+    void connect();
+    return () => { abort.abort(); clearTimeout(retry); };
+  }, [id]);
 
   async function sendAction(kind: "broker_response" | "approve" | "decline") {
     const body = kind === "broker_response" ? { kind, response } : { kind, reason };

@@ -2,21 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowsClockwise, DownloadSimple, FolderPlus, Info, ListNumbers, Printer, WarningCircle } from "@phosphor-icons/react/dist/ssr";
-import { dispositionOrder, nextStep, type Disposition, type NextStep } from "@/federato/disposition";
+import { ArrowRight, ArrowsClockwise, DownloadSimple, FolderPlus, ListNumbers, Printer, WarningCircle } from "@phosphor-icons/react/dist/ssr";
+import { dispositionOrder, dispositionSlug, nextStep, type Disposition, type NextStep } from "@/federato/disposition";
 import { caseFromSubmission } from "@/federato/open-case";
 import { resourceLabels } from "@/federato/presentation";
 import { buildReviewPlan, summarizeQueue } from "@/federato/review-plan";
 import type { StoredTriageReport } from "@/federato/reports";
 import type { RankedSubmission } from "@/federato/scoring";
+import { readReviewStream, type ReviewProgress } from "@/lib/review-stream";
+import { AgentChat, type ChatTurn } from "./agent-chat";
 import { loadCases } from "./load-cases";
+import { ReviewActivity } from "./review-activity";
+import { ReviewResult } from "./review-result";
 import { PdfTriage } from "./pdf-triage";
 
 type Row = { item: RankedSubmission; rank: number; step: NextStep; property: boolean };
 type LineFilter = "property" | "all";
 type BucketFilter = Disposition | "all";
-
-export const dispositionSlug: Record<Disposition, string> = { Target: "target", Acceptable: "acceptable", "Needs information": "needs", "Outside appetite": "outside" };
+type Report = StoredTriageReport & { chatSignatures?: Record<string, string> };
 
 function ago(iso: string): string {
   const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
@@ -35,7 +38,7 @@ function summaryLine(rows: Row[], line: LineFilter): string {
 }
 
 export function Queue() {
-  const [report, setReport] = useState<StoredTriageReport | null>(null);
+  const [report, setReport] = useState<Report | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(true);
   const [ranking, setRanking] = useState(false);
   const [stopped, setStopped] = useState(false);
@@ -47,6 +50,10 @@ export function Queue() {
   const [opening, setOpening] = useState<string | null>(null);
   const [openError, setOpenError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [activity, setActivity] = useState<ReviewProgress[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
+  const rankingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +61,7 @@ export function Queue() {
       try {
         const response = await fetch("/api/triage", { cache: "no-store" });
         const data: unknown = await response.json().catch(() => null);
-        if (!cancelled && response.ok && data && typeof data === "object" && "report" in data && data.report) setReport(data.report as StoredTriageReport);
+        if (!cancelled && response.ok && data && typeof data === "object" && "report" in data && data.report) setReport(data.report as Report);
       } catch { /* the page still offers a fresh run */ }
       finally { if (!cancelled) setLoadingLatest(false); }
     })();
@@ -70,17 +77,30 @@ export function Queue() {
   }, []);
 
   async function rank() {
+    if (rankingRef.current) return;
+    rankingRef.current = true;
     const controller = new AbortController();
     runController.current = controller;
-    setRanking(true); setStopped(false); setError(""); setOpenError("");
+    setRanking(true); setStopped(false); setError(""); setOpenError(""); setActivity([]); setSelectedId(null); setChatTurns([]);
     try {
-      const response = await fetch("/api/triage", { method: "POST", signal: controller.signal });
-      const data = await response.json();
-      controller.signal.throwIfAborted();
-      if (!response.ok) throw new Error(data.error ?? "Unable to rank the queue.");
-      setReport(data); setBucket("all");
+      const response = await fetch("/api/triage", { method: "POST", headers: { Accept: "text/event-stream" }, signal: controller.signal });
+      if (response.headers.get("content-type")?.includes("text/event-stream")) {
+        let completed = false;
+        await readReviewStream<Report>(response, (event) => {
+          if (controller.signal.aborted) return;
+          if (event.type === "progress") setActivity((current) => [...current, { ...event.data, id: String(current.length) }]);
+          if (event.type === "result") { completed = true; setReport(event.data); setBucket("all"); }
+        });
+        controller.signal.throwIfAborted();
+        if (!completed) throw new Error("The live review was interrupted. Run it again.");
+      } else {
+        const data = await response.json() as Report & { error?: string };
+        controller.signal.throwIfAborted();
+        if (!response.ok) throw new Error(data.error ?? "Unable to rank the queue.");
+        setReport(data); setBucket("all");
+      }
     } catch (err) { if (controller.signal.aborted) setStopped(true); else setError(err instanceof Error ? err.message : "Unable to rank the queue."); }
-    finally { if (runController.current === controller) runController.current = null; setRanking(false); }
+    finally { if (runController.current === controller) runController.current = null; rankingRef.current = false; setRanking(false); }
   }
 
   async function openCase(row: Row) {
@@ -124,7 +144,7 @@ export function Queue() {
       <div className="actions"><button className="primary-button" onClick={rank} disabled={ranking || exporting}><ListNumbers size={16} />{ranking ? "Reading the queue…" : report ? "Rank again" : "Rank the live queue"}</button>{ranking && <button className="quiet-button" type="button" onClick={() => runController.current?.abort()}>Stop ranking</button>}</div>
     </div>
     <div aria-live="polite">
-      {ranking && <div className="notice"><Info size={17} aria-hidden="true" />Discovering the schema, reading every submission and linked policy, and scoring the queue. About fifteen seconds.</div>}
+      {(ranking || activity.length > 0) && <ReviewActivity events={activity} working={ranking} />}
       {stopped && <div className="notice" role="status">Live ranking stopped.</div>}
       {error && <div role="alert" className="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
       {openError && <div role="alert" className="alert"><WarningCircle size={17} aria-hidden="true" />{openError}</div>}
@@ -173,14 +193,10 @@ export function Queue() {
               {(item.counterfactuals?.length ?? 0) > 0 && <ul className="queue-changes" aria-label="What would change it">{item.counterfactuals!.map((change) => <li key={change.concept}><strong>{change.factor}</strong>: {change.condition}</li>)}</ul>}
               <details className="queue-details review-plan">
                 <summary>Review checklist · {plan.exceptions} exceptions · {plan.gaps} evidence gaps</summary>
-                <div className="review-plan-body">
-                <p className="subtle">{plan.assessed} of {plan.total} appetite factors can be assessed from supplied data. This measures availability, not independent verification or approval.</p>
-                {plan.tasks.length ? <ol className="review-tasks">{plan.tasks.map((task) => <li key={task.factor}><span className="review-task-head"><strong>{task.factor}</strong><span className={`disposition ${task.kind === "exception" ? "disposition-outside" : "disposition-needs"}`}>{task.kind === "exception" ? "exception" : "evidence gap"}</span></span><p>{task.action}</p><small>{task.reason}{task.source ? ` Source: ${task.source}.` : ""}</small></li>)}</ol> : <p>No unresolved appetite checks.</p>}
-                <p className="subtle">{item.evidenceNote}</p>
-                <div className="triage-table-wrap"><table className="triage-table"><thead><tr><th>Factor</th><th>Result</th><th>Points</th><th>Evidence and rule</th></tr></thead><tbody>{item.criteria.map((criterion) => <tr key={criterion.factor}><th scope="row">{criterion.factor}</th><td>{criterion.status}</td><td>{criterion.points}/{criterion.maximum}</td><td>{criterion.detail}<small>Source: {criterion.source}</small></td></tr>)}</tbody></table></div>
-                <p className="subtle">{item.explanation}</p>
-                </div>
+                <ReviewResult result={item} label={labels?.singular} embedded defaultExpanded />
               </details>
+              {report.chatSignatures?.[item.id] && <button className="quiet-button" type="button" onClick={() => { setSelectedId(selectedId === item.id ? null : item.id); setChatTurns([]); }}>{selectedId === item.id ? "Close agent chat" : "Ask the agent about this record"}</button>}
+              {selectedId === item.id && report.chatSignatures?.[item.id] && <AgentChat key={item.id} endpoint="/api/triage/chat" context={{ resource: report.resource, generatedAt: report.generatedAt, item, signature: report.chatSignatures[item.id] }} voiceAvailable={false} turns={chatTurns} setTurns={setChatTurns} />}
             </div>
             <div className="queue-side">
               <span className="queue-score" title="Fit score: weighted guideline matches, capped at 49 with an exception and 69 with open answers">{item.score}<small>/100</small></span>

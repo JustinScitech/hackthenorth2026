@@ -151,13 +151,16 @@ test("actual submissions use only unique compatible policy links and retain unma
 });
 test("ranks the entire 123-record queue before taking top N and exposes each query", async () => {
   const rows = Array.from({ length: 123 }, (_, index) => ({ ...good, id: index + 1, premium: index === 122 ? 85_000 : 60_000 }));
-  const report = await runTriage(fixture(rows));
+  const progress: { stage: string; current?: number }[] = [];
+  const report = await runTriage(fixture(rows), {}, (event) => progress.push(event));
   assert.equal(report.evaluated, 123);
   assert.equal(report.trace.length, 3);
   assert.equal(report.topSubmissions[0].id, "123");
   assert.equal(report.topSubmissions.length, 20);
   assert.equal(report.truncated, false);
   assert.deepEqual(report.trace.map((q) => q.query.pagination?.offset), [0, 50, 100]);
+  assert.deepEqual(progress.filter((event) => event.stage === "reading" && event.current !== undefined).map((event) => event.current), [50, 100, 123]);
+  assert.equal(progress.at(-1)?.stage, "complete");
 });
 
 test("partial queues are labeled; empty, repeated, and changing pages are handled", async () => {

@@ -52,6 +52,34 @@ test("the queue API stays behind sign-in and the page explains an empty store", 
   await expect(page.getByRole("button", { name: "Rank the live queue" }).first()).toBeVisible();
 });
 
+test("a saved queue record uses the shared streamed agent chat", async ({ authenticatedPage: page, seedTriageReport }) => {
+  const report = queueFixture([{ id: 991102, account: "Chat property" }]);
+  await seedTriageReport(report);
+  const stored = await (await page.request.get("/api/triage")).json();
+  const signature = stored.report.chatSignatures[report.ranked[0].id];
+  expect(signature).toMatch(/^[0-9a-f]{64}$/);
+  const rejected = await page.request.post("/api/triage/chat", {
+    headers: { origin: "http://localhost:3100" },
+    data: { resource: report.resource, generatedAt: report.generatedAt, item: report.ranked[0], signature: "0".repeat(64), text: "What matters?", history: [] },
+  });
+  expect(rejected.status()).toBe(409);
+
+  await page.route("**/api/triage/chat", async (route) => {
+    const body = route.request().postDataJSON();
+    expect(body.item.id).toBe(report.ranked[0].id);
+    expect(body.signature).toBe(signature);
+    await route.fulfill({ status: 200, contentType: "text/event-stream", body:
+      `data: ${JSON.stringify({ type: "delta", text: "Check the premium" })}\n\n` +
+      `data: ${JSON.stringify({ type: "complete", reply: "Check the premium first.", model: "fixture" })}\n\n`,
+    });
+  });
+  await page.goto("/triage");
+  await page.getByRole("button", { name: "Ask the agent about this record" }).click();
+  await page.getByRole("textbox", { name: "Your question" }).fill("What matters?");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText("Check the premium first.")).toBeVisible();
+});
+
 test("a live Federato rank reads every submission, assigns dispositions, and is stored", async ({ authenticatedPage: page }) => {
   test.skip(process.env.E2E_LIVE_FEDERATO !== "1", "Set E2E_LIVE_FEDERATO=1 with Federato credentials in .env to run the live rank");
   test.setTimeout(180_000);

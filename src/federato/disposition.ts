@@ -8,6 +8,7 @@ import type { Criterion, RankedSubmission, SubmissionFacts } from "./scoring";
  */
 export type Disposition = "Target" | "Acceptable" | "Needs information" | "Outside appetite";
 export const dispositionOrder: readonly Disposition[] = ["Target", "Acceptable", "Needs information", "Outside appetite"];
+export const dispositionSlug: Record<Disposition, string> = { Target: "target", Acceptable: "acceptable", "Needs information": "needs", "Outside appetite": "outside" };
 
 /** Factors where the guideline names a target band on top of the acceptable range. */
 const targetTier = new Set<Concept>(["state", "tiv", "premium", "year"]);

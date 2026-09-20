@@ -1,6 +1,48 @@
 import { test, expect } from "./fixtures";
 import { queueFixture, routeQueue } from "./queue-fixture";
 
+test("triage accepts the shared live event stream", async ({ authenticatedPage: page }) => {
+  await page.goto("/triage");
+  const report = queueFixture([{ id: 991101, account: "Streamed property" }]);
+  const frame = (event: unknown) => `data: ${JSON.stringify(event)}\n\n`;
+  await page.route("**/api/triage", async (route) => route.fulfill(route.request().method() === "GET"
+    ? { status: 200, contentType: "application/json", body: '{"report":null}' }
+    : { status: 200, contentType: "text/event-stream", body: frame({ type: "progress", data: { stage: "reading", message: "Reading Submission records", current: 1, total: 1 } }) + frame({ type: "result", data: report }) }));
+  await page.getByRole("button", { name: "Rank the live queue" }).first().click();
+  await expect(page.getByRole("heading", { name: "Streamed property" })).toBeVisible();
+  await expect(page.getByText("1 of 1")).toBeVisible();
+});
+
+test("stopping a streamed ranking aborts the run and keeps the queue empty", async ({ authenticatedPage: page }) => {
+  await page.route("**/api/triage", async (route) => {
+    if (route.request().method() === "GET") await route.fulfill({ status: 200, contentType: "application/json", body: '{"report":null}' });
+    else await route.continue();
+  });
+  await page.goto("/triage");
+  await page.evaluate(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      if (input !== "/api/triage" || init?.method !== "POST") return originalFetch(input, init);
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('data: {"type":"progress","data":{"stage":"reading","message":"Reading Submission records"}}\n\n'));
+          init.signal?.addEventListener("abort", () => {
+            (window as Window & { __triageAborted?: boolean }).__triageAborted = true;
+            controller.error(new DOMException("The operation was aborted.", "AbortError"));
+          }, { once: true });
+        },
+      });
+      return Promise.resolve(new Response(body, { headers: { "Content-Type": "text/event-stream" } }));
+    };
+  });
+  await page.getByRole("button", { name: "Rank the live queue" }).first().click();
+  await expect(page.getByText("Reading Submission records")).toBeVisible();
+  await page.getByRole("button", { name: "Stop ranking" }).click();
+  await expect(page.getByRole("status")).toHaveText("Live ranking stopped.");
+  await expect.poll(() => page.evaluate(() => (window as Window & { __triageAborted?: boolean }).__triageAborted)).toBe(true);
+  await expect(page.getByText("The queue has yet to be ranked.")).toBeVisible();
+});
+
 test("the queue explains each submission, exports it, and opens it as a case the agent works", async ({ authenticatedPage: page }) => {
   test.setTimeout(90_000);
   // A fresh id each run: the queue offers "Open case" instead of "Open as case" once a submission has a case.
@@ -13,7 +55,7 @@ test("the queue explains each submission, exports it, and opens it as a case the
   await expect(page.getByText(/One answer decides it: total premium/)).toBeVisible();
   await expect(page.getByText(/this becomes Target/)).toBeVisible();
   await expect(page.getByRole("region", { name: "Queue review status" })).toContainText("Ready for review does not mean approved");
-  await page.getByText("Review checklist · 0 exceptions · 1 evidence gaps").click();
+  await page.locator(".queue-details > summary").click();
   await expect(page.getByText("Confirm the total premium and currency", { exact: false })).toBeVisible();
   await expect(page.getByRole("cell", { name: /Observed new\./ })).toBeVisible();
   await page.locator(".tool-menu > summary").click();
@@ -28,7 +70,7 @@ test("the queue explains each submission, exports it, and opens it as a case the
   await expect(page.getByText(new RegExp(`Opened from the Federato queue: Submission ${id}, ranked 1 of 1`))).toBeVisible();
   await expect(page.getByRole("heading", { name: "Broker information needed" })).toBeVisible({ timeout: 40_000 });
   await expect(page.getByRole("heading", { name: "Where this stands" })).toBeVisible();
-  await expect(page.getByText(/total premium/).first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Where this stands" })).toContainText("total premium");
 });
 
 test("blank intake appetite fields retain broker evidence through the real worker", async ({ authenticatedPage: page }) => {
