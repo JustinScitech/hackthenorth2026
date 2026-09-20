@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { nextStep } from "@/federato/disposition";
+import { dispositionSlug, nextStep } from "@/federato/disposition";
 import type { RankedSubmission } from "@/federato/scoring";
 import type { CaseOrigin } from "@/lib/types";
-import { dispositionSlug } from "./queue";
 
 /** Where a case stands against the appetite, in the same four fields the queue uses. */
 export function NextStepPanel({ result, origin }: { result: RankedSubmission; origin?: CaseOrigin | null }) {

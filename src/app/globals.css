@@ -512,6 +512,8 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .review-result-heading p, .review-result > p { margin: 0; }
 .review-result > details { border-top: 1px solid var(--border); padding-top: 12px; }
 .review-result .decision-banner, .review-result .next-action { margin: 0; }
+.queue-details .review-result.is-embedded { padding: 12px 0 4px; }
+.queue-main > .quiet-button, .queue-main > .agent-chat { margin-top: 12px; }
 .conversation .review-result { margin: 16px 0; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .triage-card-agent { padding: 0 24px 24px; }
 .triage-card > .agent-chat { margin: 0 24px 24px; }

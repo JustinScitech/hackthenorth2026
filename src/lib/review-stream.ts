@@ -1,4 +1,5 @@
 export type ReviewProgress = {
+  id?: string;
   stage: string;
   message: string;
   detail?: string;

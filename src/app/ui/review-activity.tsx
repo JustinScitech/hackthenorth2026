@@ -14,7 +14,7 @@ export function ReviewActivity({ events, working }: { events: ReviewProgress[]; 
     </div>
     {latest?.detail && <p className="subtle">{latest.detail}</p>}
     {events.length > 1 && <ol className="review-activity-steps">
-      {events.slice(-6).map((event, index) => <li key={`${event.stage}-${index}`}>
+      {events.slice(-6).map((event) => <li key={event.id ?? `${event.stage}:${event.current ?? ""}:${event.message}`}>
         <Check size={13} aria-hidden="true" />
         <span>{event.message}{event.current !== undefined && event.total !== undefined ? ` · ${event.current}/${event.total}` : ""}</span>
       </li>)}

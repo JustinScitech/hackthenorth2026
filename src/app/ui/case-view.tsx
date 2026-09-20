@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowSquareOut, Check, Clock, FileText, ListChecks, MapPin, PaperPlaneTilt, ShieldCheck, WarningCircle, X } from "@phosphor-icons/react/dist/ssr";
-import type { AuditEvent, CaseRecord, Fact, JobStatus } from "@/lib/types";
 import type { AppetiteFieldFacts, AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/types";
 import { APPETITE_FACT_ROWS, describeCandidate, formatFactValue, type FactField } from "./fact-evidence";
 import { Mark } from "./logo";
@@ -201,7 +200,6 @@ function traceDetail(event: AuditEvent): string | null {
 function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; working: boolean; jobStatus: JobStatus }) {
   const latest = audit.at(-1);
   const active = working && jobStatus === "RUNNING" && latest && (latest.eventType.endsWith("_started") || latest.eventType === "case_created");
-  return <details className={`analysis-trace${working ? " is-working" : ""}`} role="region" aria-label="Activity trace" open={working}>
   return <section className="analysis-trace-region" aria-label="Activity trace"><details className={`analysis-trace${working ? " is-working" : ""}`} open={working}>
     <summary className="trace-header"><span><ListChecks size={16} /> Agent activity <small>{audit.length} recorded steps · {working ? "live" : "saved"}</small></span><span className="trace-toggle">{working ? "Live updates" : "View steps"}</span></summary>
     <ol className="trace-list" aria-label="Agent activity history">{audit.map((event) => {
@@ -252,11 +250,12 @@ function stageFocus(caseRecord: CaseRecord): string {
 /** Map durable case events into the shared live activity view. */
 function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus }) {
   const events = audit.map((event) => ({
+    id: event.id,
     stage: event.eventType,
     message: eventLabels[event.eventType] ?? event.eventType.replaceAll("_", " "),
     detail: traceDetail(event) ?? undefined,
   }));
-  events.push({ stage: caseRecord.status, message: jobMessage(caseRecord, audit, jobStatus), detail: stageFocus(caseRecord) });
+  events.push({ id: "current", stage: caseRecord.status, message: jobMessage(caseRecord, audit, jobStatus), detail: stageFocus(caseRecord) });
   return <ReviewActivity events={events} working />;
 }
 

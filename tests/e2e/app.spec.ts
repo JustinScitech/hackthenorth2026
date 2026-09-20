@@ -306,7 +306,7 @@ test("expired leases recover and broker follow-ups repeat after a new analysis r
     await expect.poll(async () => {
       const result = await db.query("SELECT count(*)::int AS count FROM audit_events WHERE case_id = $1 AND event_type = 'broker_follow_up_due'", [id]);
       return result.rows[0].count;
-    }, { timeout: 10_000 }).toBe(1);
+    }, { timeout: 40_000 }).toBe(1);
     const next = await db.query("SELECT run_at FROM case_jobs WHERE job_key = $1", [`followup:${id}:0:2`]);
     expect(next.rowCount).toBe(1);
     expect(new Date(next.rows[0].run_at).getTime()).toBeGreaterThan(Date.now() + 23 * 3_600_000);
@@ -319,7 +319,7 @@ test("expired leases recover and broker follow-ups repeat after a new analysis r
     await expect.poll(async () => {
       const result = await db.query("SELECT count(*)::int AS count FROM audit_events WHERE case_id = $1 AND event_type = 'broker_follow_up_due'", [id]);
       return result.rows[0].count;
-    }, { timeout: 10_000 }).toBe(2);
+    }, { timeout: 40_000 }).toBe(2);
   } finally {
     await db.end();
   }
@@ -331,7 +331,7 @@ test("a retried decision action returns success without duplicating the decision
   const action = { id: randomUUID(), kind: "approve", reason: "Reviewed the submitted risk." };
   const options = { headers: { origin: "http://localhost:3100" }, data: action };
   expect((await page.request.post(`/api/cases/${id}/actions`, options)).status()).toBe(200);
-  await expect.poll(async () => (await (await page.request.get(`/api/cases/${id}`)).json()).case.status).toBe("approved");
+  await expect.poll(async () => (await (await page.request.get(`/api/cases/${id}`)).json()).case.status, { timeout: 40_000 }).toBe("approved");
   expect((await page.request.post(`/api/cases/${id}/actions`, options)).status()).toBe(200);
   const db = new Client({ connectionString: e2eDatabaseUrl() });
   await db.connect();

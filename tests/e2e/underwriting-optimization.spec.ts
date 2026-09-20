@@ -3,19 +3,16 @@ import { queueFixture, routeQueue } from "./queue-fixture";
 
 test("triage accepts the shared live event stream", async ({ authenticatedPage: page }) => {
   await page.goto("/triage");
-  const item = { id: "streamed", account: "Streamed property", score: 94, rawScore: 94, missingData: [], recommendation: "Review for acceptance", explanation: "Supplied evidence fits appetite.", criteria: [] };
-  const report = { resource: "Policy", total: 1, evaluated: 1, truncated: false, generatedAt: new Date().toISOString(), guidelineVersion: "2025", top: 1,
-    reasoning: [], trace: [], ranked: [item], topSubmissions: [item], chatSignatures: {} };
+  const report = queueFixture([{ id: 991101, account: "Streamed property" }]);
   const frame = (event: unknown) => `data: ${JSON.stringify(event)}\n\n`;
-  await page.route("**/api/triage", async (route) => route.fulfill({ status: 200, contentType: "text/event-stream", body:
-    frame({ type: "progress", data: { stage: "reading", message: "Reading Policy records", current: 1, total: 1 } }) + frame({ type: "result", data: report }),
-  }));
-  await page.getByRole("button", { name: "Rank live records" }).click();
+  await page.route("**/api/triage", async (route) => route.fulfill(route.request().method() === "GET"
+    ? { status: 200, contentType: "application/json", body: '{"report":null}' }
+    : { status: 200, contentType: "text/event-stream", body: frame({ type: "progress", data: { stage: "reading", message: "Reading Submission records", current: 1, total: 1 } }) + frame({ type: "result", data: report }) }));
+  await page.getByRole("button", { name: "Rank the live queue" }).first().click();
   await expect(page.getByRole("heading", { name: "Streamed property" })).toBeVisible();
   await expect(page.getByText("1 of 1")).toBeVisible();
 });
 
-test("triage UI exposes underwriting recommendation and appetite evidence", async ({ authenticatedPage: page }) => {
 test("the queue explains each submission, exports it, and opens it as a case the agent works", async ({ authenticatedPage: page }) => {
   test.setTimeout(90_000);
   // A fresh id each run: the queue offers "Open case" instead of "Open as case" once a submission has a case.
@@ -28,7 +25,7 @@ test("the queue explains each submission, exports it, and opens it as a case the
   await expect(page.getByText(/One answer decides it: total premium/)).toBeVisible();
   await expect(page.getByText(/this becomes Target/)).toBeVisible();
   await expect(page.getByRole("region", { name: "Queue review status" })).toContainText("Ready for review does not mean approved");
-  await page.getByText("Review checklist · 0 exceptions · 1 evidence gaps").click();
+  await page.locator(".queue-details > summary").click();
   await expect(page.getByText("Confirm the total premium and currency", { exact: false })).toBeVisible();
   await expect(page.getByRole("cell", { name: /Observed new\./ })).toBeVisible();
   await page.locator(".tool-menu > summary").click();
@@ -43,7 +40,7 @@ test("the queue explains each submission, exports it, and opens it as a case the
   await expect(page.getByText(new RegExp(`Opened from the Federato queue: Submission ${id}, ranked 1 of 1`))).toBeVisible();
   await expect(page.getByRole("heading", { name: "Broker information needed" })).toBeVisible({ timeout: 40_000 });
   await expect(page.getByRole("heading", { name: "Where this stands" })).toBeVisible();
-  await expect(page.getByText(/total premium/).first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Where this stands" })).toContainText("total premium");
 });
 
 test("blank intake appetite fields retain broker evidence through the real worker", async ({ authenticatedPage: page }) => {
@@ -81,7 +78,6 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     const record = (await (await page.request.get(`/api/cases/${id}`)).json()).case;
     expect(record.appetiteResult.criteria).toHaveLength(8);
     expect(record.appetiteResult.missingData).toEqual([]);
-    // Public property records can move the priority score after appetite scoring.
     // Public property records may move the priority score; the appetite-only score is what the guideline pins.
     expect(record.appetiteResult.baseScore ?? record.appetiteResult.score).toBe(business === "new" ? 94 : 49);
     expect(record.appetiteResult.rawScore).toBe(business === "new" ? 94 : 86);
@@ -100,8 +96,6 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     results.push({ id, score: record.appetiteResult.score, rawScore: record.appetiteResult.rawScore, business });
   }
   await page.goto("/cases");
-  await expect(page.locator(`.case-row[href="/cases/${results[0].id}"]`)).toBeVisible();
-  await expect(page.locator(`.case-row[href="/cases/${results[1].id}"]`)).toBeVisible();
   // The list loads after the page paints; wait for both rows before reading the order.
   for (const result of results) await expect(page.locator(`.case-row[href="/cases/${result.id}"]`)).toBeVisible();
   const links = await page.locator(".case-row").evaluateAll((elements) => elements.map((element) => element.getAttribute("href")));
