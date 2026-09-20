@@ -44,11 +44,11 @@ export const EXTRACTION_PROMPT = [
   'Each key maps to {"value": ..., "quote": ...}. "value" is the fact, or null when the text does not state it. "quote" is the single sentence or line of the broker text that states the value, copied verbatim and unchanged; it is null whenever value is null.',
   "Never infer, estimate, compute, or convert a value: if the text does not state it, value and quote are both null.",
   "yearBuilt: integer year the building was originally constructed; renovation, roof, retrofit, and appraisal years are not it, and when several buildings are listed use the oldest.",
-  "losses: integer count of losses or claims in the past three years; a count over a different window, a dollar amount, or a claim reference number is not it.",
+  "losses: integer count of losses or claims in the past three years; a count over a different window, a dollar amount, or a claim reference number is not it, except that zero losses over a longer window is zero.",
   'business: "new" or "renewal". line: the line of business in lowercase, for example "property".',
-  "premium: total annual premium in USD as a number. constructionPercent: eligible construction percent as a number from 0 to 100. lossValue: five-year loss value in USD as a number; a claim count is never a dollar value.",
+  "premium: total annual premium in USD as a number. constructionPercent: eligible construction percent as a number from 0 to 100. lossValue: five-year loss value in USD as a number; a claim count is never a dollar value, and a dollar total over a shorter or unstated window is not it.",
   "lossHistoryComplete: true or false only when the text states whether the five-year loss history is complete.",
-  'effective and expiration: policy dates as "YYYY-MM-DD", only when the text gives a full calendar date.',
+  'effective and expiration: policy dates as "YYYY-MM-DD" whenever the text gives a full calendar date in any format, so "October 1, 2026" is "2026-10-01".',
   "Later broker updates supersede earlier details.",
 ].join(" ");
 
