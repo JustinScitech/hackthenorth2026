@@ -8,7 +8,11 @@ export function liveConfiguration() {
   try { mapping = raw ? z.partialRecord(z.enum(concepts), z.string().min(1)).parse(JSON.parse(raw)) : undefined; }
   catch { throw new Error("FEDERATO_FIELD_MAP must be a JSON object mapping supported appetite concepts to discovered field paths."); }
   return {
-    client: new FederatoClient({ clientId: process.env.FEDERATO_CLIENT_ID ?? "", clientSecret: process.env.FEDERATO_CLIENT_SECRET ?? "" }),
+    client: new FederatoClient({ clientId: process.env.FEDERATO_CLIENT_ID ?? "", clientSecret: process.env.FEDERATO_CLIENT_SECRET ?? "" }, fetch, {
+      authUrl: process.env.FEDERATO_AUTH_URL,
+      audience: process.env.FEDERATO_AUDIENCE,
+      handlerUrl: process.env.FEDERATO_HANDLER_URL,
+    }),
     options: { resource: process.env.FEDERATO_RESOURCE || undefined, mapping },
   };
 }
