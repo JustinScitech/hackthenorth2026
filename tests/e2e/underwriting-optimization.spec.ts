@@ -16,8 +16,8 @@ test("triage UI exposes underwriting recommendation and appetite evidence", asyn
   await page.getByRole("button", { name: "Print / save PDF" }).click();
   await expect.poll(() => page.evaluate(() => (window as Window & { __printCalled?: boolean }).__printCalled)).toBe(true);
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download summary" }).click();
-  await expect((await download).suggestedFilename()).toMatch(/^underwriting-summary-\d{4}-\d{2}-\d{2}\.md$/);
+  await page.getByRole("button", { name: "Download slides" }).click();
+  await expect((await download).suggestedFilename()).toMatch(/^federato-triage-top-\d{4}-\d{2}-\d{2}\.pptx$/);
   await page.getByText("Appetite breakdown and data sources").click();
   await expect(page.getByRole("cell", { name: "New business is acceptable." })).toBeVisible();
 });

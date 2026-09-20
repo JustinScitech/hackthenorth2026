@@ -6,6 +6,8 @@ Cases and Federato triage share the supplied **2025 sample appetite guidelines**
 
 ## Federato challenge triage
 
+After ranking, **Download slides** exports an editable PowerPoint deck of the displayed results (top-ranked by default; all evaluated records after **Show all results**). The deck includes scope, scoring caveats, recommended actions, and factor evidence. Exact technical source paths remain in speaker notes rather than crowding the slides. Findings stay together where possible, and long content continues onto additional slides. **Print / save PDF** remains available separately. Slide export runs locally in the browser and does not send records to an external slide service.
+
 Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` to enable this live integration. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local case database.
 
 The live planner prefers `Submission` and supplements missing evidence only from a uniquely linked Policy with matching insured, line, and effective date. Unmatched, ambiguous, and incomplete submissions remain visible. All lifecycle statuses are included and displayed. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
