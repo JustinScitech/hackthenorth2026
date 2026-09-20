@@ -54,6 +54,7 @@ export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[], preced
     lines.push("Public property records:");
     for (const source of caseRecord.propertyContext.sources) lines.push(`- ${source.label}: ${source.summary}`);
   }
+  if (caseRecord.appetiteResult?.counterfactuals?.length) lines.push("What would change the outcome (appetite only; one factor at a time):", ...caseRecord.appetiteResult.counterfactuals.map((item) => `- ${item.sentence}`));
   if (caseRecord.appetiteResult?.adjustments?.length) lines.push(`Priority adjustments from public records (appetite-only score ${caseRecord.appetiteResult.baseScore}): ${caseRecord.appetiteResult.adjustments.map((item) => `${item.label} ${item.points > 0 ? "+" : ""}${item.points}`).join("; ")}`);
   if (caseRecord.brief) lines.push(`Review brief: ${caseRecord.brief}`);
   if (caseRecord.question) lines.push(`Open question for the broker: ${caseRecord.question}`);

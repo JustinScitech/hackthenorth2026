@@ -7,6 +7,8 @@ export type SubmissionSummary = {
   plainExplanation: string;
   strengths: string[];
   questions: string[];
+  /** The smallest single-factor change for each gap, as a sentence with the score it would reach. */
+  whatWouldChange: string[];
 };
 
 export const rankingExplanation = "Ordered by disposition first (verified matches, then open answers, then exceptions), then priority score, then underlying match score, then record ID. Appetite exceptions cap priority at 49; missing required data caps it at 69. Match scores show weighted guideline matches; approval is a separate decision.";
@@ -29,7 +31,8 @@ export function summarizeSubmission(item: RankedSubmission): SubmissionSummary {
     : incomplete
       ? `${item.account} has some encouraging signals, but the available submission is incomplete. Confirm the items below before relying on this ranking.`
       : `${item.account} matches the supplied carrier guidelines on the available information. It is ready for an underwriter's review.`;
-  return { title, action, status, plainExplanation, strengths, questions };
+  const whatWouldChange = (item.counterfactuals ?? []).map((change) => change.condition);
+  return { title, action, status, plainExplanation, strengths, questions, whatWouldChange };
 }
 
 export function buildSummaryMarkdown(report: { resource: string; generatedAt: string; evaluated: number; total: number; topSubmissions: RankedSubmission[] }): string {
@@ -42,6 +45,7 @@ export function buildSummaryMarkdown(report: { resource: string; generatedAt: st
     if (item.lifecycleStatus) lines.push("", `Lifecycle status: ${item.lifecycleStatus}`);
     if (summary.strengths.length) lines.push("", `**What supports this:** ${summary.strengths.join(", ")}.`);
     if (summary.questions.length) lines.push("", `**What to check:** ${summary.questions.join(", ")}.`);
+    if (summary.whatWouldChange.length) lines.push("", `**What would change it:** ${summary.whatWouldChange.join(" ")}`);
     lines.push("");
   }
   return lines.join("\n");

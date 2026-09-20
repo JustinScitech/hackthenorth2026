@@ -68,3 +68,17 @@ test("resource labels distinguish policies from standalone submissions", () => {
   assert.deepEqual(resourceLabels("Policy"), { singular: "Policy", plural: "policies" });
   assert.deepEqual(resourceLabels("Submission"), { singular: "Submission", plural: "submissions" });
 });
+
+const change = { concept: "premium" as const, factor: "Total premium", status: "unknown" as const, currentValue: null, requiredValue: 50_000, projectedScore: 91, projectedAction: "Review for acceptance", patch: { premium: 50_000 }, condition: "If the premium were confirmed to be between $50,000 and $175,000, it would score 91 and pass.", sentence: "This is incomplete at 69/100. If the premium were confirmed to be between $50,000 and $175,000, it would score 91 and pass." };
+
+test("summaries carry what would change the outcome, and nothing when there is nothing to change", () => {
+  assert.deepEqual(summarizeSubmission(item).whatWouldChange, []);
+  assert.deepEqual(summarizeSubmission({ ...item, counterfactuals: [change] }).whatWouldChange, [change.condition]);
+});
+
+test("download summary explains what would change each record without repeating passing factors", () => {
+  const withChange = buildSummaryMarkdown({ resource: "Policy", generatedAt: "2026-09-19T00:00:00Z", evaluated: 1, total: 1, topSubmissions: [{ ...item, counterfactuals: [change] }] });
+  assert.match(withChange, /\*\*What would change it:\*\* If the premium were confirmed to be between \$50,000 and \$175,000, it would score 91 and pass\./);
+  const without = buildSummaryMarkdown({ resource: "Policy", generatedAt: "2026-09-19T00:00:00Z", evaluated: 1, total: 1, topSubmissions: [item] });
+  assert.doesNotMatch(without, /What would change it/);
+});

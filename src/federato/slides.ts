@@ -85,6 +85,7 @@ export function buildTriageSlides(report: Report, showAll = false): TriageSlide[
       ...(record.evidenceNote ? [record.evidenceNote] : []),
       ...(summary.strengths.length ? [`What supports this: ${summary.strengths.join(", ")}`] : []),
       ...(summary.questions.length ? [`What to check: ${summary.questions.join(", ")}`] : []),
+      ...(summary.whatWouldChange.length ? [`What would change it: ${summary.whatWouldChange.join(" ")}`] : []),
     ], [summary.plainExplanation, record.explanation].join("\n\n"));
     const statusLabels = { target: "Target match", acceptable: "Acceptable", outside: "Outside appetite", unknown: "Needs verification" };
     appendBlocks(title, record.criteria.length ? record.criteria.map((criterion) => ({

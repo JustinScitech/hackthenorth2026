@@ -1,6 +1,7 @@
 import type { AppetiteFieldFacts, Fact, FactCandidate, Facts, Finding } from "../lib/types";
 import { brokerAppetiteInstructions, caseAppetiteSchema, caseMapping, type CaseAppetite } from "../lib/case-appetite";
 import { scoreSubmission, type RankedSubmission } from "../federato/scoring";
+import { counterfactuals, describeCounterfactuals } from "../federato/counterfactual";
 
 export type Intake = {
   state: string | null;
@@ -119,14 +120,15 @@ export function evaluateFacts(facts: Facts): { findings: Finding[]; question: st
     ...appetite, id: "case", state: facts.state.value, tiv: facts.tiv.value, year: facts.yearBuilt.value,
     lossValue: appetite?.lossHistoryComplete || (appetite?.lossValue ?? 0) > 100_000 ? appetite?.lossValue : null,
   };
-  const appetiteResult = scoreSubmission(row, caseMapping);
+  const appetiteResult = { ...scoreSubmission(row, caseMapping), counterfactuals: counterfactuals(row, caseMapping) };
   const sources: Record<string, string> = { state: facts.state.source, tiv: facts.tiv.source, year: facts.yearBuilt.source };
   const appetiteFields = facts.appetite?.fields as Record<string, Fact<unknown> | undefined> | undefined;
   const findings: Finding[] = appetiteResult.criteria.map((criterion) => {
     criterion.source = sources[criterion.concept] ?? appetiteFields?.[criterion.concept]?.source ?? facts.appetite?.source ?? "Not provided";
-    return { id: criterion.concept, label: criterion.factor, result: criterion.status === "unknown" ? "unknown" : criterion.status === "outside" ? "refer" : "pass", detail: criterion.detail, source: criterion.source };
+    const change = appetiteResult.counterfactuals.find((item) => item.concept === criterion.concept);
+    return { id: criterion.concept, label: criterion.factor, result: criterion.status === "unknown" ? "unknown" : criterion.status === "outside" ? "refer" : "pass", detail: change ? `${criterion.detail} ${change.condition}` : criterion.detail, source: criterion.source };
   });
   const missing = appetiteResult.missingData;
   const question = missing.length ? `Please provide or clarify: ${missing.join(", ")}. ${brokerAppetiteInstructions}` : null;
-  return { findings, question, brief: appetiteResult.explanation, appetiteResult };
+  return { findings, question, brief: [appetiteResult.explanation, describeCounterfactuals(appetiteResult.counterfactuals)].filter(Boolean).join(" "), appetiteResult };
 }
