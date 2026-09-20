@@ -13,6 +13,7 @@ import { CasePdfExport } from "./case-pdf-export";
 import { CaseReportEditor } from "./case-report-editor";
 import { SourcePicker } from "./source-picker";
 import { NextStepPanel } from "./next-step";
+import { SimilarCases } from "./similar-cases";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
 function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
@@ -342,6 +343,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" field="yearBuilt" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" field="losses" fact={caseRecord.facts.losses} /></div></section>}
         <AppetiteEvidence fields={caseRecord.facts?.appetite?.fields} />
         <Findings caseRecord={caseRecord} />
+        {!working && <SimilarCases id={id} revision={caseRecord.analysisRevision} status={caseRecord.status} />}
         <PropertyContextSection context={caseRecord.propertyContext} result={caseRecord.appetiteResult} />
         {!working && <SourcePicker key={`${id}:${caseRecord.analysisRevision}`} id={id} caseRecord={caseRecord} onConfirmed={onSourceConfirmed} />}
         {caseRecord.publicEvidence && <section className="detail-section" aria-labelledby="evidence-title"><div className="section-heading"><h2 id="evidence-title">Public-source evidence</h2><ArrowSquareOut size={16} aria-hidden="true" /></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><div className="source-line"><a className="text-link" href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><span>External source; verify before relying on it.</span></div></section>}

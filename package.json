@@ -8,6 +8,7 @@
     "start": "next start",
     "worker": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx src/agent/worker.ts",
     "db:migrate": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/migrate.ts",
+    "mongo:vector-index": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/case-memory-index.ts",
     "deploy:check": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/deploy-check.ts",
     "typecheck": "tsc --noEmit",
     "eval:agent": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/eval-agent.ts",

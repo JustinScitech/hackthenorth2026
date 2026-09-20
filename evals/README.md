@@ -26,6 +26,7 @@ EVAL_EXTRACTOR=gemini-only npm run eval -- --suite extraction  # or openai-only:
 | `discovery` | Source discovery for cases without a URL: a saved search page is ranked so the county assessor outranks listings and other states, only guarded HTTPS URLs are offered, and nothing relevant means no candidates | `src/agent/source-discovery.ts` |
 | `quote` | Intact tenant/auto quoting: required facts, referrals to a person, explained factors, monotonic pricing, conversational intake | `src/quote/rating.ts`, `src/quote/intake.ts` |
 | `telemetry` | Sentry events, logs, and spans never carry submission text | `src/agent/monitoring.ts` |
+| `similar-cases` | Precedent retrieval over synthetic briefs: nearest decided neighbours share state, construction and decision; the case never appears in its own results; the summary line counts exactly the returned set and cites only stored referred findings. Runs on the deterministic local embedding; the Atlas `$vectorSearch` case runs only when `MONGODB_URI` is an Atlas URI | `src/agent/similar-cases.ts`, `src/lib/mongo.ts` |
 
 ## Prize-track coverage
 

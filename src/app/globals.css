@@ -864,6 +864,17 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .context-adjustments li { display: grid; grid-template-columns: 44px minmax(120px, 180px) 1fr; gap: 10px; align-items: baseline; font-size: 13.5px; }
 .context-adjustments li span:last-child { color: var(--text-secondary); }
 .context-adjustments .points { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---------- Similar past cases (case) ---------- */
+.precedent-list { list-style: none; margin: 0; padding: 0 20px 6px; display: grid; }
+.precedent-list li { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--border-soft); font-size: 13.5px; }
+.precedent-list li p { margin: 0; color: var(--text-secondary); }
+.precedent-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.precedent-head .text-link { font-family: var(--font-display); font-size: 16px; font-weight: 500; }
+.precedent-meta { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.precedent-head .status { margin-left: auto; }
+.precedent-decision { font-style: italic; }
+.precedent-list .annotation { width: fit-content; margin-top: 4px; }
 .context-adjustments .points.is-down { color: var(--amber-ink); }
 .context-adjustments .points.is-up { color: var(--accent-ink); }
 @media (max-width: 640px) { .context-list li, .context-adjustments li { grid-template-columns: 1fr; gap: 2px; } }
