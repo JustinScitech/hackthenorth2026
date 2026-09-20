@@ -35,6 +35,9 @@ export type Finding = {
 export type EvidenceSignal = { kind: "yearBuilt" | "constructionType" | "floodZone" | "sprinklered" | "occupancy" | "squareFeet"; value: string | number | boolean; quote: string };
 export type PublicEvidence = { url: string; title: string; excerpt: string; signals?: EvidenceSignal[] };
 
+export type ReportSection = { id: string; title: string; body: string };
+export type ReportDraft = { sections: ReportSection[]; analysisRevision: number; editedBy: string; updatedAt: string };
+
 export type CaseRecord = {
   id: string;
   insuredName: string;
@@ -56,6 +59,8 @@ export type CaseRecord = {
   brief: string | null;
   question: string | null;
   decision: string | null;
+  reportDraft: ReportDraft | null;
+  reportDraftVersion: number;
   error: string | null;
   analysisRevision: number;
   createdAt: string;

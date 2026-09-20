@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { ChatCircleDots, PaperPlaneTilt, ShieldCheck, SpeakerHigh, Stop, User, WarningCircle, Waveform } from "@phosphor-icons/react/dist/ssr";
 import { VoiceMode } from "./voice-mode";
 
-type Turn = { id: number; role: "you" | "agent"; text: string; audio?: string };
+export type ChatTurn = { id: number; role: "you" | "agent"; text: string; audio?: string; edited?: boolean };
 type Reply = { question: string; spoken: boolean; reply: string; model: string | null; audio: string | null; error?: string };
 
 /** Talk to the agent about this case, by typing or in a voice conversation. The thread lives on the page; the case record stays as it is. */
-export function AgentChat({ id, voiceAvailable }: { id: string; voiceAvailable: boolean }) {
-  const [turns, setTurns] = useState<Turn[]>([]);
+export function AgentChat({ id, voiceAvailable, turns, setTurns }: { id: string; voiceAvailable: boolean; turns: ChatTurn[]; setTurns: Dispatch<SetStateAction<ChatTurn[]>> }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [speakReplies, setSpeakReplies] = useState(voiceAvailable);
@@ -17,6 +16,8 @@ export function AgentChat({ id, voiceAvailable }: { id: string; voiceAvailable: 
   const [error, setError] = useState<string | null>(null);
   const [micSupported, setMicSupported] = useState(false);
   const [playingId, setPlayingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editedText, setEditedText] = useState("");
   const player = useRef<HTMLAudioElement | null>(null);
   const nextId = useRef(1);
 
@@ -92,11 +93,16 @@ export function AgentChat({ id, voiceAvailable }: { id: string; voiceAvailable: 
         <div className="message-content">
           <div className="message-label-row">
             <p className="message-label">{turn.role === "you" ? "You" : "Underwriting agent"}</p>
+            {turn.role === "agent" && <button className="quiet-button" type="button" onClick={() => { setEditingId(turn.id); setEditedText(turn.text); }}>Edit reply</button>}
             {turn.audio && (playingId === turn.id
               ? <button type="button" className="icon-button speak-button is-playing" onClick={stop} aria-label="Stop"><Stop size={13} aria-hidden="true" /></button>
               : <button type="button" className="icon-button speak-button" onClick={() => play(turn.id, turn.audio!)} aria-label="Play reply"><SpeakerHigh size={13} aria-hidden="true" /></button>)}
           </div>
-          <p className="brief">{turn.text}</p>
+          {editingId === turn.id ? <div className="agent-reply-editor">
+            <label>Agent reply<textarea value={editedText} maxLength={4000} rows={4} onChange={(event) => setEditedText(event.target.value)} /></label>
+            <div className="actions"><button className="secondary-button" type="button" disabled={!editedText.trim()} onClick={() => { setTurns((current) => current.map((item) => item.id === turn.id ? { ...item, text: editedText.trim(), edited: true, audio: undefined } : item)); setEditingId(null); }}>Save reply</button><button className="quiet-button" type="button" onClick={() => setEditingId(null)}>Cancel</button></div>
+            <p className="subtle">This change stays in this browser session and is marked as edited in the PDF.</p>
+          </div> : <><p className="brief">{turn.text}</p>{turn.edited && <small className="annotation">Reviewer-edited in this session</small>}</>}
         </div>
       </li>)}
     </ol>}
