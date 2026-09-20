@@ -107,6 +107,7 @@ function CaseActions({ caseRecord, response, setResponse, reason, setReason, sub
 
 const eventLabels: Record<string, string> = {
   case_created: "Submission received", extraction_started: "Reading submission",
+  source_documents_loaded: "Source material loaded",
   model_extraction_started: "Model extraction started", extraction_completed: "Facts extracted",
   gemini_model_started: "Gemini model started", gemini_model_completed: "Gemini model completed",
   gemini_model_failed: "Gemini model unavailable",
@@ -120,11 +121,26 @@ const eventLabels: Record<string, string> = {
   analysis_completed: "Guidelines checked",
   broker_response_received: "Broker response received", broker_follow_up_due: "Broker follow-up due",
   approved: "Review approved", declined: "Review declined", job_failed: "Analysis failed",
+  job_retry: "Retrying analysis", report_edited: "Report edited",
 };
 
 function traceDetail(event: AuditEvent): string | null {
+  if (event.eventType === "source_documents_loaded") {
+    const count = Number(event.detail.count ?? 1);
+    return count === 1 ? "Submission source read for this analysis." : `Submission and ${count - 1} broker ${count === 2 ? "response" : "responses"} read for this analysis.`;
+  }
+  if (event.eventType === "case_created") return "Intake form saved and analysis queued.";
+  if (event.eventType === "extraction_started") return `Starting fact extraction for analysis revision ${event.detail.revision ?? 0}.`;
+  if (event.eventType === "guideline_check_started") return "Evaluating the extracted facts against carrier appetite rules.";
   if (event.eventType === "model_extraction_started") {
-    return "Reading broker notes and cross-checking supplied facts.";
+    const providers = Array.isArray(event.detail.providers) ? event.detail.providers.join(" and ") : "available models";
+    return `Extracting facts with ${providers}; results will be compared with the parser.`;
+  }
+  if (/_model_(started|completed|failed)$/.test(event.eventType)) {
+    const model = String(event.detail.model ?? event.eventType.split("_")[0]);
+    if (event.eventType.endsWith("_started")) return `${model} is reading the supplied source material.`;
+    if (event.eventType.endsWith("_failed")) return `${model} could not complete${event.detail.errorCode ? ` (${event.detail.errorCode})` : ""}. The analysis can use other available reads.`;
+    return `${model} completed${typeof event.detail.durationMs === "number" ? ` in ${(event.detail.durationMs / 1000).toFixed(1)}s` : ""}.`;
   }
   if (event.eventType === "extraction_completed") {
     const attempts = Array.isArray(event.detail.attempts) ? event.detail.attempts as { status: string }[] : [];
@@ -147,18 +163,24 @@ function traceDetail(event: AuditEvent): string | null {
     return signals.length ? `Public source saved as evidence · ${signals.length} signal${signals.length === 1 ? "" : "s"}: ${signals.join(", ")}` : "Public source saved as evidence";
   }
   if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; the case is still waiting on the broker";
+  if (event.eventType === "public_research_failed" || event.eventType === "job_retry" || event.eventType === "job_failed") return String(event.detail.reason ?? "The step could not complete.");
   return null;
 }
 
-function AnalysisTrace({ audit, working }: { audit: AuditEvent[]; working: boolean }) {
-  const visibleEvents = audit.filter((event) => !/^(?:gemini|openai)_model_/.test(event.eventType));
-  return <section className={`analysis-trace${working ? " is-working" : ""}`} aria-label="Activity trace">
-    <div className="trace-header"><span><ListChecks size={16} /> Activity trace <small>{visibleEvents.length} recorded steps</small></span></div>
-    <ol className="trace-list">{visibleEvents.map((event) => <li key={event.id}>
-      <div className="trace-heading"><strong>{eventLabels[event.eventType] ?? event.eventType.replaceAll("_", " ")}</strong><time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time></div>
-      {traceDetail(event) && <p>{traceDetail(event)}</p>}
-    </li>)}</ol>
-  </section>;
+function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; working: boolean; jobStatus: JobStatus }) {
+  const latest = audit.at(-1);
+  const active = working && jobStatus === "RUNNING" && latest && (latest.eventType.endsWith("_started") || latest.eventType === "case_created");
+  return <details className={`analysis-trace${working ? " is-working" : ""}`} open={working}>
+    <summary className="trace-header"><span><ListChecks size={16} /> Agent activity <small>{audit.length} recorded steps · {working ? "live" : "saved"}</small></span><span className="trace-toggle">{working ? "Live updates" : "View steps"}</span></summary>
+    <ol className="trace-list" aria-label="Agent activity history">{audit.map((event) => {
+      const isActive = active && event.id === latest.id;
+      const isFailure = event.eventType.endsWith("_failed") || event.eventType === "job_retry";
+      return <li key={event.id} data-state={isActive ? "active" : isFailure ? "failed" : event.eventType.endsWith("_started") ? "recorded" : "done"}>
+        <div className="trace-heading"><strong>{eventLabels[event.eventType] ?? event.eventType.replaceAll("_", " ")}</strong><span className="trace-meta">{isActive && <em>In progress</em>}<time dateTime={event.createdAt}>{new Date(event.createdAt).toISOString().slice(0, 19).replace("T", " ")} UTC</time></span></div>
+        {traceDetail(event) && <p>{traceDetail(event)}</p>}
+      </li>;
+    })}</ol>
+  </details>;
 }
 
 function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobStatus): string {
@@ -197,56 +219,12 @@ function stageIndex(status: CaseStatus) {
   return index === -1 ? 0 : index;
 }
 
-const FACT_NAMES: Record<string, string> = { state: "state", tiv: "insured value", yearBuilt: "year built", losses: "loss count" };
-const seconds = (ms: unknown) => `${(Number(ms ?? 0) / 1000).toFixed(1)}s`;
-const list = (items: unknown[]) => items.map((item) => FACT_NAMES[String(item)] ?? String(item)).join(", ");
-
-/** What the agent is looking for at this stage, so the reader knows what matters before the results land. */
 function stageFocus(caseRecord: CaseRecord): string {
   switch (caseRecord.status) {
-    case "received": return "Eight factors determine appetite: submission type, line of business, primary risk state, insured value, premium, building age, construction mix, and five-year loss dollars. Account name and policy dates provide required context.";
-    case "extracting": return "Reading broker notes alongside supplied intake fields, recording sources, and flagging conflicts. Loss counts are context; the five-year loss dollars and complete account history come from the broker's figures.";
-    case "checking": return "Checking all eight carrier appetite factors and required account context. Missing evidence requires clarification; appetite exceptions require underwriter review. Public-source findings are separate from the appetite score.";
+    case "received": return "The submission is queued for source reading and fact extraction.";
+    case "extracting": return "Reading the submission and broker responses, then comparing extracted values with supplied intake fields.";
+    case "checking": return "Checking carrier appetite factors and account context. Missing evidence may require a broker response.";
     default: return "";
-  }
-}
-
-/** Each audit event, told in the agent's own words: what it did and why that matters for the decision. */
-function narrate(event: AuditEvent): { text: string; why?: string } | null {
-  const detail = event.detail;
-  if (/_model_started$/.test(event.eventType)) return { text: "Taking a second read of the notes" };
-  if (/_model_completed$/.test(event.eventType)) return { text: `Second read finished in ${seconds(detail.durationMs)}`, why: "The two reads have to agree before a value is used. Where they differ, that becomes a finding." };
-  if (/_model_failed$/.test(event.eventType)) return { text: "Second read came back empty", why: "Carrying on with the first read alone. Anything taken from prose will carry lower confidence, and I'll say so." };
-  switch (event.eventType) {
-    case "case_created": return { text: "Logged the submission", why: "Recorded the broker's notes and the form values as the case's source of truth. Everything below points back to them." };
-    case "extraction_started": return { text: "Reading the broker's notes", why: "Extracting construction year and contextual loss counts, alongside explicitly supplied appetite fields. Five-year loss dollars and account-history completeness are separate requirements." };
-    case "model_extraction_started": return { text: "Extracting the broker facts", why: "Two independent reads of the same notes: one catches figures the other misses, and disagreement between them is itself a finding." };
-    case "extraction_completed": {
-      const missing = Array.isArray(detail.missing) ? detail.missing : [];
-      const conflicts = Number(detail.conflicts ?? 0);
-      if (missing.length) return { text: `Extraction complete; not supplied: ${list(missing)}`, why: "The next step checks all eight appetite factors and required account context to determine which missing information needs broker clarification." };
-      return { text: "Extraction complete", why: conflicts ? `${conflicts} value${conflicts === 1 ? "" : "s"} came back different from the two readers. That gets flagged as a referral.` : "Extracted values retain their sources and confidence. The guideline check determines whether the required appetite evidence is complete." };
-    }
-    case "public_research_started": return { text: "Visiting the public source the broker linked", why: "Looking for construction type, roof condition and neighbouring hazards. Notes rarely mention those, and they change the risk picture." };
-    case "public_research_completed": {
-      const signals = Array.isArray(detail.signals) ? detail.signals as string[] : [];
-      return { text: "Public page saved as evidence", why: signals.length ? `Worth weighing against the submission: ${signals.join(", ")}.` : "The page is on file as context and leaves the picture unchanged." };
-    }
-    case "public_research_skipped": return { text: "No public research this time", why: String(detail.reason ?? "No source was supplied.") };
-    case "public_research_failed": return { text: "Public source unreachable", why: "Proceeding on the submission alone and recording the gap in the trace." };
-    case "property_context_started": return { text: "Pulling the public record on the address", why: "Flood zone, wildfire history, seismicity, ten years of weather, fire protection and neighbours, EPA sites, the census tract, drought, and disaster declarations, all from public datasets." };
-    case "property_context_completed": return { text: `${detail.ok} of ${detail.total} public datasets answered`, why: "Each one becomes a cited finding, and the hazards move the priority score by a stated number of points." };
-    case "property_context_skipped": return { text: "No public record lookup", why: String(detail.reason ?? "No address was supplied.") };
-    case "property_context_failed": return { text: "Public record lookup fell short", why: String(detail.reason ?? "Continuing on the submission alone.") };
-    case "guideline_check_started": return { text: "Checking the demo appetite", why: "Territory, insured-value cap, building age and loss count each come back pass, refer or unknown. An unknown is a question for the broker." };
-    case "analysis_completed": {
-      const refer = Number(detail.refer ?? 0), pass = Number(detail.pass ?? 0), unknown = Number(detail.unknown ?? 0);
-      return { text: `${pass} passed · ${refer} referred · ${unknown} unknown`, why: detail.status === "waiting_for_broker" ? "One answer depends on the broker, so I'm pausing and writing the question." : refer ? "Referrals are the part worth your time. The brief leads with them." : "Everything passed. Writing the brief for your review." };
-    }
-    case "broker_response_received": return { text: "Broker replied", why: "Re-reading the notes with the new information. Anything that changed is checked again from scratch." };
-    case "broker_follow_up_due": return { text: "Follow-up window elapsed", why: "A reminder that the case is still waiting on the broker." };
-    case "job_failed": return { text: "Analysis stopped", why: String(detail.reason ?? "Something went wrong. The trace has the detail.") };
-    default: return null;
   }
 }
 
@@ -280,7 +258,6 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
   const current = stageIndex(caseRecord.status);
   const elapsed = useElapsedSeconds(caseRecord.id, true);
   const stalled = jobStatus === "QUEUED" && elapsed > QUEUE_PATIENCE_SECONDS;
-  const thoughts = audit.map((event) => ({ id: event.id, thought: narrate(event) })).filter((entry) => entry.thought).slice(-5);
   return <div className={`working${stalled ? " is-stalled" : ""}`} role="status" aria-live="polite">
     <span className="ring" aria-hidden="true"><i /></span>
     <div className="working-head">
@@ -293,12 +270,6 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
     {stalled
       ? <p className="working-focus working-stalled">This case is in the queue and will start automatically as soon as the analysis service is free. This page keeps checking on its own, so you can sit tight.</p>
       : <p className="working-focus">{stageFocus(caseRecord)}</p>}
-    {thoughts.length > 0 && <ol className="thinking" aria-label="What the agent is doing">
-      {thoughts.map((entry, index) => <li key={entry.id} className={index === thoughts.length - 1 ? "is-current" : undefined}>
-        <strong>{entry.thought!.text}</strong>
-        {entry.thought!.why && <p>{entry.thought!.why}</p>}
-      </li>)}
-    </ol>}
   </div>;
 }
 
@@ -336,7 +307,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {caseRecord.appetiteResult && <section className="detail-section appetite-recommendation" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100{caseRecord.appetiteResult.adjustments?.length ? ` (appetite ${caseRecord.appetiteResult.baseScore}, public records ${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score) >= 0 ? "+" : ""}${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score)})` : ""}</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
         {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
-        <AnalysisTrace audit={audit} working={working} />
+        <AnalysisTrace audit={audit} working={working} jobStatus={jobStatus} />
         {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
         <Findings caseRecord={caseRecord} />
         <PropertyContextSection context={caseRecord.propertyContext} result={caseRecord.appetiteResult} />
