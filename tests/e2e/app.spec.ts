@@ -254,7 +254,11 @@ test("authenticated APIs enforce origin, input, and case state", async ({ authen
 
 test("sign-out revokes the authenticated session", async ({ authenticatedPage: page }) => {
   await page.goto("/overview");
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("navigation", { name: "Preferences" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Account and settings" }).click();
+  const account = page.getByRole("dialog");
+  await expect(account.getByRole("group", { name: "Theme" })).toBeVisible();
+  await account.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   await page.goto("/cases");
   await expect(page).toHaveURL(/\/sign-in$/);
