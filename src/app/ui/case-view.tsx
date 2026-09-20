@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowSquareOut, Check, Clock, FileText, ListChecks, MapPin, PaperPlaneTilt, ShieldCheck, WarningCircle, X } from "@phosphor-icons/react/dist/ssr";
-import type { AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/types";
+import type { AuditEvent, CaseRecord, Fact, JobStatus } from "@/lib/types";
 import { Mark } from "./logo";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
@@ -11,7 +11,8 @@ import { AgentChat, type ChatTurn } from "./agent-chat";
 import { CasePdfExport } from "./case-pdf-export";
 import { CaseReportEditor } from "./case-report-editor";
 import { SourcePicker } from "./source-picker";
-import { summarizeSubmission } from "@/federato/presentation";
+import { ReviewActivity } from "./review-activity";
+import { ReviewResult } from "./review-result";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
 function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
@@ -110,10 +111,10 @@ const eventLabels: Record<string, string> = {
   case_created: "Submission received", extraction_started: "Reading submission",
   source_documents_loaded: "Source material loaded",
   model_extraction_started: "Model extraction started", extraction_completed: "Facts extracted",
-  gemini_model_started: "Gemini model started", gemini_model_completed: "Gemini model completed",
-  gemini_model_failed: "Gemini model unavailable",
-  openai_model_started: "OpenAI model started", openai_model_completed: "OpenAI model completed",
-  openai_model_failed: "OpenAI model unavailable",
+  gemini_model_started: "Second read started", gemini_model_completed: "Second read completed",
+  gemini_model_failed: "Second read unavailable",
+  openai_model_started: "Second read started", openai_model_completed: "Second read completed",
+  openai_model_failed: "Second read unavailable",
   public_research_started: "Public source visit started",
   public_research_skipped: "Public research skipped", public_research_completed: "Public source reviewed",
   public_research_failed: "Public research unavailable", guideline_check_started: "Checking carrier appetite",
@@ -136,14 +137,12 @@ function traceDetail(event: AuditEvent): string | null {
   if (event.eventType === "extraction_started") return `Starting fact extraction for analysis revision ${event.detail.revision ?? 0}.`;
   if (event.eventType === "guideline_check_started") return "Evaluating the extracted facts against carrier appetite rules.";
   if (event.eventType === "model_extraction_started") {
-    const providers = Array.isArray(event.detail.providers) ? event.detail.providers.join(" and ") : "available models";
-    return `Extracting facts with ${providers}; results will be compared with the parser.`;
+    return "Comparing an independent read with the parser.";
   }
   if (/_model_(started|completed|failed)$/.test(event.eventType)) {
-    const model = String(event.detail.model ?? event.eventType.split("_")[0]);
-    if (event.eventType.endsWith("_started")) return `${model} is reading the supplied source material.`;
-    if (event.eventType.endsWith("_failed")) return `${model} could not complete${event.detail.errorCode ? ` (${event.detail.errorCode})` : ""}. The analysis can use other available reads.`;
-    return `${model} completed${typeof event.detail.durationMs === "number" ? ` in ${(event.detail.durationMs / 1000).toFixed(1)}s` : ""}.`;
+    if (event.eventType.endsWith("_started")) return "Reading the supplied source material.";
+    if (event.eventType.endsWith("_failed")) return "The second read could not complete. The analysis can use other available evidence.";
+    return `Second read completed${typeof event.detail.durationMs === "number" ? ` in ${(event.detail.durationMs / 1000).toFixed(1)}s` : ""}.`;
   }
   if (event.eventType === "extraction_completed") {
     const attempts = Array.isArray(event.detail.attempts) ? event.detail.attempts as { status: string }[] : [];
@@ -180,7 +179,7 @@ function traceDetail(event: AuditEvent): string | null {
 function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; working: boolean; jobStatus: JobStatus }) {
   const latest = audit.at(-1);
   const active = working && jobStatus === "RUNNING" && latest && (latest.eventType.endsWith("_started") || latest.eventType === "case_created");
-  return <details className={`analysis-trace${working ? " is-working" : ""}`} open={working}>
+  return <details className={`analysis-trace${working ? " is-working" : ""}`} role="region" aria-label="Activity trace" open={working}>
     <summary className="trace-header"><span><ListChecks size={16} /> Agent activity <small>{audit.length} recorded steps · {working ? "live" : "saved"}</small></span><span className="trace-toggle">{working ? "Live updates" : "View steps"}</span></summary>
     <ol className="trace-list" aria-label="Agent activity history">{audit.map((event) => {
       const isActive = active && event.id === latest.id;
@@ -218,70 +217,24 @@ function JobProgress({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord;
   return <div className="progress-line" role="status"><Clock size={16} aria-hidden="true" />{jobMessage(caseRecord, audit, jobStatus)}</div>;
 }
 
-const STAGES: { label: string; reached: CaseStatus[] }[] = [
-  { label: "Received", reached: ["received"] },
-  { label: "Extracting facts", reached: ["extracting"] },
-  { label: "Checking guidelines", reached: ["checking", "waiting_for_broker"] },
-  { label: "Ready for review", reached: ["review_ready", "approved", "declined"] },
-];
-
-function stageIndex(status: CaseStatus) {
-  const index = STAGES.findIndex((stage) => stage.reached.includes(status));
-  return index === -1 ? 0 : index;
-}
-
 function stageFocus(caseRecord: CaseRecord): string {
   switch (caseRecord.status) {
     case "received": return "The submission is queued for source reading and fact extraction.";
-    case "extracting": return "Reading the submission and broker responses, then comparing extracted values with supplied intake fields.";
+    case "extracting": return "Reading the submission and broker responses, then comparing extracted values with supplied intake fields. Loss counts are context; the five-year loss dollars and complete account history come from the broker's figures.";
     case "checking": return "Checking carrier appetite factors and account context. Missing evidence may require a broker response.";
     default: return "";
   }
 }
 
-/**
- * Seconds since this browser first saw the run, ticking once a second. The start is kept in
- * sessionStorage per case so a refresh continues the count; the browser clock is the only clock
- * involved, so server time zones can't skew it. The entry is dropped once the run finishes.
- */
-function useElapsedSeconds(caseId: string, running: boolean) {
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    const key = `astra.run-start.${caseId}`;
-    if (!running) { try { sessionStorage.removeItem(key); } catch { /* storage may be unavailable */ } return; }
-    let started = Date.now();
-    try {
-      const saved = Number(sessionStorage.getItem(key));
-      if (saved > 0 && saved <= started) started = saved; else sessionStorage.setItem(key, String(started));
-    } catch { /* storage may be unavailable */ }
-    const tick = () => setSeconds(Math.floor((Date.now() - started) / 1000));
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [caseId, running]);
-  return seconds;
-}
-
-const QUEUE_PATIENCE_SECONDS = 45;
-
-/** Live status while the worker is on the case: the current step, the stage rail, and the agent's running commentary. */
+/** Map durable case events into the shared live activity view. */
 function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus }) {
-  const current = stageIndex(caseRecord.status);
-  const elapsed = useElapsedSeconds(caseRecord.id, true);
-  const stalled = jobStatus === "QUEUED" && elapsed > QUEUE_PATIENCE_SECONDS;
-  return <div className={`working${stalled ? " is-stalled" : ""}`} role="status" aria-live="polite">
-    <span className="ring" aria-hidden="true"><i /></span>
-    <div className="working-head">
-      <span className="working-message"><span className="working-spinner" aria-hidden="true"><Mark size={16} /></span>{stalled ? "Waiting for the analysis service" : jobMessage(caseRecord, audit, jobStatus).replace(/\.$/, "")}<span className="working-ellipsis" aria-hidden="true" /></span>
-      <time className="working-clock" dateTime={`PT${elapsed}S`}>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</time>
-    </div>
-    <ol className="working-rail" aria-label="Analysis stages">
-      {STAGES.map((stage, index) => <li key={stage.label} data-state={index < current ? "done" : index === current ? "active" : "todo"}><span className="working-step" aria-hidden="true">{index < current && <Check size={10} weight="bold" />}</span>{stage.label}</li>)}
-    </ol>
-    {stalled
-      ? <p className="working-focus working-stalled">This case is in the queue and will start automatically as soon as the analysis service is free. This page keeps checking on its own, so you can sit tight.</p>
-      : <p className="working-focus">{stageFocus(caseRecord)}</p>}
-  </div>;
+  const events = audit.map((event) => ({
+    stage: event.eventType,
+    message: eventLabels[event.eventType] ?? event.eventType.replaceAll("_", " "),
+    detail: traceDetail(event) ?? undefined,
+  }));
+  events.push({ stage: caseRecord.status, message: jobMessage(caseRecord, audit, jobStatus), detail: stageFocus(caseRecord) });
+  return <ReviewActivity events={events} working />;
 }
 
 
@@ -293,7 +246,6 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
   onReportSaved: () => void; onSourceConfirmed: () => void;
 }) {
   const working = isProcessing(caseRecord, jobStatus);
-  useElapsedSeconds(id, working);
   const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
   return <main className="shell shell-narrow conversation">
     <div className="case-toolbar">
@@ -315,7 +267,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {working ? <AgentWorking caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} /> : <JobProgress caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} />}
         {caseRecord.status === "failed" && <div className="alert"><WarningCircle size={17} aria-hidden="true" />{caseRecord.error ?? "Analysis failed."}</div>}
         {caseRecord.brief ? <p className="brief">{caseRecord.brief}</p> : !working && <p className="brief">Analysis is in progress.</p>}
-        {caseRecord.appetiteResult && <section className="detail-section appetite-recommendation" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100{caseRecord.appetiteResult.adjustments?.length ? ` (appetite ${caseRecord.appetiteResult.baseScore}, public records ${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score) >= 0 ? "+" : ""}${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score)})` : ""}</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
+        {caseRecord.appetiteResult && <ReviewResult result={caseRecord.appetiteResult} label="Case" />}
         {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} working={working} jobStatus={jobStatus} />
@@ -327,7 +279,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
       </div>
     </div>
     <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} /></div>
-    {!working && <div className="conversation-action"><AgentChat id={id} voiceAvailable={voiceAvailable} turns={chatTurns} setTurns={setChatTurns} /></div>}
+    {!working && <div className="conversation-action"><AgentChat endpoint={`/api/cases/${id}/chat`} voiceAvailable={voiceAvailable} turns={chatTurns} setTurns={setChatTurns} /></div>}
     <p className="demo-note">New analyses use the supplied 2025 commercial property appetite. Quoting and binding stay with the carrier.</p>
   </main>;
 }

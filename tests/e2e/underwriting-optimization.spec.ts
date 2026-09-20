@@ -1,5 +1,19 @@
 import { test, expect } from "./fixtures";
 
+test("triage accepts the shared live event stream", async ({ authenticatedPage: page }) => {
+  await page.goto("/triage");
+  const item = { id: "streamed", account: "Streamed property", score: 94, rawScore: 94, missingData: [], recommendation: "Review for acceptance", explanation: "Supplied evidence fits appetite.", criteria: [] };
+  const report = { resource: "Policy", total: 1, evaluated: 1, truncated: false, generatedAt: new Date().toISOString(), guidelineVersion: "2025", top: 1,
+    reasoning: [], trace: [], ranked: [item], topSubmissions: [item], chatSignatures: {} };
+  const frame = (event: unknown) => `data: ${JSON.stringify(event)}\n\n`;
+  await page.route("**/api/triage", async (route) => route.fulfill({ status: 200, contentType: "text/event-stream", body:
+    frame({ type: "progress", data: { stage: "reading", message: "Reading Policy records", current: 1, total: 1 } }) + frame({ type: "result", data: report }),
+  }));
+  await page.getByRole("button", { name: "Rank live records" }).click();
+  await expect(page.getByRole("heading", { name: "Streamed property" })).toBeVisible();
+  await expect(page.getByText("1 of 1")).toBeVisible();
+});
+
 test("triage UI exposes underwriting recommendation and appetite evidence", async ({ authenticatedPage: page }) => {
   await page.goto("/triage");
   await page.route("**/api/triage", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
@@ -60,7 +74,8 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     const record = (await (await page.request.get(`/api/cases/${id}`)).json()).case;
     expect(record.appetiteResult.criteria).toHaveLength(8);
     expect(record.appetiteResult.missingData).toEqual([]);
-    expect(record.appetiteResult.score).toBe(business === "new" ? 94 : 49);
+    // Public property records can move the priority score after appetite scoring.
+    expect(record.appetiteResult.baseScore ?? record.appetiteResult.score).toBe(business === "new" ? 94 : 49);
     expect(record.appetiteResult.rawScore).toBe(business === "new" ? 94 : 86);
     if (business === "new") {
       const recommendation = page.getByRole("region", { name: "Appetite recommendation" });
@@ -77,6 +92,8 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     results.push({ id, score: record.appetiteResult.score, rawScore: record.appetiteResult.rawScore, business });
   }
   await page.goto("/cases");
+  await expect(page.locator(`.case-row[href="/cases/${results[0].id}"]`)).toBeVisible();
+  await expect(page.locator(`.case-row[href="/cases/${results[1].id}"]`)).toBeVisible();
   const links = await page.locator(".case-row").evaluateAll((elements) => elements.map((element) => element.getAttribute("href")));
   expect(links.indexOf(`/cases/${results[0].id}`)).toBeLessThan(links.indexOf(`/cases/${results[1].id}`));
 });

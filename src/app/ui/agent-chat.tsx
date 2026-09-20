@@ -3,15 +3,17 @@
 import { useEffect, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { ChatCircleDots, PaperPlaneTilt, ShieldCheck, SpeakerHigh, Stop, User, WarningCircle, Waveform } from "@phosphor-icons/react/dist/ssr";
 import { VoiceMode } from "./voice-mode";
+import { readStream } from "@/lib/review-stream";
+import type { ChatEvent } from "@/agent/chat-stream";
 
 export type ChatTurn = { id: number; role: "you" | "agent"; text: string; audio?: string; edited?: boolean };
 type Reply = { question: string; spoken: boolean; reply: string; model: string | null; audio: string | null; error?: string };
 
 /** Talk to the agent about this case, by typing or in a voice conversation. The thread lives on the page; the case record stays as it is. */
-export function AgentChat({ id, voiceAvailable, turns, setTurns }: { id: string; voiceAvailable: boolean; turns: ChatTurn[]; setTurns: Dispatch<SetStateAction<ChatTurn[]>> }) {
+export function AgentChat({ endpoint, context, voiceAvailable, turns, setTurns }: { endpoint: string; context?: Record<string, unknown>; voiceAvailable: boolean; turns: ChatTurn[]; setTurns: Dispatch<SetStateAction<ChatTurn[]>> }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [speakReplies, setSpeakReplies] = useState(voiceAvailable);
+  const [speakReplies, setSpeakReplies] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [micSupported, setMicSupported] = useState(false);
@@ -45,14 +47,34 @@ export function AgentChat({ id, voiceAvailable, turns, setTurns }: { id: string;
     setBusy(true); setError(null);
     const history = turns.map(({ role, text }) => ({ role, text }));
     const isForm = body instanceof FormData;
+    let streamedId: number | null = null;
     if (isForm) { body.set("history", JSON.stringify(history)); if (!body.has("voice")) body.set("voice", speakReplies ? "1" : "0"); }
     if (said) { const youId = nextId.current++; setTurns((current) => [...current, { id: youId, role: "you", text: said }]); }
     try {
-      const response = await fetch(`/api/cases/${id}/chat`, {
+      const streaming = !isForm && !speakReplies;
+      const response = await fetch(endpoint, {
         method: "POST",
-        headers: isForm ? undefined : { "Content-Type": "application/json" },
-        body: isForm ? body : JSON.stringify({ ...body, history, voice: speakReplies }),
+        headers: isForm ? undefined : { "Content-Type": "application/json", ...(streaming ? { Accept: "text/event-stream" } : {}) },
+        body: isForm ? body : JSON.stringify({ ...context, ...body, history, voice: speakReplies }),
       });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error ?? "The agent could not answer.");
+      }
+      if (streaming && response.headers.get("content-type")?.includes("text/event-stream")) {
+        const agentId = nextId.current++;
+        streamedId = agentId;
+        let complete: { reply: string; model: string } | null = null;
+        setTurns((current) => [...current, { id: agentId, role: "agent", text: "" }]);
+        await readStream<ChatEvent>(response, (event) => {
+          if (event.type === "error") throw new Error(event.error);
+          if (event.type === "delta") setTurns((current) => current.map((turn) => turn.id === agentId ? { ...turn, text: turn.text + event.text } : turn));
+          if (event.type === "complete") { complete = { reply: event.reply, model: event.model }; setTurns((current) => current.map((turn) => turn.id === agentId ? { ...turn, text: event.reply } : turn)); }
+        });
+        if (!complete) throw new Error("The agent reply was interrupted. Try again.");
+        const answer = complete as { reply: string; model: string };
+        return { question: said ?? "", spoken: false, reply: answer.reply, model: answer.model, audio: null };
+      }
       const reply = await response.json() as Reply;
       if (!response.ok) throw new Error(reply.error ?? "The agent could not answer.");
       // Ids are taken here rather than inside the updater, which React may run more than once.
@@ -67,6 +89,7 @@ export function AgentChat({ id, voiceAvailable, turns, setTurns }: { id: string;
       if (reply.audio && options.speak !== false) play(agentId, reply.audio);
       return reply;
     } catch (cause) {
+      if (streamedId !== null) setTurns((current) => current.filter((turn) => turn.id !== streamedId));
       setError(cause instanceof Error ? cause.message : "The agent could not answer.");
       return null;
     } finally {

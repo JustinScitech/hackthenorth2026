@@ -501,6 +501,24 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .triage-plan pre { margin: 6px 0 0; overflow: auto; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 12.5px; line-height: 1.55; }
 .triage-list { display: grid; gap: 24px; }
 .triage-card { margin: 0; }
+.review-result { display: grid; gap: 16px; padding: 24px; min-width: 0; }
+.review-result-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.review-result-heading h2 { display: flex; align-items: center; gap: 12px; margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 21px; }
+.review-result-heading p, .review-result > p { margin: 0; }
+.review-result > details { border-top: 1px solid var(--border); padding-top: 12px; }
+.review-result .decision-banner, .review-result .next-action { margin: 0; }
+.conversation .review-result { margin: 16px 0; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.triage-card-agent { padding: 0 24px 24px; }
+.triage-card > .agent-chat { margin: 0 24px 24px; }
+.review-activity { margin: 16px 0; padding: 16px 20px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); }
+.review-activity-heading { display: flex; align-items: center; gap: 10px; }
+.review-activity-heading strong { font-family: var(--font-display); font-weight: 500; }
+.review-activity-heading .count { margin-left: auto; }
+.review-activity > p { margin: 8px 0 0; line-height: 1.5; }
+.review-activity-steps { display: grid; gap: 7px; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--border); list-style: none; font-size: 13px; color: var(--text-secondary); }
+.review-activity-steps li { display: flex; align-items: flex-start; gap: 8px; }
+.review-activity-steps svg { flex-shrink: 0; margin-top: 2px; color: var(--accent-ink); }
+.review-activity-spinner { animation: turn 1s linear infinite; }
 .triage-card .card-header { flex-wrap: wrap; gap: 20px 32px; padding: 24px; }
 .triage-card .card-header h2 { display: flex; align-items: center; gap: 14px; font-size: 21px; flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
 .triage-card .rank { flex-shrink: 0; }
@@ -517,6 +535,9 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .triage-card .plain-facts { gap: 12px; line-height: 1.65; }
 .triage-card .technical-detail { margin-top: 24px; }
 @media (max-width: 600px) {
+  .review-result { padding: 20px 16px; }
+  .triage-card-agent { padding: 0 16px 16px; }
+  .triage-card > .agent-chat { margin: 0 16px 16px; }
   .triage-card .card-header, .triage-card .card-body { padding: 20px 16px; }
   .triage-card .triage-provenance { padding: 16px 16px 0; }
   .triage-card .decision-banner { padding: 14px; }

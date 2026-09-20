@@ -1,6 +1,7 @@
 import type { AuditEvent, CaseRecord, Fact } from "@/lib/types";
+import type { RankedSubmission } from "@/federato/scoring";
 import { shouldFallThroughGeminiError } from "./model";
-import { errorCode, geminiModels, geminiText, type ChatContent } from "./providers";
+import { errorCode, geminiModels, geminiText, geminiTextStream, type ChatContent } from "./providers";
 
 export type ChatTurn = { role: "you" | "agent"; text: string };
 
@@ -8,10 +9,10 @@ export type ChatTurn = { role: "you" | "agent"; text: string };
 const HISTORY_LIMIT = 12;
 
 export const CHAT_PROMPT = [
-  "You are Astra, the underwriting agent that analysed the commercial property case below, and you are talking with the underwriter who is reviewing it. They may be speaking to you out loud, and your reply may be read aloud.",
-  "Answer from the case record. Give a fact's source and confidence when it matters. When the record lacks something, say so and suggest where it would come from.",
+  "You are Astra, the underwriting agent reviewing the commercial property record below with an underwriter. They may be speaking to you out loud, and your reply may be read aloud.",
+  "Answer from the supplied review record. Give a fact's source and confidence when it matters. When the record lacks something, say so and suggest where it would come from.",
   "Keep replies short and conversational: two to four plain sentences, spoken-word style, with no headings, lists, or markdown. Say things directly and skip framing by contrast, such as 'not X, but Y'.",
-  "You explain and recommend; the underwriter decides. Quoting and binding happen elsewhere. Broker replies and decisions go through the forms on the case page, so point there when asked to change the case.",
+  "You explain and recommend; the underwriter decides. Quoting and binding happen elsewhere. Do not claim that a broker was contacted or an exception was approved. For local cases, broker replies and decisions use the forms on the case page. For Federato records, explain that this review is advisory and does not write back to Federato.",
 ].join(" ");
 
 const money = (value: number) => `$${value.toLocaleString("en-US")}`;
@@ -63,22 +64,27 @@ export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[]): strin
   return lines.filter((line): line is string => line !== null).join("\n");
 }
 
-/**
- * Answers one question about a case, carrying the recent conversation so follow-ups make sense.
- * Walks the Gemini waterfall like extraction does, with one difference: a model that is out of
- * quota (429) is skipped for the next one, because a conversation should keep going during a demo
- * even when one model's free-tier allowance for the day is spent.
- */
-export async function answerCaseQuestion(caseRecord: CaseRecord, audit: AuditEvent[], history: ChatTurn[], question: string): Promise<{ reply: string; model: string }> {
-  if (!process.env.GEMINI_API_KEY) throw Object.assign(new Error("No chat model is configured"), { status: 503 });
-  const system = `${CHAT_PROMPT}\n\nCase record:\n${caseBriefing(caseRecord, audit)}`;
+export function triageBriefing(resource: string, item: RankedSubmission): string {
+  return [
+    `Federato ${resource} record ${item.id}: ${item.account}`,
+    `Lifecycle status: ${item.lifecycleStatus ?? "unknown"}`,
+    `Appetite result: match ${item.rawScore}/100, priority ${item.score}/100. ${item.recommendation}. ${item.explanation}`,
+    `Evidence scope: ${item.evidenceNote ?? "No additional evidence note"}`,
+    ...item.criteria.map((criterion) => `${criterion.factor}: ${criterion.status}, ${criterion.points}/${criterion.maximum}. ${criterion.detail} Source: ${criterion.source}`),
+    `Missing or ambiguous data: ${item.missingData.join(", ") || "none reported"}`,
+  ].join("\n");
+}
+
+function chatContents(history: ChatTurn[], question: string): ChatContent[] {
   const turns = history.slice(-HISTORY_LIMIT);
-  // Gemini wants the conversation to open with the user, so a leading agent turn is dropped.
   while (turns[0]?.role === "agent") turns.shift();
-  const contents: ChatContent[] = [
-    ...turns.map((turn): ChatContent => ({ role: turn.role === "you" ? "user" : "model", text: turn.text })),
-    { role: "user", text: question },
-  ];
+  return [...turns.map((turn): ChatContent => ({ role: turn.role === "you" ? "user" : "model", text: turn.text })), { role: "user", text: question }];
+}
+
+export async function answerReviewQuestion(briefing: string, history: ChatTurn[], question: string): Promise<{ reply: string; model: string }> {
+  if (!process.env.GEMINI_API_KEY) throw Object.assign(new Error("No chat model is configured"), { status: 503 });
+  const system = `${CHAT_PROMPT}\n\nReview record:\n${briefing}`;
+  const contents = chatContents(history, question);
   let lastError: unknown;
   for (const model of geminiModels()) {
     try {
@@ -92,4 +98,34 @@ export async function answerCaseQuestion(caseRecord: CaseRecord, audit: AuditEve
     }
   }
   throw lastError ?? new Error("No model answered");
+}
+
+export async function streamReviewQuestion(briefing: string, history: ChatTurn[], question: string, onChunk: (chunk: string) => void): Promise<{ reply: string; model: string }> {
+  if (!process.env.GEMINI_API_KEY) throw Object.assign(new Error("No chat model is configured"), { status: 503 });
+  const system = `${CHAT_PROMPT}\n\nReview record:\n${briefing}`;
+  const contents = chatContents(history, question);
+  let lastError: unknown;
+  for (const model of geminiModels()) {
+    let emitted = false;
+    try {
+      const response = await geminiTextStream(model, system, contents, (chunk) => { emitted = true; onChunk(chunk); }, { timeoutMs: 30_000 });
+      const reply = response.text?.trim();
+      if (reply) return { reply, model: response.modelVersion ?? model };
+      lastError = new Error(`Empty reply from ${model}`);
+    } catch (error) {
+      lastError = error;
+      if (emitted || !shouldFallThroughGeminiError(error) && errorCode(error) !== 429) break;
+    }
+  }
+  throw lastError ?? new Error("No model answered");
+}
+
+/**
+ * Answers one question about a case, carrying the recent conversation so follow-ups make sense.
+ * Walks the Gemini waterfall like extraction does, with one difference: a model that is out of
+ * quota (429) is skipped for the next one, because a conversation should keep going during a demo
+ * even when one model's free-tier allowance for the day is spent.
+ */
+export async function answerCaseQuestion(caseRecord: CaseRecord, audit: AuditEvent[], history: ChatTurn[], question: string): Promise<{ reply: string; model: string }> {
+  return answerReviewQuestion(caseBriefing(caseRecord, audit), history, question);
 }

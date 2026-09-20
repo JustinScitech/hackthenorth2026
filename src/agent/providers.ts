@@ -62,6 +62,26 @@ export function geminiText(model: string, system: string, contents: ChatContent[
   }), options.retries);
 }
 
+/** Streams visible reply text from the same model and prompt path used for a complete answer. */
+export function geminiTextStream(model: string, system: string, contents: ChatContent[], onChunk: (chunk: string) => void, options: CallOptions = {}): Promise<JsonResponse> {
+  const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  return traceModelCall("gemini", model, async () => {
+    const stream = await gemini.models.generateContentStream({
+      model,
+      contents: contents.map((turn) => ({ role: turn.role, parts: [{ text: turn.text.slice(0, 20_000) }] })),
+      config: { systemInstruction: system, httpOptions: { timeout: options.timeoutMs ?? 45_000 } },
+    });
+    let text = "";
+    let modelVersion: string | undefined;
+    for await (const response of stream) {
+      const chunk = response.text ?? "";
+      if (chunk) { text += chunk; onChunk(chunk); }
+      modelVersion = response.modelVersion ?? modelVersion;
+    }
+    return { text, modelVersion };
+  });
+}
+
 export const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
 
 export function openaiModel(): string {

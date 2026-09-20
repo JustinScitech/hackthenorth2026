@@ -2,26 +2,44 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle, DownloadSimple, Info, ListNumbers, Printer, Warning, WarningCircle } from "@phosphor-icons/react/dist/ssr";
+import { DownloadSimple, Info, ListNumbers, Printer, Warning, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import type { TriageReport } from "@/federato/triage";
-import { rankingExplanation, resourceLabels, summarizeSubmission } from "@/federato/presentation";
-import { buildReviewPlan, summarizeQueue } from "@/federato/review-plan";
+import { rankingExplanation, resourceLabels } from "@/federato/presentation";
+import { summarizeQueue } from "@/federato/review-plan";
+import { readReviewStream, type ReviewProgress } from "@/lib/review-stream";
+import { ReviewActivity } from "@/app/ui/review-activity";
+import { ReviewResult } from "@/app/ui/review-result";
+import { AgentChat, type ChatTurn } from "@/app/ui/agent-chat";
 
-type Report = Omit<TriageReport, "schema">;
+type Report = Omit<TriageReport, "schema"> & { chatSignatures: Record<string, string> };
 export default function TriagePage() {
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [activity, setActivity] = useState<ReviewProgress[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
   async function run() {
-    setLoading(true); setError(""); setExportError(""); setReport(null);
+    setLoading(true); setError(""); setExportError(""); setReport(null); setActivity([]); setSelectedId(null); setChatTurns([]);
     try {
       const response = await fetch("/api/triage", { method: "POST" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Unable to rank the queue.");
-      setReport(data); setShowAll(false);
+      let completed = false;
+      if (response.headers.get("content-type")?.includes("text/event-stream")) {
+        await readReviewStream<Report>(response, (event) => {
+          if (event.type === "progress") setActivity((current) => [...current, event.data]);
+          if (event.type === "result") { completed = true; setReport(event.data); setShowAll(false); }
+        });
+      } else {
+        const data = await response.json() as Report & { error?: string };
+        if (!response.ok) throw new Error(data.error ?? "Unable to rank the queue.");
+        setReport({ ...data, chatSignatures: data.chatSignatures ?? {} });
+        setShowAll(false);
+        completed = true;
+      }
+      if (!completed) throw new Error("The live review was interrupted. Run it again.");
     } catch (err) { setError(err instanceof Error ? err.message : "Unable to rank the queue."); }
     finally { setLoading(false); }
   }
@@ -49,7 +67,7 @@ export default function TriagePage() {
     </div>
     <p className="lede">Scores order the queue for human review. Approval and binding stay with the underwriter.</p>
     <div aria-live="polite">
-      {loading && <div className="notice"><Info size={17} aria-hidden="true" />Discovering available fields and reading the queue. Large queues may take a few minutes.</div>}
+      {loading && <ReviewActivity events={activity} working />}
       {error && <div role="alert" className="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
     </div>
     {!report && !loading && !error && <div className="card"><p className="empty-state">Run triage to discover the resource and see ranked records, per-factor scores, and the reasoning behind each query.</p></div>}
@@ -79,18 +97,11 @@ export default function TriagePage() {
       <p className="subtle triage-ranking-note">{rankingExplanation}</p>
       {!rows.length && <div className="card"><p className="empty-state">The API returned an empty queue.</p></div>}
       <div className="triage-list">
-        {rows.map((item, index) => { const summary = summarizeSubmission(item); const plan = buildReviewPlan(item); const Icon = summary.status === "positive" ? CheckCircle : summary.status === "refer" ? Warning : WarningCircle; return <article key={item.id} className="triage-card card">
-          <div className="card-header"><h2><span className="rank" aria-label={`Rank ${index + 1}`}>{index + 1}</span>{item.account}</h2><div className="triage-scores"><div><span className="subtle">Match score</span><span className="score">{item.rawScore}<small>/100</small></span></div><p className="subtle">Priority score: {item.score}/100</p></div></div>
-          <p className="subtle triage-provenance">Lifecycle status: {item.lifecycleStatus}. {item.evidenceNote}</p>
-          <div className="card-body"><div className={`decision-banner decision-${summary.status}`}><Icon size={18} aria-hidden="true" /><div><strong>{summary.title}</strong><span>{summary.plainExplanation}</span></div></div><p className="next-action"><strong>Next step:</strong> {summary.action}</p><div className="plain-facts">{summary.strengths.length > 0 && <div><strong>What supports this:</strong> {summary.strengths.join(", ")}</div>}{summary.questions.length > 0 && <div><strong>What to check:</strong> {summary.questions.join(", ")}</div>}</div><details className="technical-detail"><summary>Show the detailed reasoning</summary><p className="subtle" style={{ marginBottom: 10 }}><span className="annotation">{labels?.singular} {item.id}</span> {item.recommendation}</p><p>{item.explanation}</p></details></div>
-          <details className="review-plan"><summary>Review checklist · {plan.exceptions} exceptions · {plan.gaps} evidence gaps</summary>
-            <div className="review-plan-body"><p className="subtle">{plan.assessed} of {plan.total} appetite factors can be assessed from supplied data. This measures availability, not independent verification or approval.</p>
-              {plan.tasks.length ? <ol>{plan.tasks.map((task) => <li key={`${task.kind}-${task.factor}`}><strong>{task.kind === "exception" ? "Refer" : "Clarify"}: {task.factor}</strong><p>{task.action}</p><details><summary>Evidence behind this task</summary><p>{task.reason}</p><p className="subtle">Source: {task.source ?? "Required submission context; no supporting field available"}</p></details></li>)}</ol> : <p>No unresolved appetite checks. Confirm source accuracy before an underwriter makes the final decision.</p>}
-              <p className="subtle">Checklist only: no documents have been requested and no exceptions have been approved.</p>
-            </div>
-          </details>
-          <details><summary>Appetite breakdown and data sources</summary><div className="triage-table-wrap"><table className="triage-table"><thead><tr><th>Factor</th><th>Result</th><th>Points</th><th>Evidence and rule</th></tr></thead><tbody>{item.criteria.map((criterion) => <tr key={criterion.factor}><th scope="row">{criterion.factor}</th><td>{criterion.status}</td><td>{criterion.points}/{criterion.maximum}</td><td>{criterion.detail}<small>Source: {criterion.source}</small></td></tr>)}</tbody></table></div></details>
-        </article>; })}
+        {rows.map((item, index) => <article key={item.id} className="triage-card card">
+          <ReviewResult result={item} rank={index + 1} label={labels?.singular} />
+          {report?.chatSignatures[item.id] && <div className="triage-card-agent"><button className="secondary-button" type="button" onClick={() => { setSelectedId(selectedId === item.id ? null : item.id); setChatTurns([]); }}>{selectedId === item.id ? "Close agent chat" : "Ask the agent about this record"}</button></div>}
+          {selectedId === item.id && report && <AgentChat key={item.id} endpoint="/api/triage/chat" context={{ resource: report.resource, generatedAt: report.generatedAt, item, signature: report.chatSignatures[item.id] }} voiceAvailable={false} turns={chatTurns} setTurns={setChatTurns} />}
+        </article>)}
       </div>
     </>}
   </main>;

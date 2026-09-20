@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { answerCaseQuestion, type ChatTurn } from "@/agent/chat";
+import { answerCaseQuestion, caseBriefing, type ChatTurn } from "@/agent/chat";
+import { streamChatResponse } from "@/agent/chat-stream";
 import { speak, transcribe, voiceConfigured } from "@/agent/voice";
 import { requireApiSession } from "@/lib/auth-access";
 import { getAudit, getCase } from "@/lib/db";
@@ -72,6 +73,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     console.error("Case unavailable for chat", error instanceof Error ? error.name : "UnknownError");
     return reject("Could not load this case. Check local services.", 503);
+  }
+
+  if (!spoken && !wantVoice && request.headers.get("accept")?.includes("text/event-stream")) {
+    return streamChatResponse(caseBriefing(caseRecord, audit), history, question);
   }
 
   let answer;
