@@ -30,6 +30,8 @@ Compose waits for PostgreSQL and MongoDB, runs the schema migration, then starts
 
 ## Smoke test
 
+`npm run smoke:case` does steps 2 and 3 below without the browser: it drives one synthetic case through the real job path (extraction, source discovery, property records, checks, verifier, broker draft, a freeform broker reply, a decision, and the precedent lookup) against the configured databases and keys, prints the facts, findings and audit trail after each step along with any job error, and deletes the case afterwards (`--keep` leaves it on the board). Run `npm run doctor` first to confirm the schema is current.
+
 1. Open `https://<your-domain>/sign-in` and sign in with an approved Google account.
 2. Create a fictional sample case. It should leave `received` and show extraction and guideline-check audit entries. If `GEMINI_API_KEY` is set, confirm the trace shows a completed Gemini attempt rather than parser fallback.
 3. Use a sample that requires broker information. Add a response, wait for `review_ready`, then record an underwriter decision.

@@ -59,12 +59,13 @@ export type VerifierOptions = {
   /** Replaces the Gemini call, for tests and evals. */
   generate?: (model: string, prompt: string, text: string) => Promise<JsonResponse>;
   models?: readonly string[];
-  /** Deadline for the whole waterfall, so a hung call cannot stall the case job. */
+  /** Deadline for one model call; the whole waterfall gets twice this, so the models ahead of the live one that answer 429 do not eat the live call's time. */
   timeoutMs?: number;
 };
 
 export const BRIEF_CLAIM_ID = "brief";
 export const DEFAULT_VERIFIER_TIMEOUT_MS = 45_000;
+const WATERFALL_TIMEOUT_FACTOR = 2;
 const MAX_SOURCE_CHARS = 12_000;
 const MAX_REASON_CHARS = 200;
 
@@ -209,7 +210,7 @@ export async function verifyFindings(findings: Finding[], sources: VerifierSourc
   const request = `CLAIMS\n${claims}\n\nSOURCES\n${corpus}`;
   let attempts: ModelAttempt<VerifierVerdict[]>[] = [];
   try {
-    attempts = await withDeadline(runGeminiWaterfall<VerifierVerdict[]>((model) => generate(model, VERIFIER_PROMPT, request), undefined, options.models ?? geminiModels(), request, parseVerdicts), options.timeoutMs ?? DEFAULT_VERIFIER_TIMEOUT_MS);
+    attempts = await withDeadline(runGeminiWaterfall<VerifierVerdict[]>((model) => generate(model, VERIFIER_PROMPT, request), undefined, options.models ?? geminiModels(), request, parseVerdicts), (options.timeoutMs ?? DEFAULT_VERIFIER_TIMEOUT_MS) * WATERFALL_TIMEOUT_FACTOR);
   } catch (error) {
     return untouched("failed", error instanceof Error ? error.message : "Verifier failed", attempts);
   }

@@ -21,7 +21,8 @@
     "triage": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/federato-triage.ts",
     "auth:check": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/auth-check.ts",
     "eval:scorecard": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/eval-scorecard.ts",
-    "doctor": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/doctor.ts"
+    "doctor": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/doctor.ts",
+    "smoke:case": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/smoke-case.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.20.0",
