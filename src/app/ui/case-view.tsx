@@ -10,7 +10,8 @@ import { VoiceBrief } from "./voice-brief";
 import { AgentChat, type ChatTurn } from "./agent-chat";
 import { CasePdfExport } from "./case-pdf-export";
 import { CaseReportEditor } from "./case-report-editor";
-import { NextStepPanel } from "./next-step";
+import { SourcePicker } from "./source-picker";
+import { summarizeSubmission } from "@/federato/presentation";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
 function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
@@ -116,6 +117,8 @@ const eventLabels: Record<string, string> = {
   public_research_started: "Public source visit started",
   public_research_skipped: "Public research skipped", public_research_completed: "Public source reviewed",
   public_research_failed: "Public research unavailable", guideline_check_started: "Checking carrier appetite",
+  source_discovery_started: "Searching for a public source", source_discovery_completed: "Public source candidates found",
+  source_discovery_failed: "Public source search unavailable", public_source_confirmed: "Public source confirmed",
   property_context_started: "Looking up public property records", property_context_completed: "Public property records gathered",
   property_context_skipped: "Public records skipped", property_context_failed: "Public records unavailable",
   analysis_completed: "Guidelines checked",
@@ -156,11 +159,18 @@ function traceDetail(event: AuditEvent): string | null {
     return `Guideline checks · ${event.detail.pass} passed · ${event.detail.refer} referred · ${event.detail.unknown} unknown`;
   }
   if (event.eventType === "public_research_skipped") return String(event.detail.reason ?? "Public research was skipped");
+  if (event.eventType === "source_discovery_completed") {
+    const candidates = Array.isArray(event.detail.candidates) ? event.detail.candidates as { url: string; confidence: number }[] : [];
+    return candidates.length ? `${candidates.length} candidate page${candidates.length === 1 ? "" : "s"} for the underwriter to confirm · best ${candidates[0].confidence.toFixed(2)}` : "No likely assessor record found; a URL can be entered on the case";
+  }
+  if (event.eventType === "source_discovery_failed") return String(event.detail.reason ?? "The search did not complete");
+  if (event.eventType === "public_source_confirmed") return `${event.detail.url}${event.detail.candidate ? " (discovered candidate)" : " (entered by the underwriter)"}`;
   if (event.eventType === "property_context_skipped" || event.eventType === "property_context_failed") return String(event.detail.reason ?? "");
   if (event.eventType === "property_context_completed") return `${event.detail.ok} of ${event.detail.total} public datasets answered for ${event.detail.matched}`;
   if (event.eventType === "public_research_completed") {
     const signals = Array.isArray(event.detail.signals) ? event.detail.signals as string[] : [];
-    return signals.length ? `Public source saved as evidence · ${signals.length} signal${signals.length === 1 ? "" : "s"}: ${signals.join(", ")}` : "Public source saved as evidence";
+    const conflicts = Number(event.detail.conflicts ?? 0);
+    return (signals.length ? `Public source saved as evidence · ${signals.length} signal${signals.length === 1 ? "" : "s"}: ${signals.join(", ")}` : "Public source saved as evidence") + (conflicts ? ` · ${conflicts} parser/model conflict${conflicts === 1 ? "" : "s"} referred` : "");
   }
   if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; the case is still waiting on the broker";
   if (event.eventType === "public_research_failed" || event.eventType === "job_retry" || event.eventType === "job_failed") return String(event.detail.reason ?? "The step could not complete.");
@@ -193,6 +203,7 @@ function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobS
       : /_model_failed$/.test(latest?.eventType ?? "") ? "Astra is extracting with the fallback parser"
       : latest?.eventType === "extraction_completed" ? "Astra has the facts and is moving to the guidelines"
       : latest?.eventType === "public_research_started" ? "Astra is reviewing the supplied public source"
+      : latest?.eventType === "source_discovery_started" ? "Astra is searching for the assessor record"
         : latest?.eventType === "guideline_check_started" ? "Astra is checking the carrier appetite"
           : caseRecord.status === "received" ? "Astra is starting the analysis" : "Astra is reading the submission";
   }
@@ -274,12 +285,12 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
 }
 
 
-export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision, onReportSaved }: {
+export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision, onReportSaved, onSourceConfirmed }: {
   id: string; caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
-  onReportSaved: () => void;
+  onReportSaved: () => void; onSourceConfirmed: () => void;
 }) {
   const working = isProcessing(caseRecord, jobStatus);
   useElapsedSeconds(id, working);
@@ -311,6 +322,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
         <Findings caseRecord={caseRecord} />
         <PropertyContextSection context={caseRecord.propertyContext} result={caseRecord.appetiteResult} />
+        {!working && <SourcePicker key={`${id}:${caseRecord.analysisRevision}`} id={id} caseRecord={caseRecord} onConfirmed={onSourceConfirmed} />}
         {caseRecord.publicEvidence && <section className="detail-section" aria-labelledby="evidence-title"><div className="section-heading"><h2 id="evidence-title">Public-source evidence</h2><ArrowSquareOut size={16} aria-hidden="true" /></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><div className="source-line"><a className="text-link" href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><span>External source; verify before relying on it.</span></div></section>}
       </div>
     </div>

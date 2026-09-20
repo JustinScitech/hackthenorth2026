@@ -198,6 +198,7 @@ export async function createCaseReportPdf(caseRecord: CaseRecord, audit: AuditEv
       for (const signal of caseRecord.publicEvidence.signals ?? []) {
         row(label(signal.kind), display(signal.value), `Source quote: ${signal.quote}`);
       }
+      for (const conflict of caseRecord.publicEvidence.conflicts ?? []) row("Parser/model conflict", conflict);
     } else row("Source URL", caseRecord.publicSourceUrl ?? "Not provided");
     paragraph("External source; verify before relying on it.", muted);
   }

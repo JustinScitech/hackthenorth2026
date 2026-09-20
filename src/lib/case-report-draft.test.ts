@@ -5,7 +5,7 @@ import type { AuditEvent, CaseRecord } from "./types";
 
 const record: CaseRecord = {
   id: "11111111-1111-4111-8111-111111111111", insuredName: "Northline Fabrication", state: "CO", tiv: 6_250_000,
-  yearBuilt: 2008, losses: 1, address: null, propertyContext: null, sourceKey: "sample", publicSourceUrl: "https://example.org/property",
+  yearBuilt: 2008, losses: 1, sourceKey: "sample", publicSourceUrl: "https://example.org/property", sourceCandidates: null, address: null, propertyContext: null,
   publicEvidence: { title: "Property record", url: "https://example.org/property", excerpt: "Built in 2008.", signals: [{ kind: "yearBuilt", value: 2008, quote: "Constructed in 2008." }] },
   origin: null,
   extractionConflicts: [], status: "approved", facts: {

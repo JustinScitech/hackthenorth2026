@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { db, getCase } from "../lib/db";
 
-export type JobKind = "analyze" | "broker_response" | "decision" | "broker_follow_up";
+/** `research` re-visits a public source the underwriter confirmed after discovery and re-runs the checks with the evidence. */
+export type JobKind = "analyze" | "broker_response" | "decision" | "broker_follow_up" | "research";
 export type JobPayload = { actionId?: string; revision?: number; reminderNumber?: number };
 
 /**

@@ -385,3 +385,33 @@ test("voice mode opens a hands-free conversation with the transcript alongside",
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 });
+
+test("a case without a source URL offers the source picker, and a confirmed URL re-runs the checks", async ({ authenticatedPage: page, seedCase }) => {
+  test.setTimeout(90_000);
+  await page.goto("/cases/new");
+  await page.locator(".sample-select-trigger").click();
+  await page.getByRole("menuitemradio", { name: /New York restaurant/ }).click();
+  await page.getByRole("button", { name: "Start analysis" }).click();
+  await expect(page).toHaveURL(/\/cases\/[0-9a-f-]{36}$/);
+  const id = page.url().split("/").pop()!;
+  await expect(page.getByRole("heading", { name: "Broker information needed" })).toBeVisible({ timeout: 40_000 });
+  // Browserbase is off in E2E, so discovery is skipped and the picker offers the manual field alone.
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Public research skipped");
+  await expect(page.getByRole("heading", { name: "Public source to research" })).toBeVisible();
+  const origin = { headers: { origin: "http://localhost:3100" } };
+  expect((await page.request.post(`/api/cases/${id}/source`, { ...origin, data: { url: "http://example.com/parcel/1" } })).status()).toBe(400);
+  expect((await page.request.post(`/api/cases/${id}/source`, { ...origin, data: { url: "https://localhost/parcel/1" } })).status()).toBe(400);
+  expect((await page.request.post(`/api/cases/${id}/source`, { data: { url: "https://example.com/parcel/1" } })).status()).toBe(403);
+  await page.getByLabel("Source URL").fill("https://example.com/parcel/1");
+  await page.getByRole("button", { name: "Confirm and research" }).click();
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Public source confirmed", { timeout: 40_000 });
+  await expect(page.getByRole("heading", { name: "Public source to research" })).toHaveCount(0);
+  await expect.poll(async () => (await (await page.request.get(`/api/cases/${id}`)).json()).case.status, { timeout: 40_000 }).toBe("waiting_for_broker");
+  const record = (await (await page.request.get(`/api/cases/${id}`)).json()).case;
+  expect(record.publicSourceUrl).toBe("https://example.com/parcel/1");
+  expect(record.analysisRevision).toBe(1);
+  expect((await page.request.post(`/api/cases/${id}/source`, { ...origin, data: { url: "https://example.com/parcel/2" } })).status()).toBe(409);
+  // A case the agent is still working on cannot have its source changed under it.
+  const busy = await seedCase({ status: "extracting" });
+  expect((await page.request.post(`/api/cases/${busy}/source`, { ...origin, data: { url: "https://example.com/parcel/1" } })).status()).toBe(409);
+});

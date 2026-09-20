@@ -22,7 +22,8 @@ EVAL_EXTRACTOR=gemini-only npm run eval -- --suite extraction  # or openai-only:
 | `appetite` | Federato 2025 appetite thresholds per factor, score caps, nested exposure/claim derivation, currency | `src/federato/scoring.ts`, `derive.ts`, `schema.ts` |
 | `ranking` | Two-page queue: complete pagination, bucket ordering, tie stability, summaries and markdown agree with scores | `src/federato/triage.ts`, `presentation.ts` |
 | `resolution` | One fact from several sources (intake, Gemini, OpenAI, parser): precedence, agreement, confidence, visible conflicts | `src/agent/resolution.ts` |
-| `enrichment` | Public pages fetched by Browserbase become cited structured signals; signals corroborate, contradict, or add findings without replacing facts | `src/agent/enrichment.ts` |
+| `enrichment` | Public pages fetched by Browserbase become cited structured signals; signals corroborate, contradict, or add findings without replacing facts. The model pass (`merge:` cases) must quote the page, keeps the parser as the floor, and turns parser/model disagreement into a conflict rather than an overwrite | `src/agent/enrichment.ts`, `src/agent/evidence-model.ts` |
+| `discovery` | Source discovery for cases without a URL: a saved search page is ranked so the county assessor outranks listings and other states, only guarded HTTPS URLs are offered, and nothing relevant means no candidates | `src/agent/source-discovery.ts` |
 | `quote` | Intact tenant/auto quoting: required facts, referrals to a person, explained factors, monotonic pricing, conversational intake | `src/quote/rating.ts`, `src/quote/intake.ts` |
 | `telemetry` | Sentry events, logs, and spans never carry submission text | `src/agent/monitoring.ts` |
 
@@ -33,7 +34,7 @@ EVAL_EXTRACTOR=gemini-only npm run eval -- --suite extraction  # or openai-only:
 | Federato | ingest, enrich with real-world data, appetite insights | `appetite`, `ranking`, `enrichment`, `case-journey` |
 | Rox | messy, incomplete, conflicting sources; decisions under uncertainty | `extraction`, `resolution`, `guidelines` |
 | Intact | car/tenant quoting via AI; estimate or next step; accessibility | `quote` |
-| Browserbase | Browserbase meaningfully powers the experience with real web data | `enrichment` (live fetch is exercised by E2E, not here) |
+| Browserbase | Browserbase meaningfully powers the experience with real web data | `enrichment`, `discovery` (live fetch and search are exercised by E2E, not here) |
 | OpenAI | OpenAI API powers the experience | `resolution`; `EVAL_EXTRACTOR=openai-only` on `extraction` |
 | Sentry | two products beyond errors, data that shaped the build | `telemetry` (privacy invariants) |
 
