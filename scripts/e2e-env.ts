@@ -29,9 +29,10 @@ export function e2eEnvironment() {
     SENTRY_DSN: "",
     NEXT_PUBLIC_SENTRY_DSN: "",
     SENTRY_AUTH_TOKEN: "",
+    // Blank by default so the suite stays offline; E2E_LIVE_FEDERATO=1 keeps the real credentials for the live queue test.
     FEDERATO_API_KEY: "",
-    FEDERATO_CLIENT_ID: "",
-    FEDERATO_CLIENT_SECRET: "",
+    FEDERATO_CLIENT_ID: process.env.E2E_LIVE_FEDERATO === "1" ? process.env.FEDERATO_CLIENT_ID ?? "" : "",
+    FEDERATO_CLIENT_SECRET: process.env.E2E_LIVE_FEDERATO === "1" ? process.env.FEDERATO_CLIENT_SECRET ?? "" : "",
     ELEVENLABS_API_KEY: "",
   };
 }

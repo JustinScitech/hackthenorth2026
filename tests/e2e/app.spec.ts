@@ -215,11 +215,11 @@ test("the queue lists every ranked submission with a disposition, its reasoning,
   await page.getByRole("button", { name: "Rank the live queue" }).first().click();
   await expect(page.getByRole("heading", { name: "Top Office" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Second Warehouse" })).toBeVisible();
-  await expect(page.locator(".queue-row").first().locator(".disposition")).toHaveText("Target");
+  await expect(page.locator(".queue-row").first().locator(".disposition").first()).toHaveText("Target");
   await expect(page.getByRole("heading", { name: "Fleet Auto" })).toHaveCount(0);
   await page.getByRole("button", { name: /All lines/ }).click();
   await expect(page.getByRole("heading", { name: "Fleet Auto" })).toBeVisible();
-  await expect(page.locator(".queue-row").last().locator(".disposition")).toHaveText("Outside appetite");
+  await expect(page.locator(".queue-row").last().locator(".disposition").first()).toHaveText("Outside appetite");
   await page.getByText(/How the queue was read/).click();
   await expect(page.getByText("Selected commercial property records")).toBeVisible();
   await routeQueue(page, { status: 503, body: { error: "Federato unavailable" } });

@@ -18,7 +18,8 @@
     "test:e2e": "node --env-file-if-exists=.env --import tsx scripts/e2e-prepare.ts && npm run build && node --env-file-if-exists=.env ./node_modules/.bin/playwright test",
     "triage": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/federato-triage.ts",
     "auth:check": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/auth-check.ts",
-    "eval:scorecard": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/eval-scorecard.ts"
+    "eval:scorecard": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/eval-scorecard.ts",
+    "doctor": "node --env-file-if-exists=.env.local --env-file-if-exists=.env --import tsx scripts/doctor.ts"
   },
   "dependencies": {
     "@browserbasehq/sdk": "^2.20.0",
