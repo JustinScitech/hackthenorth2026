@@ -1,5 +1,5 @@
 import { conflictsOf, EXTRACTION_FIELDS, EXTRACTION_PROMPT, extractionSchema, FIELD_LABELS, openaiSchema, parseModelOutput, parserReading, readingValues, resolveReadings, type ExtractedFields, type ExtractionField, type Reading, type ResolvedFields, type SourceReading } from "./extraction-schema";
-import { errorCode, geminiJson, geminiModels, GEMINI_WATERFALL, openaiJson, openaiModel } from "./providers";
+import { errorCode, geminiJson, geminiModels, GEMINI_WATERFALL, openaiJson, openaiModel, type TokenUsage } from "./providers";
 
 export { EXTRACTION_PROMPT, extractionSchema, GEMINI_WATERFALL, openaiSchema };
 
