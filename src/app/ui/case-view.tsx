@@ -15,6 +15,7 @@ import { SourcePicker } from "./source-picker";
 import { NextStepPanel } from "./next-step";
 import { SimilarCases } from "./similar-cases";
 import { BrokerDraft } from "./broker-draft";
+import { normalizeFact } from "@/lib/fact-normalization";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
 function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
@@ -25,6 +26,7 @@ type ActionKind = "approve" | "decline";
 
 /** One fact with its provenance: the value, where it came from, the sentence it was read from, and any reader that disagreed. */
 function FactRow<T extends string | number | boolean>({ label, fact, field, format }: { label: string; fact: Fact<T>; field?: FactField; format?: (value: T) => string }) {
+  fact = normalizeFact(fact);
   const show = format ?? ((value: T) => field ? formatFactValue(field, value) : String(value));
   return <div className="fact-row">
     <span>{label}</span>

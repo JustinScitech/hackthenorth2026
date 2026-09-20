@@ -5,6 +5,16 @@ import { brokerAppetite, caseAppetiteSchema } from "../lib/case-appetite";
 
 const appetite = caseAppetiteSchema.parse({ business: "new", line: "property", premium: 85_000, constructionPercent: 75, lossValue: 0, lossHistoryComplete: true, effective: "2026-01-01", expiration: "2027-01-01" });
 
+test("missing state remains unknown with zero confidence rather than an exception", () => {
+  for (const state of [null, "null", " "]) {
+    const facts = buildFacts({ state, tiv: null, yearBuilt: 1996, losses: 0, appetite }, { yearBuilt: null, losses: null });
+    assert.deepEqual(facts.state, { value: null, source: "Not provided", confidence: 0 });
+    assert.deepEqual(facts.tiv, { value: null, source: "Not provided", confidence: 0 });
+    assert.equal(facts.losses.value, 0);
+    assert.equal(evaluateFacts(facts).findings.find((finding) => finding.id === "state")?.result, "unknown");
+  }
+});
+
 test("extracts explicit construction year and loss count", () => {
   assert.deepEqual(parseBrokerNotes("Constructed in 1998. Losses: 0 in the past three years."), { yearBuilt: 1998, losses: 0 });
   assert.deepEqual(parseBrokerNotes("Built in 1998. Loss information to follow. The property had 0 losses in the past three years."), { yearBuilt: 1998, losses: 0 });

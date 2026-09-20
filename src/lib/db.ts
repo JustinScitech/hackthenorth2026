@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { databaseUrl } from "./env";
 import type { AuditEvent, CaseRecord } from "./types";
+import { normalizeFact, normalizeState } from "./fact-normalization";
 
 const globalForDb = globalThis as unknown as { dbPool?: Pool };
 
@@ -40,8 +41,9 @@ export const db: Pool = new Proxy(Pool.prototype, {
 }) as Pool;
 
 function mapCase(row: Record<string, unknown>): CaseRecord {
+  const facts = row.facts as CaseRecord["facts"];
   return {
-    id: String(row.id), insuredName: String(row.insured_name), state: row.state === null ? null : String(row.state),
+    id: String(row.id), insuredName: String(row.insured_name), state: normalizeState(row.state),
     tiv: row.tiv === null ? null : Number(row.tiv), yearBuilt: row.year_built === null ? null : Number(row.year_built),
     losses: row.losses === null ? null : Number(row.losses), sourceKey: String(row.source_key),
     appetite: row.appetite as CaseRecord["appetite"],
@@ -53,7 +55,7 @@ function mapCase(row: Record<string, unknown>): CaseRecord {
     propertyContext: (row.property_context as CaseRecord["propertyContext"]) ?? null,
     origin: (row.origin as CaseRecord["origin"]) ?? null,
     extractionConflicts: (row.extraction_conflicts as string[] | null) ?? [],
-    status: row.status as CaseRecord["status"], facts: row.facts as CaseRecord["facts"],
+    status: row.status as CaseRecord["status"], facts: facts ? { ...facts, state: normalizeFact({ ...facts.state, value: normalizeState(facts.state.value) }), tiv: normalizeFact(facts.tiv) } : facts,
     findings: row.findings as CaseRecord["findings"], brief: row.brief as string | null,
     question: row.question as string | null, decision: row.decision as string | null,
     draftEmail: (row.draft_email as string | null) ?? null, draftStatus: (row.draft_status as CaseRecord["draftStatus"]) ?? null,

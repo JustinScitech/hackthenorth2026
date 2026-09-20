@@ -2,6 +2,7 @@ import type { AppetiteFieldFacts, Fact, FactCandidate, Facts, Finding } from "..
 import { brokerAppetiteInstructions, caseAppetiteSchema, caseMapping, type CaseAppetite } from "../lib/case-appetite";
 import { scoreSubmission, type RankedSubmission } from "../federato/scoring";
 import { counterfactuals, describeCounterfactuals } from "../federato/counterfactual";
+import { normalizeFact, normalizeState } from "../lib/fact-normalization";
 
 export type Intake = {
   state: string | null;
@@ -107,8 +108,8 @@ export function buildFacts(intake: Intake, extracted: Extracted, provenance: Ext
   };
   return {
     appetite: { value: { ...caseAppetiteSchema.parse(intake.appetite ?? {}), account: intake.insuredName ?? "" }, source: "Intake and explicit broker appetite fields (USD)", confidence: intake.appetite ? 1 : 0, ...(provenance.appetite ? { fields: provenance.appetite } : {}) },
-    state: { value: intake.state, source: "Intake form", confidence: 1 },
-    tiv: { value: intake.tiv, source: "Intake form", confidence: 1 },
+    state: normalizeFact({ value: normalizeState(intake.state), source: "Intake form", confidence: 1 }),
+    tiv: normalizeFact({ value: intake.tiv, source: "Intake form", confidence: 1 }),
     yearBuilt: fact("yearBuilt"),
     losses: fact("losses"),
   };
