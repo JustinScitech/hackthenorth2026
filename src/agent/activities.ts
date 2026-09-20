@@ -1,5 +1,5 @@
 import { BROKER_UPDATE_SEPARATOR, buildFacts, evaluateFacts } from "./analysis";
-import { brokerAppetite, caseAppetiteSchema } from "../lib/case-appetite";
+import { mergeCaseAppetite } from "../lib/case-appetite";
 import { addAudit, db, getCase } from "../lib/db";
 import { extractNotes } from "./model";
 import { getText } from "../lib/storage";
@@ -52,7 +52,7 @@ export async function extractCase(caseId: string): Promise<void> {
       revision: caseRecord.analysisRevision,
     }, `${provider}:${event}:${caseId}:${caseRecord.analysisRevision}:${attempt.model}`);
   });
-  const appetite = caseAppetiteSchema.parse({ ...brokerAppetite(texts[0]), ...caseRecord.appetite, ...brokerAppetite(texts.slice(1).join("\n")) });
+  const appetite = mergeCaseAppetite(texts[0], caseRecord.appetite, texts.slice(1).join("\n"));
   const facts = buildFacts({ ...caseRecord, appetite }, extraction.extracted);
   if (caseRecord.yearBuilt === null && facts.yearBuilt.value !== null) { facts.yearBuilt.source = `Broker text via ${extraction.fieldSources.yearBuilt}`; facts.yearBuilt.confidence = extraction.confidence.yearBuilt; }
   if (caseRecord.losses === null && facts.losses.value !== null) { facts.losses.source = `Broker text via ${extraction.fieldSources.losses}`; facts.losses.confidence = extraction.confidence.losses; }

@@ -12,6 +12,10 @@ export const caseAppetiteSchema = z.object({
   expiration: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null),
 });
 export type CaseAppetite = z.infer<typeof caseAppetiteSchema>;
+export function mergeCaseAppetite(originalNotes: string, intake: Partial<CaseAppetite> | null | undefined, brokerReplies = ""): CaseAppetite {
+  const supplied = Object.fromEntries(Object.entries(intake ?? {}).filter(([, value]) => value !== null && value !== undefined));
+  return caseAppetiteSchema.parse({ ...brokerAppetite(originalNotes), ...supplied, ...brokerAppetite(brokerReplies) });
+}
 export const caseMapping: Mapping = {
   account: "account", business: "business", line: "line", state: "state", tiv: "tiv", premium: "premium",
   year: "year", constructionPercent: "constructionPercent", lossValue: "lossValue", effective: "effective", expiration: "expiration",

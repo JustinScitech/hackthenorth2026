@@ -22,6 +22,25 @@ test("triage UI exposes underwriting recommendation and appetite evidence", asyn
   await expect(page.getByRole("cell", { name: "New business is acceptable." })).toBeVisible();
 });
 
+test("blank intake appetite fields retain broker evidence through the real worker", async ({ authenticatedPage: page }) => {
+  const response = await page.request.post("/api/cases", {
+    headers: { origin: "http://localhost:3100" },
+    data: {
+      insuredName: "Broker Evidence Regression", state: "CA", tiv: 75000000, yearBuilt: 2015, losses: 0,
+      appetite: { premium: null, business: null, line: null, constructionPercent: null, lossValue: null, lossHistoryComplete: true },
+      brokerNotes: "Business type: new\nLine of business: property\nPremium: 85000\nEligible construction percent: 75\nFive-year loss value: 0\nEffective date: 2026-01-01\nExpiration date: 2027-01-01",
+      publicSourceUrl: null,
+    },
+  });
+  expect(response.status()).toBe(201);
+  const { id } = await response.json();
+  await expect.poll(async () => (await (await page.request.get(`/api/cases/${id}`)).json()).case.status, { timeout: 40000 }).toBe("review_ready");
+  const record = (await (await page.request.get(`/api/cases/${id}`)).json()).case;
+  expect(record.facts.appetite.value.premium).toBe(85000);
+  expect(record.appetiteResult.missingData).toEqual([]);
+  expect(record.appetiteResult.score).toBe(94);
+});
+
 test("real cases share carrier scoring, distinguish renewals, and rank the queue", async ({ authenticatedPage: page }) => {
   test.setTimeout(90_000);
   const results: { id: string; score: number; rawScore: number; business: string }[] = [];
