@@ -9,7 +9,7 @@ import { dispositionSlug } from "./queue";
 /** Where a case stands against the appetite, in the same four fields the queue uses. */
 export function NextStepPanel({ result, origin }: { result: RankedSubmission; origin?: CaseOrigin | null }) {
   const step = nextStep(result);
-  return <section className="detail-section next-step" aria-label="Where this stands">
+  return <section className="detail-section appetite-recommendation next-step" aria-label="Where this stands">
     <div className="section-heading"><h2>Where this stands</h2><span className={`disposition disposition-${dispositionSlug[step.disposition]}`}>{step.disposition}</span></div>
     <p>{step.why}</p>
     <p><strong>Next:</strong> {step.action}</p>

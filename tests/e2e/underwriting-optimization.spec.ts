@@ -66,10 +66,11 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     const record = (await (await page.request.get(`/api/cases/${id}`)).json()).case;
     expect(record.appetiteResult.criteria).toHaveLength(8);
     expect(record.appetiteResult.missingData).toEqual([]);
-    expect(record.appetiteResult.score).toBe(business === "new" ? 94 : 49);
+    // Public property records may move the priority score; the appetite-only score is what the guideline pins.
+    expect(record.appetiteResult.baseScore ?? record.appetiteResult.score).toBe(business === "new" ? 94 : 49);
     expect(record.appetiteResult.rawScore).toBe(business === "new" ? 94 : 86);
     if (business === "new") {
-      const recommendation = page.getByRole("region", { name: "Appetite recommendation" });
+      const recommendation = page.getByRole("region", { name: "Where this stands" });
       expect(await recommendation.evaluate((element) => parseFloat(getComputedStyle(element).paddingLeft))).toBeGreaterThanOrEqual(16);
       const decision = await page.getByRole("region", { name: "Underwriter decision" }).boundingBox();
       const chat = await page.getByRole("region", { name: "Ask the agent" }).boundingBox();

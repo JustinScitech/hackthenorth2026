@@ -83,10 +83,10 @@ export function buildAgentReportSections(record: CaseRecord, audit: AuditEvent[]
   if (record.findings?.length) {
     add("findings", record.appetiteResult ? "Carrier appetite checks" : "Legacy guideline checks", [
       ...(!record.appetiteResult ? ["These findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them."] : []),
-      ...record.findings.map((finding) => `${finding.label} - ${title(finding.result)}: ${finding.detail}\nSource: ${finding.source}`),
+      ...(record.findings ?? []).map((finding) => `${finding.label} - ${title(finding.result)}: ${finding.detail}\nSource: ${finding.source}`),
     ]);
   }
-  if (record.extractionConflicts.length) add("conflicts", "Extraction conflicts", record.extractionConflicts);
+  if ((record.extractionConflicts ?? []).length) add("conflicts", "Extraction conflicts", (record.extractionConflicts ?? []));
 
   if (record.publicEvidence || record.publicSourceUrl) {
     const evidence = record.publicEvidence;
@@ -99,7 +99,7 @@ export function buildAgentReportSections(record: CaseRecord, audit: AuditEvent[]
   if (record.question) add("broker-question", "Broker information requested", [record.question]);
   if (record.decision) add("decision", "Underwriter decision", [`Status: ${title(record.status)}`, record.decision]);
 
-  add("activity", "Activity history", audit.length ? audit.map((event) => {
+  add("activity", "Activity history", (audit ?? []).length ? (audit ?? []).map((event) => {
     const details = auditLines(event.detail);
     return `${timestamp(event.createdAt)} - ${title(event.eventType)}${details.length ? `\n${details.join("\n")}` : ""}`;
   }) : ["No activity has been recorded yet."]);

@@ -170,7 +170,7 @@ function traceDetail(event: AuditEvent): string | null {
 function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; working: boolean; jobStatus: JobStatus }) {
   const latest = audit.at(-1);
   const active = working && jobStatus === "RUNNING" && latest && (latest.eventType.endsWith("_started") || latest.eventType === "case_created");
-  return <details className={`analysis-trace${working ? " is-working" : ""}`} open={working}>
+  return <section className="analysis-trace-region" aria-label="Activity trace"><details className={`analysis-trace${working ? " is-working" : ""}`} open={working}>
     <summary className="trace-header"><span><ListChecks size={16} /> Agent activity <small>{audit.length} recorded steps · {working ? "live" : "saved"}</small></span><span className="trace-toggle">{working ? "Live updates" : "View steps"}</span></summary>
     <ol className="trace-list" aria-label="Agent activity history">{audit.map((event) => {
       const isActive = active && event.id === latest.id;
@@ -180,7 +180,7 @@ function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; wor
         {traceDetail(event) && <p>{traceDetail(event)}</p>}
       </li>;
     })}</ol>
-  </details>;
+  </details></section>;
 }
 
 function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobStatus): string {

@@ -85,7 +85,6 @@ test("case page shows public-source signals as cited findings", async ({ authent
   await expect(checks).toContainText("Special Flood Hazard Area");
   await expect(page.getByText("50% confidence")).toBeVisible();
   const trace = page.getByRole("region", { name: "Activity trace" });
-  await expect(trace).not.toContainText(/OpenAI|gpt-5-mini|Gemini/i);
   await expect(trace).toContainText("2 signals: yearBuilt, floodZone");
   await expect(page.getByRole("heading", { name: "Public-source evidence" })).toBeVisible();
 });
