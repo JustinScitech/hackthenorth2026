@@ -3,8 +3,8 @@ import { brokerAppetiteInstructions, caseAppetiteSchema, caseMapping, type CaseA
 import { scoreSubmission, type RankedSubmission } from "../federato/scoring";
 
 export type Intake = {
-  state: string;
-  tiv: number;
+  state: string | null;
+  tiv: number | null;
   yearBuilt: number | null;
   losses: number | null;
   insuredName?: string;
@@ -93,8 +93,8 @@ export function parseBrokerNotes(text: string): Extracted {
 export function buildFacts(intake: Intake, extracted: Extracted): Facts {
   return {
     appetite: { value: { ...caseAppetiteSchema.parse(intake.appetite ?? {}), account: intake.insuredName ?? "" }, source: "Intake and explicit broker appetite fields (USD)", confidence: intake.appetite ? 1 : 0 },
-    state: { value: intake.state, source: "Intake form", confidence: 1 },
-    tiv: { value: intake.tiv, source: "Intake form", confidence: 1 },
+    state: { value: intake.state, source: intake.state === null ? "Not provided" : "Intake form", confidence: intake.state === null ? 0 : 1 },
+    tiv: { value: intake.tiv, source: intake.tiv === null ? "Not provided" : "Intake form", confidence: intake.tiv === null ? 0 : 1 },
     yearBuilt: intake.yearBuilt === null
       ? { value: extracted.yearBuilt, source: extracted.yearBuilt === null ? "Not provided" : "Broker text", confidence: extracted.yearBuilt === null ? 0 : 0.75 }
       : { value: intake.yearBuilt, source: "Intake form", confidence: 1 },

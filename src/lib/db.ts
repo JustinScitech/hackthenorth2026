@@ -41,8 +41,8 @@ export const db: Pool = new Proxy(Pool.prototype, {
 
 function mapCase(row: Record<string, unknown>): CaseRecord {
   return {
-    id: String(row.id), insuredName: String(row.insured_name), state: String(row.state),
-    tiv: Number(row.tiv), yearBuilt: row.year_built === null ? null : Number(row.year_built),
+    id: String(row.id), insuredName: String(row.insured_name), state: row.state === null ? null : String(row.state),
+    tiv: row.tiv === null ? null : Number(row.tiv), yearBuilt: row.year_built === null ? null : Number(row.year_built),
     losses: row.losses === null ? null : Number(row.losses), sourceKey: String(row.source_key),
     appetite: row.appetite as CaseRecord["appetite"],
     appetiteResult: row.appetite_result as CaseRecord["appetiteResult"],
@@ -50,6 +50,7 @@ function mapCase(row: Record<string, unknown>): CaseRecord {
     publicEvidence: row.public_evidence as CaseRecord["publicEvidence"],
     address: (row.address as string | null) ?? null,
     propertyContext: (row.property_context as CaseRecord["propertyContext"]) ?? null,
+    origin: (row.origin as CaseRecord["origin"]) ?? null,
     extractionConflicts: (row.extraction_conflicts as string[] | null) ?? [],
     status: row.status as CaseRecord["status"], facts: row.facts as CaseRecord["facts"],
     findings: row.findings as CaseRecord["findings"], brief: row.brief as string | null,

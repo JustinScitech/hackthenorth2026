@@ -4,13 +4,19 @@ A durable, human-reviewed commercial property underwriting demo. PostgreSQL queu
 
 Cases and Federato triage share the supplied **2025 sample appetite guidelines** and the same eight-factor scorer. Both support human review and must not be used to bind coverage automatically.
 
-## Federato challenge triage
+## The Federato queue
 
-After ranking, **Download slides** exports an editable PowerPoint deck of the displayed results (top-ranked by default; all evaluated records after **Show all results**). The deck includes scope, scoring caveats, recommended actions, and factor evidence. Exact technical source paths remain in speaker notes rather than crowding the slides. Findings stay together where possible, and long content continues onto additional slides. **Print / save PDF** remains available separately. Slide export runs locally in the browser and does not send records to an external slide service.
+Open `/triage` (**Queue** in the sidebar) or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` for the live integration. The agent discovers the live schema, builds reference-aware queries, paginates every submission and each uniquely linked policy, and scores all of them against the 2025 appetite in about fifteen seconds. The last ranked queue is stored in PostgreSQL (`triage_reports`), so the page and the overview open with it and a fresh run is one click.
 
-Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` to enable this live integration. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local case database.
+Every row gets one of four dispositions in the carrier's own vocabulary (`src/federato/disposition.ts`): **Target**, **Acceptable**, **Needs information**, or **Outside appetite**, plus a one-line reason that quotes the observed figures and a next step. Rows that need information name each open answer, where it comes from (linked policy claims, the broker, the building schedule, a public property record), and what the submission becomes once the answers land. The queue orders itself by disposition first, then score; chips filter by line of business and disposition.
 
-The live planner prefers `Submission` and supplements missing evidence only from a uniquely linked Policy with matching insured, line, and effective date. Unmatched, ambiguous, and incomplete submissions remain visible. All lifecycle statuses are included and displayed. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
+**Open as case** turns a row into a case (`src/federato/open-case.ts`): verified facts become intake evidence, open answers stay blank so the review pauses and asks the broker, and the case records its origin and rank. A case that starts this way may have no state or TIV yet; the agent asks for them. **More** holds the slide export and print options; slides are built in the browser.
+
+The live planner prefers `Submission` and supplements missing evidence only from a uniquely linked Policy with matching insured, line, and effective date. Unmatched, ambiguous, and incomplete submissions remain visible with every lifecycle status. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
+
+## Model scorecard
+
+`/scorecard` shows how each reader scores on the same 31 broker notes: accuracy, invented values, missed and wrong fields, p50 and p95 latency, and list-price cost per 1,000 notes. Rules decide the appetite; the models only read. `npm run eval:scorecard` regenerates `evals/scorecards/extraction.json` with whatever keys the machine has (the parser always runs; Gemini and OpenAI need their keys).
 
 ## Quoting assistant
 

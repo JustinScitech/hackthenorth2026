@@ -116,7 +116,7 @@ test("a public quote conversation appears in the workspace quotes list", async (
   expect(saved).toMatchObject({ product: "tenant", status: "estimate", province: "NS", turns: 2, heard: { contentsValue: 30000, deductible: 2500 } });
   expect(JSON.stringify(saved)).not.toContain("Halifax");
 
-  await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Quotes" }).click();
+  await page.getByRole("navigation", { name: "Other demos" }).getByRole("link", { name: "Quotes" }).click();
   await expect(page).toHaveURL(/\/quotes$/);
 
   const db = new Client({ connectionString: e2eDatabaseUrl() });

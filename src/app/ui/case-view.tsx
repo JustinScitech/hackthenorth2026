@@ -8,7 +8,7 @@ import { Mark } from "./logo";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
 import { AgentChat } from "./agent-chat";
-import { summarizeSubmission } from "@/federato/presentation";
+import { NextStepPanel } from "./next-step";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
 function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
@@ -318,7 +318,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
     {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
     <div className="conversation-message request-message">
       <div className="message-avatar requester-avatar"><FileText size={16} aria-hidden="true" /></div>
-      <div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state} property · ${caseRecord.tiv.toLocaleString()} total insured value</p><time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div>
+      <div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state ? `${caseRecord.state} property` : "Primary state pending"} · {caseRecord.tiv === null ? "insured value pending" : `$${caseRecord.tiv.toLocaleString()} total insured value`}</p>{caseRecord.origin && <p className="case-origin">Opened from the Federato queue: {caseRecord.origin.resource} {caseRecord.origin.id}, ranked {caseRecord.origin.rank} of {caseRecord.origin.of}{caseRecord.origin.lifecycleStatus && caseRecord.origin.lifecycleStatus !== "unknown" ? ` · ${caseRecord.origin.lifecycleStatus}` : ""}.</p>}<time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div>
     </div>
     <div className="conversation-message agent-message">
       <div className={`message-avatar agent-avatar${working ? " is-working" : ""}`}>{working && <span className="ring ring-fast" aria-hidden="true"><i /></span>}{working ? <Mark size={20} /> : <ShieldCheck size={18} weight="duotone" aria-hidden="true" />}</div>
@@ -327,7 +327,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {working ? <AgentWorking caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} /> : <JobProgress caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} />}
         {caseRecord.status === "failed" && <div className="alert"><WarningCircle size={17} aria-hidden="true" />{caseRecord.error ?? "Analysis failed."}</div>}
         {caseRecord.brief ? <p className="brief">{caseRecord.brief}</p> : !working && <p className="brief">Analysis is in progress.</p>}
-        {caseRecord.appetiteResult && <section className="detail-section appetite-recommendation" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100{caseRecord.appetiteResult.adjustments?.length ? ` (appetite ${caseRecord.appetiteResult.baseScore}, public records ${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score) >= 0 ? "+" : ""}${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score)})` : ""}</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
+        {caseRecord.appetiteResult && <NextStepPanel result={caseRecord.appetiteResult} origin={caseRecord.origin} />}
         {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} working={working} />

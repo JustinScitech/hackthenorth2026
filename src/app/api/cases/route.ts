@@ -12,15 +12,22 @@ import { drainJobsAfterResponse } from "@/lib/inline-jobs";
 // Long enough for the after() drain to finish an extraction on Vercel; see lib/inline-jobs.ts.
 export const maxDuration = 300;
 
+const originSchema = z.object({
+  system: z.literal("federato"), resource: z.string().trim().min(1).max(40), id: z.string().trim().min(1).max(40),
+  rank: z.number().int().positive(), of: z.number().int().positive(), rankedAt: z.iso.datetime(),
+  lifecycleStatus: z.string().trim().max(40).optional(), evidenceNote: z.string().trim().max(400).optional(),
+});
+// State and TIV may still be open when a case starts from the live queue; the agent asks the broker for them.
 const createSchema = z.object({
   insuredName: z.string().trim().min(2).max(160),
-  state: z.string().trim().toUpperCase().length(2),
-  tiv: z.number().positive().max(1_000_000_000),
+  state: z.string().trim().toUpperCase().length(2).nullable(),
+  tiv: z.number().positive().max(1_000_000_000).nullable(),
   yearBuilt: z.number().int().min(1800).max(new Date().getFullYear()).nullable(),
   losses: z.number().int().min(0).max(1000).nullable(),
   appetite: caseAppetiteSchema.optional(),
   brokerNotes: z.string().trim().min(10).max(20_000),
   publicSourceUrl: z.url().max(2000).nullable(),
+  origin: originSchema.optional(),
   address: z.string().trim().min(5).max(200).nullable().optional(),
 });
 
@@ -60,13 +67,13 @@ export async function POST(request: Request) {
     try {
       await client.query("BEGIN");
       await client.query(
-        "INSERT INTO cases (id, insured_name, state, tiv, year_built, losses, source_key, public_source_url, address, appetite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-        [id, parsed.data.insuredName, parsed.data.state, parsed.data.tiv, parsed.data.yearBuilt, parsed.data.losses, sourceKey, parsed.data.publicSourceUrl, parsed.data.address ?? null, parsed.data.appetite ? JSON.stringify(parsed.data.appetite) : null],
+        "INSERT INTO cases (id, insured_name, state, tiv, year_built, losses, source_key, public_source_url, address, appetite, origin) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+        [id, parsed.data.insuredName, parsed.data.state, parsed.data.tiv, parsed.data.yearBuilt, parsed.data.losses, sourceKey, parsed.data.publicSourceUrl, parsed.data.address ?? null, parsed.data.appetite ? JSON.stringify(parsed.data.appetite) : null, parsed.data.origin ? JSON.stringify(parsed.data.origin) : null],
       );
       await enqueueJob(id, "analyze", `analyze:${id}:0`, {}, 0, client);
       await client.query(
         "INSERT INTO audit_events (case_id, event_type, event_key, detail) VALUES ($1, 'case_created', $2, $3)",
-        [id, `created:${id}`, JSON.stringify({ source: "intake_form", documentStore: "mongodb" })],
+        [id, `created:${id}`, JSON.stringify({ source: parsed.data.origin ? "federato_queue" : "intake_form", documentStore: "mongodb", ...(parsed.data.origin ? { origin: parsed.data.origin } : {}) })],
       );
       await client.query("COMMIT");
     } catch (error) {

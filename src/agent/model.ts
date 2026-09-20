@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { parseBrokerNotes, type Extracted } from "./analysis";
-import { errorCode, geminiJson, geminiModels, GEMINI_WATERFALL, openaiJson, openaiModel } from "./providers";
+import { errorCode, geminiJson, geminiModels, GEMINI_WATERFALL, openaiJson, openaiModel, type TokenUsage } from "./providers";
 import { resolveField, type FieldCandidate } from "./resolution";
 
 export { GEMINI_WATERFALL };
@@ -28,6 +28,7 @@ export type ModelAttempt = {
   value?: Extracted;
   errorCode?: number;
   attemptCount?: number;
+  usage?: TokenUsage;
 };
 
 type ModelObserver = (event: "started" | "completed" | "failed", attempt: ModelAttempt) => Promise<void>;
@@ -49,13 +50,13 @@ export function extractionConflicts(candidates: Candidate[]): string[] {
   return conflicts;
 }
 
-async function runAttempt(source: ModelSource, model: string, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>, onEvent?: ModelObserver): Promise<ModelAttempt & { error?: unknown }> {
+async function runAttempt(source: ModelSource, model: string, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number; usage?: TokenUsage }>, onEvent?: ModelObserver): Promise<ModelAttempt & { error?: unknown }> {
   const started = performance.now();
   await onEvent?.("started", { source, model, status: "started", durationMs: 0 });
   try {
     const response = await generate();
     if (!response.text) throw new Error("Empty model response");
-    const completed: ModelAttempt = { source, model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: extractionSchema.parse(JSON.parse(response.text)), attemptCount: response.attemptCount ?? 1 };
+    const completed: ModelAttempt = { source, model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: extractionSchema.parse(JSON.parse(response.text)), attemptCount: response.attemptCount ?? 1, usage: response.usage };
     await onEvent?.("completed", completed);
     return completed;
   } catch (error) {
@@ -67,7 +68,7 @@ async function runAttempt(source: ModelSource, model: string, generate: () => Pr
 }
 
 export async function runGeminiWaterfall(
-  generate: (model: string) => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>,
+  generate: (model: string) => Promise<{ text?: string; modelVersion?: string; attemptCount?: number; usage?: TokenUsage }>,
   onEvent?: ModelObserver,
   models: readonly string[] = GEMINI_WATERFALL,
 ): Promise<ModelAttempt[]> {

@@ -5,8 +5,8 @@ import { Info } from "@phosphor-icons/react/dist/ssr";
 export const metadata: Metadata = { title: "How to use Astra Risk", description: "Get an insurance estimate by chatting, hand a commercial property submission to the underwriting agent, and see what it gives back." };
 
 const NAV = [
-  { group: "Guide", items: [["#introduction", "What Astra Risk does"], ["#estimate", "Get an estimate"], ["#submit", "Submit a case"], ["#results", "What the agent gives you"], ["#ask", "Ask the agent"], ["#broker", "Broker follow-up"], ["#decision", "Approve or decline"], ["#triage", "Federato triage"], ["#quotes", "Quote requests"], ["#workspace", "Overview and settings"]] },
-  { group: "Reference", items: [["#statuses", "Case statuses"], ["#limits", "Where the lines are"], ["#api", "API"]] },
+  { group: "Guide", items: [["#introduction", "What Astra Risk does"], ["#estimate", "Get an estimate"], ["#submit", "Submit a case"], ["#results", "What the agent gives you"], ["#ask", "Ask the agent"], ["#broker", "Broker follow-up"], ["#decision", "Approve or decline"], ["#triage", "The queue"], ["#quotes", "Quote requests"], ["#workspace", "Overview and settings"]] },
+  { group: "Reference", items: [["#models", "Models and rules"], ["#statuses", "Case statuses"], ["#limits", "Where the lines are"], ["#api", "API"]] },
 ];
 
 function Endpoint({ method, path, id }: { method: "GET" | "POST"; path: string; id: string }) {
@@ -82,10 +82,13 @@ export default function DocsPage() {
         <h2 id="decision">Approve or decline</h2>
         <p>When a case reaches <strong>Ready for review</strong>, write your rationale under <strong>Underwriter decision</strong> and choose <strong>Approve review</strong> or <strong>Decline</strong>. The decision and your reasoning are recorded on the case permanently and appear in the trace. Approving a review is a recommendation for the file. Quoting and binding happen in the carrier's own systems.</p>
 
-        <h2 id="triage">Federato triage</h2>
-        <p>Open <Link href="/triage">Federato triage</Link> and select <strong>Rank live records</strong>. The agent discovers what fields the live queue exposes, reads the submissions, and ranks them against the same appetite the cases use. Large queues take a few minutes.</p>
-        <p>Each ranked card shows the account, its match and priority scores, a plain recommendation, the next step, what supports it, and what to check. Open <strong>Appetite breakdown and data sources</strong> for the points on every factor and where each value came from, and <strong>Query reasoning and scoring method</strong> for the queries the agent ran and why.</p>
-        <p>Use <strong>Download summary</strong> for a Markdown report, <strong>Print / save PDF</strong> for a printable one, and <strong>Show all results</strong> to see past the top of the list. A run evaluates up to 1,000 records and tells you if it stopped there.</p>
+        <h2 id="triage">The queue</h2>
+        <p>Open <Link href="/triage">Queue</Link>. The last ranked queue loads straight away, and <strong>Rank again</strong> reads the live Federato API in about fifteen seconds: it discovers the fields the API exposes, reads every submission and each uniquely linked policy, and scores all of them against the same appetite the cases use.</p>
+        <p>Every row carries the carrier&apos;s own vocabulary. <strong>Target</strong> fits the target band on state, insured value, premium, and building age. <strong>Acceptable</strong> fits appetite on all eight factors with at least one outside the target band. <strong>Needs information</strong> has open answers; the row names each one, where it comes from, and what the submission becomes once they land. <strong>Outside appetite</strong> has an exception on at least one factor and says which, with the figure. The queue orders itself the same way: verified matches, then open answers, then exceptions.</p>
+        <p>Filter by line of business and disposition with the chips. <strong>Open as case</strong> turns a row into a case: every verified fact goes in as evidence, every open answer stays blank so the agent asks the broker for it, and the case remembers its place in the queue. <strong>Evidence and sources</strong> shows the points on every factor and where each value came from, and <strong>How the queue was read</strong> shows the queries the agent ran and why. <strong>More</strong> holds the slide deck and print options.</p>
+
+        <h2 id="models">Models and rules</h2>
+        <p>Rules decide; models read. Every appetite disposition comes from a deterministic engine that applies the carrier&apos;s thresholds, so the same evidence always gives the same answer and every factor cites its source. Language models do the reading: they pull the construction year and the loss count out of broker prose, and two independent reads plus a parser have to agree before a value is used. The <Link href="/scorecard">model scorecard</Link> measures each reader on the same broker notes: accuracy, invented values, latency, and cost.</p>
 
         <h2 id="quotes">Quote requests</h2>
         <p>Every conversation on the public estimate page lands in <Link href="/quotes">Quotes</Link> as one evolving record: the product and province, the estimate or referral it ended with, how many turns it took, which model read the messages, and the facts the assistant heard. The header counts how many are waiting for an advisor. The list refreshes on its own.</p>
@@ -131,7 +134,7 @@ export default function DocsPage() {
         <Endpoint method="POST" path="/api/cases/{id}/chat" id="case-chat" />
         <p>Ask the agent about a case. Send <code>text</code> with the recent <code>history</code>, or a multipart <code>audio</code> recording to be transcribed first; set <code>voice</code> to get the reply back as MP3 too.</p>
         <Endpoint method="POST" path="/api/triage" id="triage-api" />
-        <p>Run a live Federato ranking and get the full report.</p>
+        <p><code>POST</code> runs a live Federato ranking, stores it, and returns the full report; <code>GET</code> returns the last stored report.</p>
       </article>
     </div>
   );

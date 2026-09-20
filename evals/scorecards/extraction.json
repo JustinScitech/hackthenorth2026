@@ -1,0 +1,364 @@
+{
+  "generatedAt": "2026-09-20T05:14:12.283Z",
+  "notes": 31,
+  "delayMs": 1000,
+  "readers": [
+    {
+      "id": "parser",
+      "label": "Deterministic parser",
+      "model": "regex parser",
+      "available": true,
+      "passed": 31,
+      "total": 31,
+      "accuracy": 1,
+      "hallucinated": 0,
+      "missed": 0,
+      "wrong": 0,
+      "noResult": 0,
+      "latencyMs": {
+        "p50": 0,
+        "p95": 0.5,
+        "mean": 0.1
+      },
+      "tokens": null,
+      "costPer1kNotes": 0,
+      "priceSource": "runs in-process",
+      "modelCalls": 0,
+      "errors": {},
+      "failures": []
+    },
+    {
+      "id": "gemini-only",
+      "label": "Gemini alone",
+      "model": null,
+      "available": true,
+      "passed": 0,
+      "total": 31,
+      "accuracy": 0,
+      "hallucinated": 0,
+      "missed": 0,
+      "wrong": 0,
+      "noResult": 31,
+      "latencyMs": {
+        "p50": 1082.2,
+        "p95": 1164.9,
+        "mean": 1094.2
+      },
+      "tokens": null,
+      "costPer1kNotes": null,
+      "priceSource": null,
+      "modelCalls": 0,
+      "errors": {
+        "HTTP 429": 31
+      },
+      "failures": [
+        {
+          "name": "plain construction sentence with no losses",
+          "expected": {
+            "yearBuilt": 2012,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "labelled year built and claims count",
+          "expected": {
+            "yearBuilt": 1998,
+            "losses": 1
+          },
+          "actual": null
+        },
+        {
+          "name": "loss count written as a word",
+          "expected": {
+            "yearBuilt": 2003,
+            "losses": 2
+          },
+          "actual": null
+        },
+        {
+          "name": "renovation years are not the construction year",
+          "expected": {
+            "yearBuilt": 1988,
+            "losses": 0
+          },
+          "actual": null,
+          "note": "Roof and sprinkler dates must not overwrite the original construction year."
+        },
+        {
+          "name": "dollar loss total is not a claim count",
+          "expected": {
+            "yearBuilt": 2001,
+            "losses": null
+          },
+          "actual": null,
+          "note": "A dollar total says nothing about how many claims occurred in three years."
+        },
+        {
+          "name": "count with a dollar detail alongside",
+          "expected": {
+            "yearBuilt": 2010,
+            "losses": 3
+          },
+          "actual": null
+        },
+        {
+          "name": "broker update supersedes the original note",
+          "expected": {
+            "yearBuilt": 2004,
+            "losses": 1
+          },
+          "actual": null,
+          "note": "The singular 'one loss' in the correction must supersede the earlier count of 4."
+        },
+        {
+          "name": "singular claim with a digit",
+          "expected": {
+            "yearBuilt": 2015,
+            "losses": 1
+          },
+          "actual": null,
+          "note": "Singular 'claim' and 'loss' are common in broker notes."
+        },
+        {
+          "name": "losses none",
+          "expected": {
+            "yearBuilt": 2007,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "loss-free phrasing",
+          "expected": {
+            "yearBuilt": 2011,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "nothing supplied yet",
+          "expected": {
+            "yearBuilt": null,
+            "losses": null
+          },
+          "actual": null
+        },
+        {
+          "name": "decade only is not a year",
+          "expected": {
+            "yearBuilt": null,
+            "losses": 0
+          },
+          "actual": null,
+          "note": "A decade is not a construction year; the guideline needs the exact year."
+        },
+        {
+          "name": "retrofit code year is not the construction year",
+          "expected": {
+            "yearBuilt": 1996,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "five-year count does not establish the three-year count",
+          "expected": {
+            "yearBuilt": 2005,
+            "losses": null
+          },
+          "actual": null,
+          "note": "The demo rule is a three-year count; a five-year count is only an upper bound, so the broker must be asked."
+        },
+        {
+          "name": "claims history label and year of construction label",
+          "expected": {
+            "yearBuilt": 1994,
+            "losses": 2
+          },
+          "actual": null
+        },
+        {
+          "name": "building count is not a claim count",
+          "expected": {
+            "yearBuilt": 2016,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "loss count before the year",
+          "expected": {
+            "yearBuilt": 2009,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "several buildings use the oldest construction year",
+          "expected": {
+            "yearBuilt": 1975,
+            "losses": 0
+          },
+          "actual": null,
+          "note": "Guidelines assess the oldest building; taking the last year mentioned hides a pre-1980 exposure."
+        },
+        {
+          "name": "correction inside a single note",
+          "expected": {
+            "yearBuilt": 1998,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "loss run summary with a total",
+          "expected": {
+            "yearBuilt": 2002,
+            "losses": 2
+          },
+          "actual": null
+        },
+        {
+          "name": "zero written as a word",
+          "expected": {
+            "yearBuilt": 2019,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "street number is not a year",
+          "expected": {
+            "yearBuilt": 1965,
+            "losses": 1
+          },
+          "actual": null
+        },
+        {
+          "name": "hyphenated labels",
+          "expected": {
+            "yearBuilt": 2008,
+            "losses": 1
+          },
+          "actual": null
+        },
+        {
+          "name": "empty note",
+          "expected": {
+            "yearBuilt": null,
+            "losses": null
+          },
+          "actual": null
+        },
+        {
+          "name": "future year is not a construction year",
+          "expected": {
+            "yearBuilt": null,
+            "losses": 0
+          },
+          "actual": null,
+          "note": "A building that does not exist yet has no construction year to check."
+        },
+        {
+          "name": "deductible per claim is not a count",
+          "expected": {
+            "yearBuilt": 2013,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "one-year count does not establish the three-year count",
+          "expected": {
+            "yearBuilt": 2006,
+            "losses": null
+          },
+          "actual": null,
+          "note": "A twelve-month count is only a lower bound for three years."
+        },
+        {
+          "name": "zero over a longer window is still zero",
+          "expected": {
+            "yearBuilt": 2000,
+            "losses": 0
+          },
+          "actual": null,
+          "note": "Zero claims in five years implies zero in three."
+        },
+        {
+          "name": "count of carriers is not a count of claims",
+          "expected": {
+            "yearBuilt": 2016,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "updated systems do not correct the construction year",
+          "expected": {
+            "yearBuilt": 1965,
+            "losses": 0
+          },
+          "actual": null
+        },
+        {
+          "name": "claim reference number is not a count",
+          "expected": {
+            "yearBuilt": 2010,
+            "losses": null
+          },
+          "actual": null,
+          "note": "One claim is mentioned but its window is not stated, so the count stays unknown."
+        }
+      ]
+    },
+    {
+      "id": "openai-only",
+      "label": "OpenAI alone",
+      "model": null,
+      "available": false,
+      "reason": "OPENAI_API_KEY unset on the machine that ran this",
+      "passed": 0,
+      "total": 31,
+      "accuracy": 0,
+      "hallucinated": 0,
+      "missed": 0,
+      "wrong": 0,
+      "noResult": 31,
+      "latencyMs": null,
+      "tokens": null,
+      "costPer1kNotes": null,
+      "priceSource": null,
+      "modelCalls": 0,
+      "errors": {},
+      "failures": []
+    },
+    {
+      "id": "pipeline",
+      "label": "Models and parser, resolved by agreement",
+      "model": null,
+      "available": true,
+      "passed": 31,
+      "total": 31,
+      "accuracy": 1,
+      "hallucinated": 0,
+      "missed": 0,
+      "wrong": 0,
+      "noResult": 0,
+      "latencyMs": {
+        "p50": 1061.8,
+        "p95": 1119.4,
+        "mean": 1068.7
+      },
+      "tokens": null,
+      "costPer1kNotes": null,
+      "priceSource": null,
+      "modelCalls": 0,
+      "errors": {
+        "HTTP 429": 31
+      },
+      "failures": []
+    }
+  ]
+}

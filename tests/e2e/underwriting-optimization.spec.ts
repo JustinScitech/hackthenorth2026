@@ -1,25 +1,30 @@
 import { test, expect } from "./fixtures";
+import { queueFixture, routeQueue } from "./queue-fixture";
 
-test("triage UI exposes underwriting recommendation and appetite evidence", async ({ authenticatedPage: page }) => {
+test("the queue explains each submission, exports it, and opens it as a case the agent works", async ({ authenticatedPage: page }) => {
+  test.setTimeout(90_000);
+  await routeQueue(page, { status: 200, body: queueFixture([{ id: 1, account: "New property", patch: { premium: null } }]) });
   await page.goto("/triage");
-  await page.route("**/api/triage", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-    resource: "Policy", total: 1, evaluated: 1, truncated: false, generatedAt: new Date().toISOString(), guidelineVersion: "Federato HTN 2026 / 2025 sample commercial property appetite", top: 1,
-    reasoning: ["Read the discovered appetite fields"], trace: [{ reason: "Fetch all candidates", query: {}, returned: 1 }],
-    topSubmissions: [{ id: "1", account: "New property", score: 94, rawScore: 94, missingData: [], recommendation: "Review for acceptance", explanation: "New business is acceptable. Recommendation: review for acceptance.", criteria: [{ factor: "Submission type", status: "acceptable", points: 8, maximum: 10, detail: "New business is acceptable.", source: "business_type" }] }], ranked: [],
-  }) }));
-  await page.getByRole("button", { name: "Rank live records" }).click();
+  await page.getByRole("button", { name: "Rank the live queue" }).first().click();
   await expect(page.getByRole("heading", { name: "New property" })).toBeVisible();
-  await expect(page.getByText("Good match for review")).toBeVisible();
-  await expect(page.getByText("New property matches the supplied carrier guidelines on the available information.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Print / save PDF" })).toBeVisible();
+  await expect(page.locator(".queue-row").first().locator(".disposition")).toHaveText("Needs information");
+  await expect(page.getByText(/One answer decides it: total premium/)).toBeVisible();
+  await expect(page.getByText(/this becomes Target/)).toBeVisible();
+  await page.getByText("Evidence and sources").first().click();
+  await expect(page.getByRole("cell", { name: /Observed new\./ })).toBeVisible();
+  await page.locator(".tool-menu > summary").click();
   await page.evaluate(() => { window.print = () => { (window as Window & { __printCalled?: boolean }).__printCalled = true; }; });
   await page.getByRole("button", { name: "Print / save PDF" }).click();
   await expect.poll(() => page.evaluate(() => (window as Window & { __printCalled?: boolean }).__printCalled)).toBe(true);
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download slides" }).click();
   await expect((await download).suggestedFilename()).toMatch(/^federato-triage-top-\d{4}-\d{2}-\d{2}\.pptx$/);
-  await page.getByText("Appetite breakdown and data sources").click();
-  await expect(page.getByRole("cell", { name: "New business is acceptable." })).toBeVisible();
+  await page.getByRole("button", { name: "Open as case" }).click();
+  await expect(page).toHaveURL(/\/cases\/[0-9a-f-]{36}$/);
+  await expect(page.getByText(/Opened from the Federato queue: Submission 1, ranked 1 of 1/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Broker information needed" })).toBeVisible({ timeout: 40_000 });
+  await expect(page.getByRole("heading", { name: "Where this stands" })).toBeVisible();
+  await expect(page.getByText(/total premium/).first()).toBeVisible();
 });
 
 test("blank intake appetite fields retain broker evidence through the real worker", async ({ authenticatedPage: page }) => {

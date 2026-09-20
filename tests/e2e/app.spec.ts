@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { e2eDatabaseUrl } from "../../scripts/e2e-env";
 import { test, expect } from "./fixtures";
+import { queueFixture, routeQueue } from "./queue-fixture";
 
 test("public pages are accessible and protected pages require sign-in", async ({ page, request }) => {
   await page.goto("/");
@@ -207,22 +208,22 @@ test("underwriter can decline with a recorded rationale", async ({ authenticated
   expect(action).toMatchObject({ kind: "decline", reason: "Value outside demo appetite." });
 });
 
-test("triage presents ranked results, query reasoning, and errors", async ({ authenticatedPage: page }) => {
+test("the queue lists every ranked submission with a disposition, its reasoning, and errors", async ({ authenticatedPage: page }) => {
+  const report = queueFixture([{ id: 1, account: "Top Office" }, { id: 2, account: "Second Warehouse", patch: { premium: null } }, { id: 3, account: "Fleet Auto", patch: { line_of_business: "auto" } }]);
+  await routeQueue(page, { status: 200, body: report });
   await page.goto("/triage");
-  await page.route("**/api/triage", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-    resource: "Submission", total: 2, evaluated: 2, truncated: false, generatedAt: new Date().toISOString(), guidelineVersion: "2025",
-    top: 1, reasoning: ["Selected commercial property records"], trace: [{ reason: "Available queue", query: {}, returned: 2 }],
-    topSubmissions: [{ id: "a", account: "Top Office", score: 92, rawScore: 92, missingData: [], recommendation: "Review first", explanation: "Strong appetite match", criteria: [{ factor: "Territory", status: "target", points: 10, maximum: 10, detail: "Eligible", source: "State" }] }],
-    ranked: [{ id: "a", account: "Top Office", score: 92, rawScore: 92, missingData: [], recommendation: "Review first", explanation: "Strong appetite match", criteria: [] }, { id: "b", account: "Second Warehouse", score: 70, rawScore: 70, missingData: [], recommendation: "Review", explanation: "Needs review", criteria: [] }],
-  }) }));
-  await page.getByRole("button", { name: "Rank live records" }).click();
+  await page.getByRole("button", { name: "Rank the live queue" }).first().click();
   await expect(page.getByRole("heading", { name: "Top Office" })).toBeVisible();
-  await page.getByText("Query reasoning and scoring method").click();
-  await expect(page.getByText("Selected commercial property records")).toBeVisible();
-  await page.getByRole("button", { name: "Show all results" }).click();
   await expect(page.getByRole("heading", { name: "Second Warehouse" })).toBeVisible();
-  await page.route("**/api/triage", async (route) => route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"Federato unavailable"}' }));
-  await page.getByRole("button", { name: "Rank live records" }).click();
+  await expect(page.locator(".queue-row").first().locator(".disposition")).toHaveText("Target");
+  await expect(page.getByRole("heading", { name: "Fleet Auto" })).toHaveCount(0);
+  await page.getByRole("button", { name: /All lines/ }).click();
+  await expect(page.getByRole("heading", { name: "Fleet Auto" })).toBeVisible();
+  await expect(page.locator(".queue-row").last().locator(".disposition")).toHaveText("Outside appetite");
+  await page.getByText(/How the queue was read/).click();
+  await expect(page.getByText("Selected commercial property records")).toBeVisible();
+  await routeQueue(page, { status: 503, body: { error: "Federato unavailable" } });
+  await page.getByRole("button", { name: "Rank again" }).click();
   await expect(page.locator(".triage-heading ~ [aria-live] [role=alert]")).toContainText("Federato unavailable");
 });
 
