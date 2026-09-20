@@ -127,7 +127,7 @@ export function AgentQuality() {
     return () => { clearInterval(timer); clearInterval(sentryTimer); };
   }, [refresh, refreshSentry]);
 
-  return <section aria-labelledby="agent-quality-title">
+  return <section className="agent-quality" aria-labelledby="agent-quality-title">
     <div className="panel-head">
       <div><h2 id="agent-quality-title">Agent quality</h2><p className="subtle">Past 30 days · local case and audit records{metrics?.sentryExportEnabled ? " · Sentry export active" : ""}</p></div>
       <button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh agent metrics" title="Refresh agent metrics"><ArrowClockwise size={16} /></button>

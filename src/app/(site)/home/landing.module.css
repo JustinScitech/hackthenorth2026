@@ -265,7 +265,7 @@
 /* ─── Content bands ─── */
 .band { padding-top: 96px; opacity: 0; transform: translateY(24px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .revealed { opacity: 1; transform: none; }
-.bandHead { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; margin-bottom: 36px; padding-bottom: 20px; border-bottom: 3px double var(--rule-strong); }
+.bandHead { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; margin-bottom: 36px; padding-bottom: 20px; border-bottom: 1px solid var(--rule-strong); }
 .bandHead h2 { margin-top: 16px; font-size: clamp(36px, 4.2vw, 54px); line-height: 1; letter-spacing: -0.02em; color: var(--ink); font-variation-settings: "SOFT" 40, "opsz" 96; }
 .bandHead h2 span { font-style: italic; color: var(--mute); }
 .bandHead > p { max-width: 34ch; font-size: 16px; line-height: 24px; color: var(--body); }
