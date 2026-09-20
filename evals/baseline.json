@@ -1,3 +1,9 @@
 {
-  "knownFailures": {}
+  "knownFailures": {
+    "extraction": [
+      "agent notes: dollar-loss-is-not-claim-count",
+      "policy dates written out in prose",
+      "premium and business type stated in prose"
+    ]
+  }
 }

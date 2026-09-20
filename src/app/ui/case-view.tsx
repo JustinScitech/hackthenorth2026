@@ -3,7 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowSquareOut, Check, Clock, FileText, ListChecks, MapPin, PaperPlaneTilt, ShieldCheck, WarningCircle, X } from "@phosphor-icons/react/dist/ssr";
-import type { AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/types";
+import type { AppetiteFieldFacts, AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/types";
+import { APPETITE_FACT_ROWS, describeCandidate, formatFactValue, type FactField } from "./fact-evidence";
 import { Mark } from "./logo";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
@@ -20,8 +21,27 @@ function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
 
 type ActionKind = "approve" | "decline";
 
-function FactRow<T>({ label, fact, format = String }: { label: string; fact: Fact<T>; format?: (value: T) => string }) {
-  return <div className="fact-row"><span>{label}</span><strong>{fact.value === null ? "Not provided" : format(fact.value)}</strong><small>{fact.source} · {Math.round(fact.confidence * 100)}% confidence</small></div>;
+/** One fact with its provenance: the value, where it came from, the sentence it was read from, and any reader that disagreed. */
+function FactRow<T extends string | number | boolean>({ label, fact, field, format }: { label: string; fact: Fact<T>; field?: FactField; format?: (value: T) => string }) {
+  const show = format ?? ((value: T) => field ? formatFactValue(field, value) : String(value));
+  return <div className="fact-row">
+    <span>{label}</span>
+    <strong>{fact.value === null ? "Not provided" : show(fact.value)}</strong>
+    <small>{fact.source} · {Math.round(fact.confidence * 100)}% confidence</small>
+    {fact.quote && <q className="fact-quote">{fact.quote}</q>}
+    {field && fact.candidates && fact.candidates.length > 0 && <ul className="fact-candidates" aria-label={`Readers that disagree on ${label.toLowerCase()}`}>
+      {fact.candidates.map((candidate) => <li key={candidate.source}><span>{describeCandidate(field, candidate)}</span>{candidate.quote && <q>{candidate.quote}</q>}</li>)}
+    </ul>}
+  </div>;
+}
+
+/** The eight carrier appetite fields, each with its own source, once extraction has resolved them per field. */
+function AppetiteEvidence({ fields }: { fields: AppetiteFieldFacts | undefined }) {
+  if (!fields) return null;
+  return <section className="detail-section" aria-labelledby="appetite-facts-title">
+    <div className="section-heading"><h2 id="appetite-facts-title">Appetite evidence</h2><ListChecks size={16} aria-hidden="true" /></div>
+    <div className="fact-list">{APPETITE_FACT_ROWS.map(([field, label]) => fields[field] ? <FactRow key={field} label={label} field={field} fact={fields[field]!} /> : null)}</div>
+  </section>;
 }
 
 function Findings({ caseRecord }: { caseRecord: CaseRecord }) {
@@ -319,7 +339,8 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} working={working} jobStatus={jobStatus} />
-        {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
+        {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" field="yearBuilt" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" field="losses" fact={caseRecord.facts.losses} /></div></section>}
+        <AppetiteEvidence fields={caseRecord.facts?.appetite?.fields} />
         <Findings caseRecord={caseRecord} />
         <PropertyContextSection context={caseRecord.propertyContext} result={caseRecord.appetiteResult} />
         {!working && <SourcePicker key={`${id}:${caseRecord.analysisRevision}`} id={id} caseRecord={caseRecord} onConfirmed={onSourceConfirmed} />}

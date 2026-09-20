@@ -1,31 +1,18 @@
-import { z } from "zod";
-import { parseBrokerNotes, type Extracted } from "./analysis";
+import { conflictsOf, EXTRACTION_FIELDS, EXTRACTION_PROMPT, extractionSchema, FIELD_LABELS, openaiSchema, parseModelOutput, parserReading, readingValues, resolveReadings, type ExtractedFields, type ExtractionField, type Reading, type ResolvedFields, type SourceReading } from "./extraction-schema";
 import { errorCode, geminiJson, geminiModels, GEMINI_WATERFALL, openaiJson, openaiModel } from "./providers";
-import { resolveField, type FieldCandidate } from "./resolution";
 
-export { GEMINI_WATERFALL };
+export { EXTRACTION_PROMPT, extractionSchema, GEMINI_WATERFALL, openaiSchema };
 
-const extractionSchema = z.object({
-  yearBuilt: z.number().int().min(1800).max(new Date().getFullYear()).nullable(),
-  losses: z.number().int().min(0).max(1000).nullable(),
-});
-const openaiSchema = {
-  type: "object",
-  properties: { yearBuilt: { type: ["integer", "null"] }, losses: { type: ["integer", "null"] } },
-  required: ["yearBuilt", "losses"],
-  additionalProperties: false,
-};
-
-const EXTRACTION_PROMPT = 'You extract facts for an underwriting review. Return only JSON matching {"yearBuilt": integer|null, "losses": integer|null}. Extract only facts explicitly stated in the broker text. "losses" is a count of losses or claims in the past three years, not a dollar amount. When several buildings are listed, yearBuilt is the oldest. Later broker updates supersede earlier details. Do not infer missing values, convert currency, or treat a dollar loss total as a claim count.';
-
-type Candidate = { source: string; value: Extracted };
+type Candidate = { source: string; value: ExtractedFields };
 export type ModelSource = "Gemini" | "OpenAI";
 export type ModelAttempt = {
   source: ModelSource;
   model: string;
   status: "not_configured" | "started" | "completed" | "failed";
   durationMs: number;
-  value?: Extracted;
+  /** The values the model read, for traces and evals; `reading` carries the quotes behind them. */
+  value?: ExtractedFields;
+  reading?: Reading;
   errorCode?: number;
   attemptCount?: number;
 };
@@ -40,22 +27,30 @@ export function shouldFallThroughGeminiError(error: unknown): boolean {
 /** Kept for the activity trace and tests; resolveField now decides which value is used. */
 export function extractionConflicts(candidates: Candidate[]): string[] {
   const conflicts: string[] = [];
-  for (const field of ["yearBuilt", "losses"] as const) {
+  for (const field of EXTRACTION_FIELDS) {
     const stated = candidates.filter((candidate) => candidate.value[field] !== null);
     if (new Set(stated.map((candidate) => candidate.value[field])).size > 1) {
-      conflicts.push(`${field === "yearBuilt" ? "Year built" : "Recent loss count"} differs: ${stated.map((candidate) => `${candidate.source} ${candidate.value[field]}`).join(", ")}.`);
+      conflicts.push(`${FIELD_LABELS[field]} differs: ${stated.map((candidate) => `${candidate.source} ${candidate.value[field]}`).join(", ")}.`);
     }
   }
   return conflicts;
 }
 
-async function runAttempt(source: ModelSource, model: string, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>, onEvent?: ModelObserver): Promise<ModelAttempt & { error?: unknown }> {
+/** Malformed JSON or a non-object body fails this attempt only; a bad field inside an object is dropped by the schema. */
+function readResponse(text: string | undefined, source: string): Reading {
+  if (!text) throw new Error("Empty model response");
+  const reading = parseModelOutput(JSON.parse(text), source);
+  if (!reading) throw new Error("Malformed model response");
+  return reading;
+}
+
+async function runAttempt(source: ModelSource, model: string, text: string, generate: () => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>, onEvent?: ModelObserver): Promise<ModelAttempt & { error?: unknown }> {
   const started = performance.now();
   await onEvent?.("started", { source, model, status: "started", durationMs: 0 });
   try {
     const response = await generate();
-    if (!response.text) throw new Error("Empty model response");
-    const completed: ModelAttempt = { source, model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: extractionSchema.parse(JSON.parse(response.text)), attemptCount: response.attemptCount ?? 1 };
+    const reading = readResponse(response.text, text);
+    const completed: ModelAttempt = { source, model: response.modelVersion || model, status: "completed", durationMs: Math.round(performance.now() - started), value: readingValues(reading), reading, attemptCount: response.attemptCount ?? 1 };
     await onEvent?.("completed", completed);
     return completed;
   } catch (error) {
@@ -70,10 +65,11 @@ export async function runGeminiWaterfall(
   generate: (model: string) => Promise<{ text?: string; modelVersion?: string; attemptCount?: number }>,
   onEvent?: ModelObserver,
   models: readonly string[] = GEMINI_WATERFALL,
+  text = "",
 ): Promise<ModelAttempt[]> {
   const attempts: ModelAttempt[] = [];
   for (const model of models) {
-    const { error, ...attempt } = await runAttempt("Gemini", model, () => generate(model), onEvent);
+    const { error, ...attempt } = await runAttempt("Gemini", model, text, () => generate(model), onEvent);
     attempts.push(attempt);
     if (attempt.status === "completed" || !shouldFallThroughGeminiError(error)) break;
   }
@@ -83,45 +79,52 @@ export async function runGeminiWaterfall(
 async function geminiExtraction(text: string, onEvent?: ModelObserver): Promise<ModelAttempt[]> {
   const models = geminiModels();
   if (!process.env.GEMINI_API_KEY) return [{ source: "Gemini", model: models[0], status: "not_configured", durationMs: 0 }];
-  return runGeminiWaterfall((model) => geminiJson(model, EXTRACTION_PROMPT, text), onEvent, models);
+  return runGeminiWaterfall((model) => geminiJson(model, EXTRACTION_PROMPT, text), onEvent, models, text);
 }
 
 async function openaiExtraction(text: string, onEvent?: ModelObserver): Promise<ModelAttempt[]> {
   const model = openaiModel();
   if (!process.env.OPENAI_API_KEY) return [{ source: "OpenAI", model, status: "not_configured", durationMs: 0 }];
-  const { error: _error, ...attempt } = await runAttempt("OpenAI", model, () => openaiJson(model, EXTRACTION_PROMPT, text, openaiSchema), onEvent);
+  const { error: _error, ...attempt } = await runAttempt("OpenAI", model, text, () => openaiJson(model, EXTRACTION_PROMPT, text, openaiSchema), onEvent);
   return [attempt];
 }
 
 export type Extraction = {
-  extracted: Extracted;
-  fieldSources: { yearBuilt: string; losses: string };
-  confidence: { yearBuilt: number; losses: number };
+  extracted: ExtractedFields;
+  /** Per-field resolution: value, winning source, confidence, quote, conflict, and every candidate. */
+  fields: ResolvedFields;
+  fieldSources: Record<ExtractionField, string>;
+  confidence: Record<ExtractionField, number>;
+  quotes: Record<ExtractionField, string | null>;
   conflicts: string[];
   sources: string[];
   attempts: ModelAttempt[];
 };
 
 /**
- * Runs every configured model alongside the deterministic parser and resolves
- * each field by agreement. Models are ordered Gemini, OpenAI, then parser so a
- * tie between a model and the parser keeps the model at reduced confidence.
+ * Resolves each field by agreement across the completed model readings and
+ * the deterministic parser. Models are ordered Gemini, OpenAI, then parser so
+ * a tie between a model and the parser keeps the model at reduced confidence.
  */
-export async function extractNotes(text: string, onModelEvent?: ModelObserver): Promise<Extraction> {
-  const parser = parseBrokerNotes(text);
-  const [geminiAttempts, openaiAttempts] = await Promise.all([geminiExtraction(text, onModelEvent), openaiExtraction(text, onModelEvent)]);
-  const attempts = [...geminiAttempts, ...openaiAttempts];
-  const completed = attempts.filter((attempt) => attempt.status === "completed" && attempt.value);
-  const candidates: Candidate[] = [...completed.map((attempt) => ({ source: `${attempt.source} ${attempt.model}`, value: attempt.value! })), { source: "Parser", value: parser }];
-  const resolve = (field: keyof Extracted, label: string) => resolveField(label, candidates.map<FieldCandidate>((candidate) => ({ source: candidate.source, kind: candidate.source === "Parser" ? "parser" : "model", value: candidate.value[field] })));
-  const yearBuilt = resolve("yearBuilt", "Year built");
-  const losses = resolve("losses", "Recent loss count");
+export function assembleExtraction(text: string, attempts: ModelAttempt[]): Extraction {
+  const completed = attempts.filter((attempt): attempt is ModelAttempt & { reading: Reading } => attempt.status === "completed" && attempt.reading !== undefined);
+  const readings: SourceReading[] = [...completed.map<SourceReading>((attempt) => ({ source: `${attempt.source} ${attempt.model}`, kind: "model", reading: attempt.reading })), { source: "Parser", kind: "parser", reading: parserReading(text) }];
+  const fields = resolveReadings(readings);
+  const record = <T>(pick: (field: ExtractionField) => T) => Object.fromEntries(EXTRACTION_FIELDS.map((field) => [field, pick(field)])) as Record<ExtractionField, T>;
   return {
-    extracted: { yearBuilt: yearBuilt.value, losses: losses.value },
-    fieldSources: { yearBuilt: yearBuilt.source, losses: losses.source },
-    confidence: { yearBuilt: yearBuilt.confidence, losses: losses.confidence },
-    conflicts: [yearBuilt.conflict, losses.conflict].filter((conflict): conflict is string => conflict !== null),
-    sources: candidates.map((candidate) => candidate.source),
+    extracted: record((field) => fields[field].value) as ExtractedFields,
+    fields,
+    fieldSources: record((field) => fields[field].source),
+    confidence: record((field) => fields[field].confidence),
+    quotes: record((field) => fields[field].quote),
+    conflicts: conflictsOf(fields),
+    sources: readings.map((reading) => reading.source),
     attempts,
   };
+}
+
+/** Runs every configured model alongside the parser; a model that fails, times out, or returns bad JSON is simply absent from the vote. */
+export async function extractNotes(text: string, onModelEvent?: ModelObserver): Promise<Extraction> {
+  const [geminiAttempts, openaiAttempts] = await Promise.all([geminiExtraction(text, onModelEvent), openaiExtraction(text, onModelEvent)]);
+  return assembleExtraction(text, [...geminiAttempts, ...openaiAttempts]);
 }

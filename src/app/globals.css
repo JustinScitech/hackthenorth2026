@@ -390,6 +390,11 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .fact-row span { color: var(--muted); }
 .fact-row strong { font-family: var(--font-display); font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .fact-row small { color: var(--faint); font-size: 11.5px; }
+.fact-row q { quotes: "\201C" "\201D"; font-style: italic; }
+.fact-quote { display: block; margin-top: 4px; padding-left: 10px; border-left: 2px solid var(--border-strong); color: var(--text-secondary); font-size: 12.5px; line-height: 1.5; }
+.fact-candidates { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: 11.5px; color: var(--amber-ink); }
+.fact-candidates li { display: grid; gap: 1px; }
+.fact-candidates q { color: var(--muted); }
 .findings { display: block; }
 .finding { display: flex; align-items: flex-start; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--border-soft); }
 .finding:last-child { border-bottom: 0; }

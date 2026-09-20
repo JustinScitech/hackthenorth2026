@@ -15,14 +15,28 @@ export type CaseStatus =
 
 export type JobStatus = "QUEUED" | "RUNNING" | "WAITING" | "COMPLETED" | "FAILED";
 
-export type Fact<T> = { value: T | null; source: string; confidence: number };
+/** A source that stated a value for a fact, kept when sources disagree so the reviewer sees the alternatives. */
+export type FactCandidate<T> = { source: string; value: T; quote?: string };
+export type Fact<T> = {
+  value: T | null;
+  source: string;
+  confidence: number;
+  /** The verbatim sentence or line of broker text the value was taken from, when a reader supplied one. */
+  quote?: string;
+  /** Present only when at least one reader disagrees with the value shown. */
+  candidates?: FactCandidate<T>[];
+};
+
+export type AppetiteFieldValue = string | number | boolean;
+export type AppetiteFieldFacts = Partial<Record<keyof CaseAppetite, Fact<AppetiteFieldValue>>>;
 
 export type Facts = {
   state: Fact<string>;
   tiv: Fact<number>;
   yearBuilt: Fact<number>;
   losses: Fact<number>;
-  appetite?: Fact<CaseAppetite & { account: string }>;
+  /** The merged appetite evidence, with per-field provenance under `fields` once extraction has resolved each one. */
+  appetite?: Fact<CaseAppetite & { account: string }> & { fields?: AppetiteFieldFacts };
 };
 
 export type Finding = {

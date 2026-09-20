@@ -4,11 +4,18 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const result = z.enum(["pass", "refer", "unknown"]);
+const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+/** Appetite fields a note states in prose; optional because most fixtures only establish the year and claim count. Read by the extraction eval, not the parser test. */
+const appetiteExpectations = z.object({
+  business: z.enum(["new", "renewal"]).nullable(), line: z.string().min(1).nullable(), premium: z.number().nonnegative().nullable(),
+  constructionPercent: z.number().min(0).max(100).nullable(), lossValue: z.number().nonnegative().nullable(), lossHistoryComplete: z.boolean().nullable(),
+  effective: date.nullable(), expiration: date.nullable(),
+}).partial();
 const fixture = z.object({
   id: z.string().min(1),
   source: z.object({ title: z.string().min(1), location: z.string().min(1) }),
   notes: z.string().min(1),
-  expected: z.object({ yearBuilt: z.number().int().nullable(), losses: z.number().int().nonnegative().nullable() }),
+  expected: z.object({ yearBuilt: z.number().int().nullable(), losses: z.number().int().nonnegative().nullable(), ...appetiteExpectations.shape }),
   intake: z.object({ state: z.string(), tiv: z.number(), yearBuilt: z.number().int().nullable(), losses: z.number().int().nonnegative().nullable() }),
   expectedFindings: z.object({ business: result, line: result, state: result, tiv: result, premium: result, year: result, constructionPercent: result, lossValue: result }),
   needsBroker: z.boolean(),
