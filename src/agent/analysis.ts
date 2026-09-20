@@ -1,4 +1,4 @@
-import type { Facts, Finding } from "../lib/types";
+import type { AppetiteFieldFacts, Fact, FactCandidate, Facts, Finding } from "../lib/types";
 import { brokerAppetiteInstructions, caseAppetiteSchema, caseMapping, type CaseAppetite } from "../lib/case-appetite";
 import { scoreSubmission, type RankedSubmission } from "../federato/scoring";
 
@@ -90,17 +90,26 @@ export function parseBrokerNotes(text: string): Extracted {
   return { yearBuilt: years.length ? years[years.length - 1] : null, losses: parseLosses(text) };
 }
 
-export function buildFacts(intake: Intake, extracted: Extracted): Facts {
+/** How a reader arrived at a text-derived value: the winning source, its confidence, the quote, and every reader that stated a value. */
+export type FactProvenance = { source: string; confidence: number; quote?: string | null; candidates?: FactCandidate<number>[] };
+export type ExtractionProvenance = { yearBuilt?: FactProvenance; losses?: FactProvenance; appetite?: AppetiteFieldFacts };
+
+export function buildFacts(intake: Intake, extracted: Extracted, provenance: ExtractionProvenance = {}): Facts {
+  // Readers that disagree with the value shown are kept beside it, whether the intake or the text settled it.
+  const disagreement = (value: number, read?: FactProvenance) => read?.candidates?.some((candidate) => candidate.value !== value) ? { candidates: read.candidates } : {};
+  const fact = (field: "yearBuilt" | "losses"): Fact<number> => {
+    const read = provenance[field];
+    if (intake[field] !== null) return { value: intake[field], source: "Intake form", confidence: 1, ...disagreement(intake[field], read) };
+    const value = extracted[field];
+    if (value === null) return { value: null, source: "Not provided", confidence: 0 };
+    return { value, source: read ? `Broker text via ${read.source}` : "Broker text", confidence: read?.confidence ?? 0.75, ...(read?.quote ? { quote: read.quote } : {}), ...disagreement(value, read) };
+  };
   return {
-    appetite: { value: { ...caseAppetiteSchema.parse(intake.appetite ?? {}), account: intake.insuredName ?? "" }, source: "Intake and explicit broker appetite fields (USD)", confidence: intake.appetite ? 1 : 0 },
-    state: { value: intake.state, source: intake.state === null ? "Not provided" : "Intake form", confidence: intake.state === null ? 0 : 1 },
-    tiv: { value: intake.tiv, source: intake.tiv === null ? "Not provided" : "Intake form", confidence: intake.tiv === null ? 0 : 1 },
-    yearBuilt: intake.yearBuilt === null
-      ? { value: extracted.yearBuilt, source: extracted.yearBuilt === null ? "Not provided" : "Broker text", confidence: extracted.yearBuilt === null ? 0 : 0.75 }
-      : { value: intake.yearBuilt, source: "Intake form", confidence: 1 },
-    losses: intake.losses === null
-      ? { value: extracted.losses, source: extracted.losses === null ? "Not provided" : "Broker text", confidence: extracted.losses === null ? 0 : 0.75 }
-      : { value: intake.losses, source: "Intake form", confidence: 1 },
+    appetite: { value: { ...caseAppetiteSchema.parse(intake.appetite ?? {}), account: intake.insuredName ?? "" }, source: "Intake and explicit broker appetite fields (USD)", confidence: intake.appetite ? 1 : 0, ...(provenance.appetite ? { fields: provenance.appetite } : {}) },
+    state: { value: intake.state, source: "Intake form", confidence: 1 },
+    tiv: { value: intake.tiv, source: "Intake form", confidence: 1 },
+    yearBuilt: fact("yearBuilt"),
+    losses: fact("losses"),
   };
 }
 
@@ -112,8 +121,9 @@ export function evaluateFacts(facts: Facts): { findings: Finding[]; question: st
   };
   const appetiteResult = scoreSubmission(row, caseMapping);
   const sources: Record<string, string> = { state: facts.state.source, tiv: facts.tiv.source, year: facts.yearBuilt.source };
+  const appetiteFields = facts.appetite?.fields as Record<string, Fact<unknown> | undefined> | undefined;
   const findings: Finding[] = appetiteResult.criteria.map((criterion) => {
-    criterion.source = sources[criterion.concept] ?? facts.appetite?.source ?? "Not provided";
+    criterion.source = sources[criterion.concept] ?? appetiteFields?.[criterion.concept]?.source ?? facts.appetite?.source ?? "Not provided";
     return { id: criterion.concept, label: criterion.factor, result: criterion.status === "unknown" ? "unknown" : criterion.status === "outside" ? "refer" : "pass", detail: criterion.detail, source: criterion.source };
   });
   const missing = appetiteResult.missingData;
