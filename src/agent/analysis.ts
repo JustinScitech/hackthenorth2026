@@ -1,10 +1,14 @@
 import type { Facts, Finding } from "../lib/types";
+import { brokerAppetiteInstructions, caseAppetiteSchema, caseMapping, type CaseAppetite } from "../lib/case-appetite";
+import { scoreSubmission, type RankedSubmission } from "../federato/scoring";
 
 export type Intake = {
   state: string;
   tiv: number;
   yearBuilt: number | null;
   losses: number | null;
+  insuredName?: string;
+  appetite?: CaseAppetite;
 };
 
 export type Extracted = { yearBuilt: number | null; losses: number | null };
@@ -37,6 +41,7 @@ export function parseBrokerNotes(text: string): Extracted {
 
 export function buildFacts(intake: Intake, extracted: Extracted): Facts {
   return {
+    appetite: { value: { ...caseAppetiteSchema.parse(intake.appetite ?? {}), account: intake.insuredName ?? "" }, source: "Intake and explicit broker appetite fields (USD)", confidence: intake.appetite ? 1 : 0 },
     state: { value: intake.state, source: "Intake form", confidence: 1 },
     tiv: { value: intake.tiv, source: "Intake form", confidence: 1 },
     yearBuilt: intake.yearBuilt === null
@@ -48,41 +53,19 @@ export function buildFacts(intake: Intake, extracted: Extracted): Facts {
   };
 }
 
-// Fictional thresholds for the demo, not insurance advice or live underwriting rules.
-export function evaluateFacts(facts: Facts): { findings: Finding[]; question: string | null; brief: string } {
-  const findings: Finding[] = [];
-  const state = facts.state.value?.toUpperCase() ?? "";
-  findings.push({
-    id: "territory", label: "Territory", result: ["NY", "NJ", "PA"].includes(state) ? "pass" : "refer",
-    detail: ["NY", "NJ", "PA"].includes(state) ? `${state} is in the demo territory.` : `${state || "Unknown state"} needs an underwriter referral.`,
-    source: facts.state.source,
+export function evaluateFacts(facts: Facts): { findings: Finding[]; question: string | null; brief: string; appetiteResult: RankedSubmission } {
+  const appetite = facts.appetite?.value;
+  const row = {
+    ...appetite, id: "case", state: facts.state.value, tiv: facts.tiv.value, year: facts.yearBuilt.value,
+    lossValue: appetite?.lossHistoryComplete || (appetite?.lossValue ?? 0) > 100_000 ? appetite?.lossValue : null,
+  };
+  const appetiteResult = scoreSubmission(row, caseMapping);
+  const sources: Record<string, string> = { state: facts.state.source, tiv: facts.tiv.source, year: facts.yearBuilt.source };
+  const findings: Finding[] = appetiteResult.criteria.map((criterion) => {
+    criterion.source = sources[criterion.concept] ?? facts.appetite?.source ?? "Not provided";
+    return { id: criterion.concept, label: criterion.factor, result: criterion.status === "unknown" ? "unknown" : criterion.status === "outside" ? "refer" : "pass", detail: criterion.detail, source: criterion.source };
   });
-  const tiv = facts.tiv.value;
-  findings.push({
-    id: "tiv", label: "Total insured value", result: tiv !== null && tiv <= 5_000_000 ? "pass" : "refer",
-    detail: tiv !== null && tiv <= 5_000_000 ? "Within the $5 million demo limit." : "Above the $5 million demo limit; referral required.",
-    source: facts.tiv.source,
-  });
-  const year = facts.yearBuilt.value;
-  findings.push({
-    id: "construction", label: "Year built", result: year === null ? "unknown" : year >= 1980 ? "pass" : "refer",
-    detail: year === null ? "Construction year is missing." : year >= 1980 ? "Meets the demo construction-year rule." : "Pre-1980 building; referral required.",
-    source: facts.yearBuilt.source,
-  });
-  const losses = facts.losses.value;
-  findings.push({
-    id: "losses", label: "Recent losses", result: losses === null ? "unknown" : losses <= 2 ? "pass" : "refer",
-    detail: losses === null ? "Recent loss count is missing." : losses <= 2 ? "Within the demo loss-count rule." : "More than two recent losses; referral required.",
-    source: facts.losses.source,
-  });
-  const missing = [year === null ? "year built" : null, losses === null ? "number of losses in the past three years" : null].filter(Boolean);
-  const question = missing.length ? `Please provide the ${missing.join(" and ")} for this property.` : null;
-  const referrals = findings.filter((finding) => finding.result === "refer");
-  const brief = [
-    referrals.length
-      ? `${referrals.length} guideline exception${referrals.length === 1 ? " requires" : "s require"} underwriter review: ${referrals.map((finding) => finding.label.toLowerCase()).join(", ")}.`
-      : "No exceptions found against the fictional demo guidelines.",
-    question ? "Required information is still missing; review is not ready." : null,
-  ].filter(Boolean).join(" ");
-  return { findings, question, brief };
+  const missing = appetiteResult.missingData;
+  const question = missing.length ? `Please provide or clarify: ${missing.join(", ")}. ${brokerAppetiteInstructions}` : null;
+  return { findings, question, brief: appetiteResult.explanation, appetiteResult };
 }

@@ -112,7 +112,7 @@ test("sample picker fills intake, supports keyboard selection, and sends the exp
 test("all sample submissions populate fields and editing returns to custom mode", async ({ authenticatedPage: page }) => {
   await page.goto("/cases/new");
   for (const sample of [
-    { option: /New York office/, name: "Hudson Square Offices", state: "NY", tiv: "2400000", year: "2012", losses: "0" },
+    { option: /California office/, name: "Pacific Square Offices", state: "CA", tiv: "75000000", year: "2012", losses: "0" },
     { option: /Colorado fabrication/, name: "Front Range Fabrication", state: "CO", tiv: "3200000", year: "2008", losses: "0" },
     { option: /New Jersey warehouse/, name: "Garden State Distribution", state: "NJ", tiv: "6800000", year: "1974", losses: "1" },
     { option: /Pennsylvania retail/, name: "Keystone Market Group", state: "PA", tiv: "4100000", year: "1999", losses: "4" },
@@ -123,8 +123,8 @@ test("all sample submissions populate fields and editing returns to custom mode"
     await expect(page.getByLabel("Insured name")).toHaveValue(sample.name);
     await expect(page.getByRole("textbox", { name: "State" })).toHaveValue(sample.state);
     await expect(page.getByRole("spinbutton", { name: "Total insured value" })).toHaveValue(sample.tiv);
-    await expect(page.getByRole("spinbutton", { name: /Year built/ })).toHaveValue(sample.year);
-    await expect(page.getByRole("spinbutton", { name: /Loss count/ })).toHaveValue(sample.losses);
+    await expect(page.getByRole("spinbutton", { name: /Oldest building year/ })).toHaveValue(sample.year);
+    await expect(page.getByRole("spinbutton", { name: /Historical loss count/ })).toHaveValue(sample.losses);
   }
   await page.getByLabel("Insured name").fill("Updated Kitchen");
   await expect(page.locator(".sample-select-trigger")).toContainText("Custom submission");
@@ -189,7 +189,7 @@ test("underwriter can decline with a recorded rationale", async ({ authenticated
     await route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' });
   });
   await page.goto(`/cases/${id}`);
-  await expect(page.getByRole("heading", { name: "Demo guideline checks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Legacy guideline checks" })).toBeVisible();
   await page.getByLabel("Review rationale").fill("Value outside demo appetite.");
   await page.getByRole("button", { name: "Decline" }).click();
   await expect(page.getByRole("heading", { name: "Decision rationale" })).toBeVisible();
@@ -199,19 +199,19 @@ test("underwriter can decline with a recorded rationale", async ({ authenticated
 test("triage presents ranked results, query reasoning, and errors", async ({ authenticatedPage: page }) => {
   await page.goto("/triage");
   await page.route("**/api/triage", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-    resource: "submissions", total: 2, evaluated: 2, truncated: false, generatedAt: new Date().toISOString(), guidelineVersion: "2025",
+    resource: "Submission", total: 2, evaluated: 2, truncated: false, generatedAt: new Date().toISOString(), guidelineVersion: "2025",
     top: 1, reasoning: ["Selected commercial property records"], trace: [{ reason: "Available queue", query: {}, returned: 2 }],
-    topSubmissions: [{ id: "a", account: "Top Office", score: 92, recommendation: "Review first", explanation: "Strong appetite match", criteria: [{ factor: "Territory", status: "target", points: 10, maximum: 10, detail: "Eligible", source: "State" }] }],
-    ranked: [{ id: "a", account: "Top Office", score: 92, recommendation: "Review first", explanation: "Strong appetite match", criteria: [] }, { id: "b", account: "Second Warehouse", score: 70, recommendation: "Review", explanation: "Needs review", criteria: [] }],
+    topSubmissions: [{ id: "a", account: "Top Office", score: 92, rawScore: 92, missingData: [], recommendation: "Review first", explanation: "Strong appetite match", criteria: [{ factor: "Territory", status: "target", points: 10, maximum: 10, detail: "Eligible", source: "State" }] }],
+    ranked: [{ id: "a", account: "Top Office", score: 92, rawScore: 92, missingData: [], recommendation: "Review first", explanation: "Strong appetite match", criteria: [] }, { id: "b", account: "Second Warehouse", score: 70, rawScore: 70, missingData: [], recommendation: "Review", explanation: "Needs review", criteria: [] }],
   }) }));
-  await page.getByRole("button", { name: "Rank live submissions" }).click();
+  await page.getByRole("button", { name: "Rank live records" }).click();
   await expect(page.getByRole("heading", { name: "Top Office" })).toBeVisible();
   await page.getByText("Query reasoning and scoring method").click();
   await expect(page.getByText("Selected commercial property records")).toBeVisible();
   await page.getByRole("button", { name: "Show all results" }).click();
   await expect(page.getByRole("heading", { name: "Second Warehouse" })).toBeVisible();
   await page.route("**/api/triage", async (route) => route.fulfill({ status: 503, contentType: "application/json", body: '{"error":"Federato unavailable"}' }));
-  await page.getByRole("button", { name: "Rank live submissions" }).click();
+  await page.getByRole("button", { name: "Rank live records" }).click();
   await expect(page.locator(".triage-heading ~ [aria-live] [role=alert]")).toContainText("Federato unavailable");
 });
 
@@ -270,7 +270,7 @@ test("PostgreSQL jobs pause for broker, resume, and record a decision", async ({
   await expect(page.getByRole("heading", { name: "Broker information needed" })).toBeVisible({ timeout: 40_000 });
   await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Facts extracted");
   await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Parser only; no model configured");
-  await page.getByLabel("Broker response").fill("The restaurant building was constructed in 2001. No losses in the past three years.");
+  await page.getByLabel("Broker response").fill("The restaurant building was constructed in 2001.\nFive-year loss value: 0\nFive-year history complete: yes");
   await page.getByRole("button", { name: "Add response and resume" }).click();
   await expect(page.getByRole("heading", { name: "Underwriter decision" })).toBeVisible({ timeout: 40_000 });
   await page.getByLabel("Review rationale").fill("Reviewed the completed submission and demo guideline checks.");

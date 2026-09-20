@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CircleAlert, ExternalLink, RotateCw } from "lucide-react";
+import { ArrowClockwise, ArrowSquareOut, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import type { AgentMetrics } from "@/lib/agent-metrics";
 import type { EvalPoint, SentryMetrics } from "@/lib/sentry-query";
 
@@ -46,17 +46,17 @@ function SentryPanel({ sentry, error, onRefresh }: { sentry: SentryMetrics | nul
           <p className="subtle">Past {sentry?.periodDays ?? 30} days · errors, agent spans, and metrics from the worker, eval runs, and web app{sentry?.org ? ` · ${sentry.org}/${sentry.project}` : ""}</p>
         </div>
         <div className="actions">
-          {sentry?.links && <a className="quiet-button" href={sentry.links.issues} target="_blank" rel="noreferrer">Open in Sentry <ExternalLink size={14} aria-hidden="true" /></a>}
-          <button className="icon-button" type="button" onClick={onRefresh} aria-label="Refresh Sentry telemetry" title="Refresh Sentry telemetry"><RotateCw size={16} /></button>
+          {sentry?.links && <a className="quiet-button" href={sentry.links.issues} target="_blank" rel="noreferrer">Open in Sentry <ArrowSquareOut size={14} aria-hidden="true" /></a>}
+          <button className="icon-button" type="button" onClick={onRefresh} aria-label="Refresh Sentry telemetry" title="Refresh Sentry telemetry"><ArrowClockwise size={16} /></button>
         </div>
       </div>
-      {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />Sentry telemetry is unavailable.</div>}
+      {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />Sentry telemetry is unavailable.</div>}
       {sentry && !sentry.configured && (
         <div className="card telemetry-note">Sentry telemetry is off for this server. Set <code>SENTRY_AUTH_TOKEN</code> (with <code>SENTRY_ORG</code> and <code>SENTRY_PROJECT</code>) to read errors, agent spans, and eval metrics here, and <code>SENTRY_DSN</code> so the worker reports them.</div>
       )}
       {sentry?.configured && (
         <>
-          {sentry.problems.length > 0 && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{sentry.problems.join(" ")}</div>}
+          {sentry.problems.length > 0 && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{sentry.problems.join(" ")}</div>}
           <div className="stat-row">
             <Metric label="Errors" hint="Error and warning events reported to Sentry, with the number of distinct issues" value={sentry.errors.events} detail={`${sentry.errors.issues} issue${sentry.errors.issues === 1 ? "" : "s"}`} />
             <Metric label="Extractions" hint="underwriting.extraction counter by source" value={sentry.extraction.gemini + sentry.extraction.parser} detail={`${sentry.extraction.gemini} Gemini · ${sentry.extraction.parser} parser`} />
@@ -130,9 +130,9 @@ export function AgentQuality() {
   return <section aria-labelledby="agent-quality-title">
     <div className="panel-head">
       <div><h2 id="agent-quality-title">Agent quality</h2><p className="subtle">Past 30 days · local case and audit records{metrics?.sentryExportEnabled ? " · Sentry export active" : ""}</p></div>
-      <button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh agent metrics" title="Refresh agent metrics"><RotateCw size={16} /></button>
+      <button className="icon-button" type="button" onClick={() => void refresh()} aria-label="Refresh agent metrics" title="Refresh agent metrics"><ArrowClockwise size={16} /></button>
     </div>
-    {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />Agent metrics are unavailable.</div>}
+    {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />Agent metrics are unavailable.</div>}
     <div className="stat-row">
       <Metric label="Submissions" hint="Cases created in the past 30 days" value={metrics?.submissions ?? "…"} />
       <Metric label="Model extractions" hint="Extraction runs completed by a model" value={metrics?.modelExtractions ?? "…"} />

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { caseJobStatus } from "@/agent/jobs";
+import { caseJobStatus } from "@/agent/job-queue";
 import { getAudit, getCase } from "@/lib/db";
 import { requireApiSession } from "@/lib/auth-access";
 

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { enqueueJob } from "@/agent/jobs";
+import { enqueueJob } from "@/agent/job-queue";
 import { db, getCase } from "@/lib/db";
 import { putText } from "@/lib/storage";
 import { requireApiSession } from "@/lib/auth-access";

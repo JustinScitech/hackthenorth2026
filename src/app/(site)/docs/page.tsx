@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Info } from "lucide-react";
+import { Info } from "@phosphor-icons/react/dist/ssr";
 
 export const metadata: Metadata = { title: "Docs and API reference", description: "How Astra Risk cases move, how to run it, and the HTTP API the workspace uses." };
 
@@ -25,7 +25,7 @@ export default function DocsPage() {
         <p className="eyebrow">Documentation</p>
         <h1 id="introduction">Astra Risk docs and API reference</h1>
         <p className="lede">Astra Risk is a durable, human-reviewed underwriting agent for commercial property submissions. PostgreSQL jobs extract facts from a broker submission, check them against guidelines, pause for missing information, and resume when a broker responds. An underwriter makes every final decision.</p>
-        <div className="notice"><Info size={17} aria-hidden="true" />The case review flow uses fictional demo guideline rules. The Federato triage flow uses the supplied 2025 sample appetite. Neither binds coverage.</div>
+        <div className="notice"><Info size={17} aria-hidden="true" />Cases and Federato triage share the supplied 2025 commercial property appetite. Neither binds coverage.</div>
 
         <h2 id="quickstart">Quickstart</h2>
         <p>The core demo needs PostgreSQL and MongoDB. No model or sponsor keys are required; a deterministic extractor runs when no key is set.</p>
@@ -61,7 +61,7 @@ export default function DocsPage() {
         <p>All endpoints are same-origin, return JSON, and are the ones the workspace itself uses. Errors return <code>{"{ \"error\": string }"}</code> with a 4xx or 5xx status. A 503 means a backing database was unreachable.</p>
 
         <Endpoint method="GET" path="/api/cases" id="list-cases" />
-        <p>Returns every case, newest first.</p>
+        <p>Returns the most recent 1,000 local cases, newest first. The workspace ranks this scoped list by carrier priority score, then match score and ID. Unscored legacy reviews appear last.</p>
         <pre className="code-block"><code>{"{ \"cases\": CaseRecord[] }"}</code></pre>
 
         <Endpoint method="POST" path="/api/cases" id="create-case" />
@@ -71,7 +71,8 @@ export default function DocsPage() {
           <tr><td><code>state</code></td><td>string</td><td>Two-letter code; upper-cased</td></tr>
           <tr><td><code>tiv</code></td><td>number</td><td>Positive, at most 1,000,000,000</td></tr>
           <tr><td><code>yearBuilt</code></td><td>integer | null</td><td>1800 to the current year</td></tr>
-          <tr><td><code>losses</code></td><td>integer | null</td><td>0 to 1000</td></tr>
+          <tr><td><code>losses</code></td><td>integer | null</td><td>0 to 1000; historical context only, not appetite loss-dollar evidence</td></tr>
+          <tr><td><code>appetite</code></td><td>object, optional</td><td>business (new/renewal), line, premium (USD), constructionPercent (0-100), lossValue (five-year USD), lossHistoryComplete (boolean), effective and expiration (YYYY-MM-DD). Unknown values remain missing and prompt broker clarification.</td></tr>
           <tr><td><code>brokerNotes</code></td><td>string</td><td>10 to 20,000 characters</td></tr>
           <tr><td><code>publicSourceUrl</code></td><td>string | null</td><td>Public HTTPS URL, at most 2000 characters. Private hosts are rejected.</td></tr>
         </tbody></table>

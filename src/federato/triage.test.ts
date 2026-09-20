@@ -94,7 +94,7 @@ test("mapping overrides must exist in discovered schema and ambiguity remains vi
   const ambiguous = { Policy: { type: "object", fields: { ...fields, total_premium: { type: "number" } } } };
   assert.equal(planQuery(ambiguous).mapping.premium, undefined);
   assert.equal(planQuery(ambiguous, { mapping: { premium: "total_premium" } }).mapping.premium, "total_premium");
-  assert.throws(() => planQuery({ ...schema, Submission: schema.Policy }), /ambiguous/);
+  assert.equal(planQuery({ ...schema, Submission: schema.Policy }).resource, "Submission");
 });
 
 function fixture(rows: Record<string, unknown>[]): DataClient {
@@ -109,6 +109,45 @@ test("capped exceptions retain match-score ordering and deterministic ties", asy
   assert.deepEqual(report.ranked.map((item) => item.id), ["2", "3", "1"]);
   assert.deepEqual(report.ranked.map((item) => item.score), [49, 49, 49]);
   assert.deepEqual(report.ranked.map((item) => item.rawScore), [86, 86, 83]);
+});
+
+test("actual submissions use only unique compatible policy links and retain unmatched records", async () => {
+  const discovered = {
+    Insured: { type: "object", fields: { id: fields.id, name: fields.account_name } },
+    Submission: { type: "object", fields: {
+      id: fields.id, insured: { type: "reference", resource: "Insured", cardinality: "one" },
+      line_of_business: fields.line_of_business, target_effective_date: fields.effective_date, status: fields.account_name,
+    } },
+    Policy: { type: "object", fields: { ...fields,
+      insured: { type: "reference", resource: "Insured", cardinality: "one" },
+      submission: { type: "reference", resource: "Submission", cardinality: "one" },
+    } },
+  };
+  const submissions = Array.from({ length: 4 }, (_, index) => ({ id: index + 1, insured: { id: 7, name: "Linked insured" }, line_of_business: "property", target_effective_date: "2026-01-01", status: "received" }));
+  const policies = [
+    { ...good, id: 10, insured: { id: 7 }, submission: { id: 1 } },
+    { ...good, id: 11, insured: { id: 7 }, submission: { id: 2 } },
+    { ...good, id: 12, insured: { id: 7 }, submission: { id: 2 } },
+    { ...good, id: 13, insured: { id: 8 }, submission: { id: 3 } },
+  ];
+  const client: DataClient = { schema: async () => discovered, query: async (query) => {
+    const rows = query.resource === "Submission" ? submissions : policies;
+    const offset = query.pagination?.offset ?? 0;
+    return { rows: rows.slice(offset, offset + (query.pagination?.limit ?? 50)), total: rows.length };
+  } };
+  const report = await runTriage(client);
+  assert.equal(report.resource, "Submission");
+  assert.equal(report.evaluated, 4);
+  assert.deepEqual(report.trace.map((step) => step.query.resource), ["Submission", "Policy"]);
+  assert.equal(report.ranked[0].score, 94);
+  assert.match(report.ranked[0].evidenceNote, /Policy 10/);
+  assert.match(report.ranked.find((item) => item.id === "2")!.evidenceNote, /Multiple/);
+  assert.match(report.ranked.find((item) => item.id === "3")!.evidenceNote, /conflicts/);
+  assert.match(report.ranked.find((item) => item.id === "4")!.evidenceNote, /No verified/);
+  assert.equal(report.ranked.filter((item) => item.missingData.length > 0).length, 3);
+  const partial = await runTriage(client, { maxRecords: 2, top: 2 });
+  assert.equal(partial.enrichmentComplete, false);
+  assert.ok(partial.ranked.every((item) => item.criteria.find((criterion) => criterion.concept === "premium")?.status === "unknown"));
 });
 test("ranks the entire 123-record queue before taking top N and exposes each query", async () => {
   const rows = Array.from({ length: 123 }, (_, index) => ({ ...good, id: index + 1, premium: index === 122 ? 85_000 : 60_000 }));

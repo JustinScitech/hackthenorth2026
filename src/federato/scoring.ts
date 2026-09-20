@@ -1,7 +1,7 @@
 import { readValues, type Concept, type Mapping } from "./schema";
 
 export type Criterion = { concept: Concept; factor: string; status: "target" | "acceptable" | "outside" | "unknown"; points: number; maximum: number; detail: string; source: string };
-export type RankedSubmission = { id: string; account: string; score: number; rawScore: number; recommendation: string; explanation: string; criteria: Criterion[]; missingData: string[] };
+export type RankedSubmission = { id: string; account: string; score: number; rawScore: number; recommendation: string; explanation: string; criteria: Criterion[]; missingData: string[]; evidenceNote?: string; lifecycleStatus?: string };
 export const guidelineVersion = "Federato HTN 2026 / 2025 sample commercial property appetite";
 const targetStates = ["OH", "PA", "MD", "CO", "CA", "FL"];
 const acceptableStates = [...targetStates, "NC", "SC", "GA", "VA", "UT"];

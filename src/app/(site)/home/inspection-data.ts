@@ -1,46 +1,50 @@
-/** Camera and inspection metadata for the illustrative digital twin. No live service claims. */
+/** E7 camera and investigation adapters. Underwriting outputs are illustrative. */
 import type { RiskId } from "./demo-data";
-export type CameraPreset = "site" | "roof" | "street" | "plan";
+export type CameraPreset = "site" | "roof" | "street" | "plan" | "atrium";
 export type CameraAction = CameraPreset | "zoom-in" | "zoom-out";
 export type CameraCommand = { action: CameraAction; revision: number };
 export type SceneInspection = { waterLevel: number; cutaway: boolean };
-export const CAMERA_VIEWS: Record<
-  CameraPreset,
-  {
-    label: string;
-    yaw: number;
-    pitch: number;
-    zoom: number;
-    target: [number, number, number];
-  }
-> = {
+type View = {
+  yaw: number;
+  pitch: number;
+  zoom: number;
+  target: [number, number, number];
+};
+export const CAMERA_VIEWS: Record<CameraPreset, View & { label: string }> = {
   site: {
-    label: "Site overview",
-    yaw: 0.67,
-    pitch: 0.93,
-    zoom: 1,
-    target: [0, 0.65, 0],
+    label: "E7 campus overview",
+    yaw: 0.64,
+    pitch: 1.01,
+    zoom: 0.91,
+    target: [0, 2.4, 0],
   },
   roof: {
-    label: "Roof survey",
-    yaw: 0.18,
-    pitch: 0.43,
-    zoom: 1.65,
-    target: [-0.7, 2.2, -1.4],
+    label: "Roof and clerestories",
+    yaw: 0.2,
+    pitch: 0.5,
+    zoom: 1.22,
+    target: [0, 4.8, -1],
   },
   street: {
-    label: "Street level",
-    yaw: 0.32,
-    pitch: 1.36,
-    zoom: 1.55,
-    target: [-0.7, 1.7, 0.4],
+    label: "E7 courtyard and cycle shelter",
+    yaw: 1.13,
+    pitch: 1.49,
+    zoom: 1.15,
+    target: [2.7, 1.45, -1.4],
   },
   plan: {
-    label: "Site plan",
+    label: "Campus plan",
     yaw: 0,
-    pitch: 0.07,
-    zoom: 1.05,
-    target: [0, 0, 0],
+    pitch: 0.04,
+    zoom: 0.93,
+    target: [0, 0.3, -0.2],
+  },
+  atrium: {
+    label: "Inside the E7 atrium",
+    yaw: 1.53,
+    pitch: 1.3,
+    zoom: 2.1,
+    target: [0, 3.7, -3.05],
   },
 };
 export const INSPECTIONS: Record<
@@ -54,131 +58,128 @@ export const INSPECTIONS: Record<
     sourceExcerpt: string;
     sourceKind: string;
     nextAction: string;
-    view: {
-      yaw: number;
-      pitch: number;
-      zoom: number;
-      target: [number, number, number];
-    };
+    view: View;
   }
 > = {
   roof: {
-    action: "Inspect roof",
+    action: "Inspect the E7 roof",
     summary:
-      "Astra compares the scheduled roof age with visible rooftop features and flags the evidence still needed.",
-    metric: "18 years",
-    metricLabel: "Scheduled roof age",
+      "Explore the mechanical penthouse and atrium clerestories. Lift the roof to see how the enclosed spaces relate to the envelope.",
+    metric: "Records needed",
+    metricLabel: "Roof condition evidence",
     steps: [
-      "Read the property schedule",
-      "Locate roof services & maintenance patches",
-      "Request a current roof inspection",
+      "Locate rooftop services in the reference photos",
+      "Separate the roof and atrium canopy",
+      "Request membrane and maintenance records",
     ],
     sourceExcerpt:
-      '"Roof installed: 2008. Standing-seam metal. Two rooftop mechanical units. Replacement date: not provided."',
-    sourceKind: "Property schedule · page 3",
-    nextAction: "Request a dated roof-condition report.",
-    view: { yaw: 0.16, pitch: 0.5, zoom: 1.58, target: [-1.2, 2.4, -1.3] },
+      "The reference set shows a rooftop mechanical enclosure and the atrium's sawtooth clerestories. Roof age, condition, and replacement records are not provided.",
+    sourceKind: "Photo-informed model · sample review note",
+    nextAction: "Request a dated roof inspection and maintenance schedule.",
+    view: { yaw: 0.22, pitch: 0.59, zoom: 1.3, target: [0, 5.8, -0.5] },
   },
   flood: {
-    action: "Explore flood exposure",
+    action: "Explore campus surface water",
     summary:
-      "Raise the illustrative water level to see how the drainage boundary relates to the property. This is a scenario, not a flood prediction.",
-    metric: "Zone AE",
-    metricLabel: "Illustrative map classification",
+      "Raise the illustrative water level around the paved entry. Site elevations and drainage capacity have not been surveyed in this model.",
+    metric: "Scenario only",
+    metricLabel: "No assigned flood zone",
     steps: [
-      "Locate the property boundary",
-      "Compare drainage & finished floor",
-      "Refer elevation uncertainty for review",
+      "Identify paved entries and drain locations",
+      "Compare illustrative rise with occupied floors",
+      "Request verified elevations and drainage records",
     ],
     sourceExcerpt:
-      '"Eastern drainage boundary intersects Zone AE. Finished-floor elevation and elevation certificate are not included."',
-    sourceKind: "Sample flood overlay · site boundary",
-    nextAction: "Obtain an elevation certificate and review flood terms.",
-    view: { yaw: 1.02, pitch: 0.78, zoom: 1.3, target: [3.5, 0.55, -0.2] },
+      "This water surface is a visual scenario. It does not represent an official flood zone, predicted water level, or verified flood exposure at Engineering 7.",
+    sourceKind: "Synthetic drainage scenario",
+    nextAction: "Obtain a site survey and local drainage assessment.",
+    view: { yaw: 1.04, pitch: 0.94, zoom: 1.16, target: [3.1, 1.2, 0] },
   },
   fire: {
-    action: "Trace fire protection",
+    action: "Trace a protection scenario",
     summary:
-      "Follow the protection path from the hydrant to the building and see where sprinkler coverage supports the assessment.",
-    metric: "30 m",
-    metricLabel: "Reported hydrant distance",
+      "Follow an illustrative protection route from campus access into the building. The model demonstrates how Astra connects observations to inspection records.",
+    metric: "Verify coverage",
+    metricLabel: "Illustrative protection path",
     steps: [
-      "Extract sprinkler declarations",
-      "Trace site fire-protection access",
-      "Check inspection currency",
+      "Locate the modeled access and riser",
+      "Trace multi-level distribution",
+      "Request current inspection certificates",
     ],
     sourceExcerpt:
-      '"Automatic sprinklers: 100%. Public hydrant: within 30 metres. Last sprinkler inspection: date to be confirmed."',
-    sourceKind: "Site survey · protection section",
-    nextAction: "Confirm the latest sprinkler inspection certificate.",
-    view: { yaw: 0.35, pitch: 1.1, zoom: 1.48, target: [0.1, 1.5, 0.4] },
+      "Hydrant position and sprinkler paths in this scene are illustrative. No actual E7 coverage, inspection status, or fire-system design is asserted.",
+    sourceKind: "Synthetic fire-protection example",
+    nextAction: "Verify hydrant access and obtain protection-system records.",
+    view: { yaw: 0.58, pitch: 1.13, zoom: 1.2, target: [1, 3.2, 0] },
   },
   construction: {
-    action: "Reveal the structure",
+    action: "Reveal the seven-storey structure",
     summary:
-      "Open the building to connect the construction classification to its steel frame, exterior envelope, and occupied space.",
-    metric: "Class 3",
-    metricLabel: "Submitted construction class",
+      "Peel back the patterned glass envelope to reveal floor plates, the structural grid, and the atrium between E7 and E5.",
+    metric: "7 storeys",
+    metricLabel: "Published building form",
     steps: [
-      "Read the construction declaration",
-      "Separate envelope, roof & structural frame",
-      "Compare with carrier construction rules",
+      "Read the supplied plan and section",
+      "Expose the frame and connected atrium",
+      "Verify assembly details from engineering records",
     ],
     sourceExcerpt:
-      '"Noncombustible construction. Steel frame, masonry exterior walls, metal roof deck. No combustible structural additions declared."',
-    sourceKind: "Statement of values · page 2",
-    nextAction: "Confirm all additions match the declared construction.",
-    view: { yaw: 0.83, pitch: 0.94, zoom: 1.35, target: [-1, 2, -1] },
+      "The supplied section shows the multi-level atrium, interconnecting bridges, red feature stairs, and sawtooth roof. Structural members in the digital twin are approximate.",
+    sourceKind: "Reference plan & section · model interpretation",
+    nextAction:
+      "Request structural and envelope schedules before classification.",
+    view: { yaw: 0.92, pitch: 1.01, zoom: 1.18, target: [0, 3.7, -0.5] },
   },
   hazards: {
-    action: "Inspect adjacent exposure",
+    action: "Inspect campus connections",
     summary:
-      "Astra measures the relationship to the neighboring occupancy and separates confirmed site facts from unanswered questions.",
-    metric: "Review",
-    metricLabel: "Adjacent occupancy status",
+      "Examine the enclosed bridges and shared E5–E7 atrium. Astra flags the evidence needed to understand connected-building exposure.",
+    metric: "Connected campus",
+    metricLabel: "Atrium and pedestrian links",
     steps: [
-      "Identify the neighboring warehouse",
-      "Inspect separation and loading areas",
-      "Request stored-materials information",
+      "Locate enclosed campus bridges",
+      "Identify shared circulation and service interfaces",
+      "Request compartmentation and occupancy records",
     ],
     sourceExcerpt:
-      '"Adjacent use: warehouse. Stored materials: unspecified. Separation distance: requires confirmation from site survey."',
-    sourceKind: "Adjacent occupancy · broker notes",
-    nextAction: "Confirm separation distance and stored materials.",
-    view: { yaw: 1.1, pitch: 0.85, zoom: 1.36, target: [3.4, 1.1, -3] },
+      "Reference photographs show enclosed pedestrian links; the E5 and E7 buildings flank a shared atrium. Fire separation and shared-services details require documentary review.",
+    sourceKind: "Campus reference photos · sample review note",
+    nextAction: "Confirm fire compartments and connected-building schedules.",
+    view: { yaw: -0.5, pitch: 1.07, zoom: 1.1, target: [-2.7, 2.9, 1] },
   },
   business: {
-    action: "Inspect operations",
+    action: "Explore the E7 atrium & labs",
     summary:
-      "Look inside the facility as Astra connects declared operations to equipment, inventory, and the carrier's class of business.",
-    metric: "Manufacturing",
-    metricLabel: "Declared business type",
+      "Look through the atrium's red stairs and overhead bridges into study areas and teaching labs. Interior furniture and room layouts are interpreted from the available references.",
+    metric: "Education & research",
+    metricLabel: "Published academic program",
     steps: [
-      "Read the operations description",
-      "Review manufacturing and storage areas",
-      "Check hot-work controls against appetite",
+      "Explore the red feature stair and atrium bridges",
+      "Inspect the illustrative teaching and robotics spaces",
+      "Connect each use to the applicable appetite questions",
     ],
     sourceExcerpt:
-      '"Light metal fabrication and assembly. No foundry operations. Hot work is performed under a documented permit procedure."',
-    sourceKind: "ACORD submission · operations",
-    nextAction: "Verify hot-work procedures and inventory limits.",
-    view: { yaw: 0.5, pitch: 0.85, zoom: 1.5, target: [-1, 1.2, -1.5] },
+      "E7 includes engineering teaching and research spaces, the Engineering IDEAs Clinic, and RoboHub. The atrium connects to E5; the room furnishings shown here are an architectural interpretation.",
+    sourceKind: "Public building program · interpreted interior",
+    nextAction:
+      "Confirm laboratory activities, equipment values, and controls.",
+    view: { yaw: 1.23, pitch: 1.13, zoom: 1.35, target: [0, 3.5, -2.7] },
   },
   claims: {
-    action: "Review loss history",
+    action: "Link the sample loss records",
     summary:
-      "Astra links five years of loss runs to this property, checking dates and gaps before treating the history as complete.",
-    metric: "0 claims",
-    metricLabel: "Reported over five years",
+      "Astra demonstrates how annual records are matched to a property and checked for gaps. These are synthetic records, not Waterloo's claims history.",
+    metric: "Demo records",
+    metricLabel: "No real loss information accessed",
     steps: [
-      "Read five annual loss runs",
-      "Match insured name and property",
-      "Check continuous coverage dates",
+      "Read five synthetic annual records",
+      "Match the sample property identity",
+      "Check dates and flag evidence gaps",
     ],
     sourceExcerpt:
-      '"2021: nil. 2022: nil. 2023: nil. 2024: nil. 2025: nil. Valuation date and continuity subject to verification."',
-    sourceKind: "Sample loss runs · pages 1–5",
-    nextAction: "Confirm current valuations and uninterrupted history.",
-    view: { yaw: 0.67, pitch: 0.9, zoom: 1.05, target: [0, 0.6, 0] },
+      "Demonstration data only. All claim values, coverage periods, risk scores, and appetite results are synthetic and do not describe the University of Waterloo's insurance history.",
+    sourceKind: "Synthetic loss-run example",
+    nextAction: "Request authorized, current loss runs for a real assessment.",
+    view: { yaw: 0.64, pitch: 1.01, zoom: 0.95, target: [0, 2.4, 0] },
   },
 };

@@ -1,3 +1,6 @@
+import type { CaseAppetite } from "./case-appetite";
+import type { RankedSubmission } from "../federato/scoring";
+
 export type CaseStatus =
   | "received"
   | "extracting"
@@ -17,6 +20,7 @@ export type Facts = {
   tiv: Fact<number>;
   yearBuilt: Fact<number>;
   losses: Fact<number>;
+  appetite?: Fact<CaseAppetite & { account: string }>;
 };
 
 export type Finding = {
@@ -34,6 +38,8 @@ export type CaseRecord = {
   tiv: number;
   yearBuilt: number | null;
   losses: number | null;
+  appetite?: CaseAppetite;
+  appetiteResult?: RankedSubmission | null;
   sourceKey: string;
   publicSourceUrl: string | null;
   publicEvidence: { url: string; title: string; excerpt: string } | null;

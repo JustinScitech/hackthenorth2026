@@ -3,7 +3,7 @@ import { readValues, type Mapping, type Plan } from "./schema";
 const numeric = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;
 const text = (value: unknown) => typeof value === "string" ? value.toLowerCase().replace(/[_-]/g, " ").trim() : "";
 // Enumerated labels only; unknown labels cannot establish an acceptable mix.
-const acceptableConstruction = ["jm", "joisted masonry", "non combustible", "steel", "non combustible/steel", "masonry non combustible", "mnc"];
+const acceptableConstruction = ["jm", "joisted masonry", "non combustible", "steel", "steel frame", "non combustible/steel", "masonry non combustible", "mnc"];
 const otherConstruction = ["frame", "wood", "wood frame", "fire resistive", "modified fire resistive"];
 function objects(row: unknown, path: string) {
   const values = readValues(row, path);
@@ -48,17 +48,17 @@ export function deriveFacts(row: Record<string, unknown>, plan: Plan, asOf: Date
   if (claims !== null) {
     const start = new Date(asOf); start.setUTCFullYear(start.getUTCFullYear() - 5);
     const amounts = ["paid_indemnity", "paid_expense", "reserve_indemnity", "reserve_expense"];
-    let complete = true;
     lossLowerBound = claims.reduce((sum, claim) => {
-      const when = typeof claim.date_of_loss === "string" ? Date.parse(claim.date_of_loss) : NaN;
+      const date = claim.date_of_loss;
+      const validDate = typeof date === "string" && /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date.slice(0, 10)).toISOString().slice(0, 10) === date.slice(0, 10);
+      const when = validDate ? Date.parse(date as string) : NaN;
       if (!Number.isFinite(when) || !amounts.every((key) => numeric(claim[key]))) {
-        if (Number.isFinite(when) && when >= start.getTime() && when <= asOf.getTime()) complete = false;
         return sum;
       }
       if (when < start.getTime() || when > asOf.getTime()) return sum;
       return sum + amounts.reduce((total, key) => total + Number(claim[key]), 0);
     }, 0);
-    if (complete) set("lossValue", lossLowerBound, `${roots.claims}: incurred losses (paid + reserves) in the five years ending ${asOf.toISOString().slice(0, 10)}; assumes the API claims collection is complete`);
+    set("lossValue", lossLowerBound > 100_000 ? lossLowerBound : null, `${roots.claims}: verified dated incurred amounts establish only a lower bound of $${lossLowerBound.toLocaleString("en-US")} in the five years ending ${asOf.toISOString().slice(0, 10)}. Policy-linked claims do not establish complete account history; missing or invalid dates and amounts cannot establish a pass.`);
   }
   const currency = roots.currency ? readValues(row, roots.currency)[0] : undefined;
   if (roots.currency && currency !== "USD") {

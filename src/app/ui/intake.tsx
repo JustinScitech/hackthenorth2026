@@ -2,21 +2,27 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, CircleAlert, FilePlus2 } from "lucide-react";
+import { CaretDown, Check, FilePlus, WarningCircle } from "@phosphor-icons/react/dist/ssr";
+import { caseAppetiteSchema, type CaseAppetite } from "@/lib/case-appetite";
+
+function sampleAppetite(id: string): CaseAppetite {
+  const year = new Date().getFullYear();
+  return { business: "new", line: "property", premium: 85_000, constructionPercent: 75, lossValue: id === "follow-up" ? null : id === "retail" ? 125_000 : 0, lossHistoryComplete: id !== "follow-up", effective: `${year}-01-01`, expiration: `${year + 1}-01-01` };
+}
 
 type FormState = { insuredName: string; state: string; tiv: string; yearBuilt: string; losses: string; brokerNotes: string; publicSourceUrl: string };
 const emptyForm: FormState = { insuredName: "", state: "", tiv: "", yearBuilt: "", losses: "", brokerNotes: "", publicSourceUrl: "" };
 const sampleCases: { id: string; label: string; form: FormState }[] = [
   {
-    id: "clean", label: "New York office - clean review",
+    id: "clean", label: "California office - appetite match",
     form: {
-      insuredName: "Hudson Square Offices", state: "NY", tiv: "2400000", yearBuilt: "2012", losses: "0",
-      brokerNotes: "Commercial property submission for Hudson Square Offices in New York. The office building was constructed in 2012, is fully sprinklered, and has had no losses in the past three years.",
+      insuredName: "Pacific Square Offices", state: "CA", tiv: "75000000", yearBuilt: "2012", losses: "0",
+      brokerNotes: "Commercial property submission for Pacific Square Offices in California. The oldest building was constructed in 2012. Complete five-year loss dollars and construction mix are supplied in the form.",
       publicSourceUrl: "",
     },
   },
   {
-    id: "colorado", label: "Colorado fabrication - territory referral",
+    id: "colorado", label: "Colorado fabrication - acceptable risk",
     form: {
       insuredName: "Front Range Fabrication", state: "CO", tiv: "3200000", yearBuilt: "2008", losses: "0",
       brokerNotes: "Commercial property submission for Front Range Fabrication in Colorado. The building was constructed in 2008, is owner occupied and sprinklered, and had no losses in the past three years.",
@@ -24,7 +30,7 @@ const sampleCases: { id: string; label: string; form: FormState }[] = [
     },
   },
   {
-    id: "warehouse", label: "New Jersey warehouse - value and age referrals",
+    id: "warehouse", label: "New Jersey warehouse - territory and age referrals",
     form: {
       insuredName: "Garden State Distribution", state: "NJ", tiv: "6800000", yearBuilt: "1974", losses: "1",
       brokerNotes: "Commercial property submission for Garden State Distribution in New Jersey. The warehouse was built in 1974, has $6.8 million in total insured value, and reported one loss in the past three years.",
@@ -109,7 +115,7 @@ function SamplePicker({ value, onChange }: { value: string; onChange: (id: strin
         }}
       >
         <span id="sample-selected-value">{sampleOptions[selectedIndex]?.label ?? "Custom submission"}</span>
-        <ChevronDown size={16} aria-hidden="true" />
+        <CaretDown size={16} aria-hidden="true" />
       </button>
       {open && <div id="sample-scenario-menu" className="sample-select-menu popup" role="menu" aria-labelledby="sample-scenario-label" onKeyDown={handleMenuKeyDown}>
         {sampleOptions.map((option, index) => <button
@@ -125,6 +131,7 @@ function SamplePicker({ value, onChange }: { value: string; onChange: (id: strin
 }
 
 export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean }) {
+  const [appetite, setAppetite] = useState<CaseAppetite>(prefillSample ? sampleAppetite("colorado") : caseAppetiteSchema.parse({}));
   const [form, setForm] = useState<FormState>(prefillSample ? sampleCases[1].form : emptyForm);
   const [selectedSample, setSelectedSample] = useState(prefillSample ? "colorado" : "");
   const [submitting, setSubmitting] = useState(false);
@@ -136,6 +143,7 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
   }
 
   function loadSample(id: string) {
+    setAppetite(id ? sampleAppetite(id) : caseAppetiteSchema.parse({}));
     setSelectedSample(id);
     setForm(sampleCases.find((sample) => sample.id === id)?.form ?? emptyForm);
     setError(null);
@@ -153,6 +161,7 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
           yearBuilt: form.yearBuilt ? Number(form.yearBuilt) : null,
           losses: form.losses ? Number(form.losses) : null, brokerNotes: form.brokerNotes,
           publicSourceUrl: form.publicSourceUrl.trim() || null,
+          appetite,
         }),
       });
       if (!response.ok) {
@@ -177,9 +186,9 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
     <main className="shell shell-narrow">
       <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><Link href="/cases">Cases</Link><span className="sep">/</span><span className="current">New submission</span></p>
       <div className="page-title-row">
-        <div><h1 className="page-title">New submission</h1><p className="subtle" style={{ marginTop: 6 }}>Start a durable review. The agent extracts facts, checks demo guidelines, and pauses for the broker when information is missing.</p></div>
+        <div><h1 className="page-title">New submission</h1><p className="subtle" style={{ marginTop: 6 }}>Start a durable review against the supplied 2025 commercial property appetite. Missing evidence pauses the review for broker clarification.</p></div>
       </div>
-      {error && <div className="alert" role="alert"><CircleAlert size={17} aria-hidden="true" />{error}</div>}
+      {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
       <form className="card" onSubmit={createCase}>
         <div className="form-section sample-picker">
           <div className="form-section-title"><h2>Sample submission</h2></div>
@@ -193,9 +202,18 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
             <label>Total insured value<input required min="1" type="number" value={form.tiv} onChange={(event) => update("tiv", event.target.value)} placeholder="3200000" /></label>
           </div>
           <div className="field-pair">
-            <label>Year built <span className="optional">Optional</span><input min="1800" max={new Date().getFullYear()} type="number" value={form.yearBuilt} onChange={(event) => update("yearBuilt", event.target.value)} placeholder="2008" /></label>
-            <label>Loss count <span className="optional">Optional</span><input min="0" type="number" value={form.losses} onChange={(event) => update("losses", event.target.value)} placeholder="0" /></label>
+            <label>Oldest building year <span className="optional">Optional</span><input min="1800" max={new Date().getFullYear()} type="number" value={form.yearBuilt} onChange={(event) => update("yearBuilt", event.target.value)} placeholder="2008" /></label>
+            <label>Historical loss count (context only) <span className="optional">Optional</span><input min="0" type="number" value={form.losses} onChange={(event) => update("losses", event.target.value)} placeholder="0" /></label>
           </div>
+        </div>
+        <div className="form-section">
+          <div className="form-section-title"><h2>Carrier appetite evidence</h2><p>All amounts are USD. Leave unknown fields blank; do not substitute loss counts for five-year loss dollars.</p></div>
+          <label>Business type<select value={appetite.business ?? ""} onChange={(event) => setAppetite({ ...appetite, business: event.target.value === "new" ? "new" : event.target.value === "renewal" ? "renewal" : null })}><option value="">Unknown</option><option value="new">New business</option><option value="renewal">Renewal business</option></select></label>
+          <label>Line of business<input value={appetite.line ?? ""} onChange={(event) => setAppetite({ ...appetite, line: event.target.value || null })} placeholder="property" /></label>
+          {([{ key: "premium", label: "Total premium (USD)" }, { key: "constructionPercent", label: "Eligible construction percent (by building count)" }, { key: "lossValue", label: "Five-year loss value (USD)" }] as const).map(({ key, label }) => <label key={key}>{label}<input type="number" min="0" max={key === "constructionPercent" ? 100 : undefined} step="any" value={appetite[key] ?? ""} onChange={(event) => setAppetite({ ...appetite, [key]: event.target.value === "" ? null : Number(event.target.value) })} /></label>)}
+          <p className="subtle">Eligible construction: joisted masonry, non-combustible/steel, or masonry non-combustible.</p>
+          <label><input type="checkbox" checked={appetite.lossHistoryComplete} onChange={(event) => setAppetite({ ...appetite, lossHistoryComplete: event.target.checked })} />The supplied loss dollars cover complete five-year account history.</label>
+          <div className="field-pair">{(["effective", "expiration"] as const).map((key) => <label key={key}>{key === "effective" ? "Effective date" : "Expiration date"}<input type="date" value={appetite[key] ?? ""} onChange={(event) => setAppetite({ ...appetite, [key]: event.target.value || null })} /></label>)}</div>
         </div>
         <div className="form-section">
           <div className="form-section-title"><h2>Broker submission</h2><p>Paste the broker's notes. Unstructured text is fine; the agent extracts what it can and asks for the rest.</p></div>
@@ -203,8 +221,8 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
           <label>Public source URL <span className="optional">Optional</span><input type="url" maxLength={2000} value={form.publicSourceUrl} onChange={(event) => update("publicSourceUrl", event.target.value)} placeholder="https://example.com/property" /></label>
         </div>
         <div className="form-footer">
-          <span className="subtle">Fictional demo rules. A final decision requires underwriter review.</span>
-          <button className="primary-button" disabled={submitting} type="submit"><FilePlus2 size={16} />{submitting ? "Starting case..." : "Start analysis"}</button>
+          <span className="subtle">2025 carrier appetite. A final decision requires underwriter review.</span>
+          <button className="primary-button" disabled={submitting} type="submit"><FilePlus size={16} />{submitting ? "Starting case..." : "Start analysis"}</button>
         </div>
       </form>
     </main>

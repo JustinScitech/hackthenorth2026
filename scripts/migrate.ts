@@ -72,6 +72,8 @@ async function main() {
       created_at timestamptz NOT NULL DEFAULT now()
     );
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_source_url text;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS appetite jsonb;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS appetite_result jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_evidence jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS extraction_conflicts jsonb NOT NULL DEFAULT '[]'::jsonb;
   `);

@@ -2,13 +2,13 @@
 
 A durable, human-reviewed commercial property underwriting demo. PostgreSQL queues each case for a worker that extracts facts from a broker submission, checks sample guidelines, pauses for missing information, and resumes when a broker response arrives. An underwriter makes the final review decision.
 
-The original case-review workflow uses **fictional demo rules**. The separate Federato triage flow uses the supplied **2025 sample appetite guidelines**. Both support human review and must not be used to bind coverage automatically.
+Cases and Federato triage share the supplied **2025 sample appetite guidelines** and the same eight-factor scorer. Both support human review and must not be used to bind coverage automatically.
 
 ## Federato challenge triage
 
 Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` to enable this live integration. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local case database.
 
-The live schema currently selects `Policy` because it contains more appetite fields; the report explicitly identifies that scope. It is not yet a reconciled queue of standalone Submission records. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
+The live planner prefers `Submission` and supplements missing evidence only from a uniquely linked Policy with matching insured, line, and effective date. Unmatched, ambiguous, and incomplete submissions remain visible. All lifecycle statuses are included and displayed. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
 
 ## Interface
 
@@ -28,7 +28,7 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 
 - `src/agent/jobs.ts`: PostgreSQL job queue, retries, leases, and scheduled broker follow-ups
 - `src/agent/activities.ts`: retryable I/O and idempotent case/audit transitions
-- `src/agent/analysis.ts` and `model.ts`: fictional guideline checks, Gemini extraction, deterministic fallback, and conflict detection
+- `src/agent/analysis.ts` and `model.ts`: shared carrier appetite checks, Gemini extraction, deterministic fallback, and conflict detection
 - `src/agent/public-source.ts`: bounded Browserbase evidence capture; public URL validation is separate
 - `src/agent/worker.ts`: continuously running job worker
 - `src/lib`: shared case types, PostgreSQL access, and MongoDB documents
@@ -89,9 +89,9 @@ A `redirect_uri_mismatch` from Google means the OAuth client does not list the e
 
 Run `npm run typecheck`, `npm test`, and `npm run build`. For browser regression tests, start the local stack with `docker compose up -d`, then run `npm run test:e2e`. The command creates and migrates a separate `underwriting_agent_e2e` database, builds the app, and starts a temporary server and worker on port 3100. Most UI scenarios use fixture responses; one exercises the real PostgreSQL job and MongoDB lifecycle. Google, Gemini, and sponsor credentials are not needed, and the normal case database is untouched. On macOS it uses installed Google Chrome; elsewhere install Playwright Chromium with `npx playwright install chromium`.
 
-Run `npm run eval:underwriting` for the offline, versioned Federato appetite corpus. It checks every factor and writes a detailed report under ignored `data/`. For a live Gemini extraction eval, set `GEMINI_API_KEY` and run `npm run eval:agent`. It checks the model's year-built and three-year loss-count values, selected provenance, and exact demo findings across synthetic broker notes and any samples added under `evals/agent-notes/`. Calls are spaced to reduce per-minute rate-limit errors. The live eval fails if Gemini is unavailable or falls back to the parser. These text-based evals do not measure PDF ingestion or coverage decisions. See [the evaluation guide](docs/underwriting-evals.md) for adding PDF-grounded cases.
+Run `npm run eval:underwriting` for the offline, versioned Federato appetite corpus. It checks every factor and writes a detailed report under ignored `data/`. For a live Gemini extraction eval, set `GEMINI_API_KEY` and run `npm run eval:agent`. It checks the model's year-built and three-year loss-count values, selected provenance, and exact carrier appetite findings across synthetic broker notes and any samples added under `evals/agent-notes/`. Calls are spaced to reduce per-minute rate-limit errors. The live eval fails if Gemini is unavailable or falls back to the parser. These text-based evals do not measure PDF ingestion or coverage decisions. See [the evaluation guide](docs/underwriting-evals.md) for adding PDF-grounded cases.
 
-The case page shows job state and a persisted activity trace with model name, extraction time, and fallback status. Gemini extraction tries `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-3.5-flash`, stopping at the first valid result. `GEMINI_MODEL` can put a different model first for comparison. Quota and authentication errors stop the waterfall rather than multiplying requests. The demo still applies its four fictional guideline checks deterministically after extraction.
+The case page shows job state and a persisted activity trace with model name, extraction time, and fallback status. Gemini extraction tries `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, then `gemini-3.5-flash`, stopping at the first valid result. `GEMINI_MODEL` can put a different model first for comparison. Quota and authentication errors stop the waterfall rather than multiplying requests. Cases apply all eight carrier checks deterministically after extraction. Claim counts are context only; explicit five-year dollar loss evidence is required. Run `npm run db:migrate` before starting the updated web app and worker to add the appetite input and score columns. Existing saved analyses remain labeled legacy; create a new review to score those risks under the carrier rules.
 
 ## Sponsor fit and remaining work
 

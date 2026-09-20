@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogIn } from "lucide-react";
+import { SignIn } from "@phosphor-icons/react/dist/ssr";
 import { authClient } from "@/lib/auth-client";
 
 export function SignInButton({ disabled }: { disabled: boolean }) {
@@ -20,7 +20,7 @@ export function SignInButton({ disabled }: { disabled: boolean }) {
   }
 
   return <>
-    <button className="primary-button auth-button" type="button" onClick={() => void signIn()} disabled={disabled || pending}><LogIn size={17} />{pending ? "Opening Google..." : "Continue with Google"}</button>
+    <button className="primary-button auth-button" type="button" onClick={() => void signIn()} disabled={disabled || pending}><SignIn size={17} />{pending ? "Opening Google..." : "Continue with Google"}</button>
     {error && <p className="auth-error" role="alert">Could not start Google sign-in. Please try again.</p>}
   </>;
 }

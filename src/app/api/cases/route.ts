@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { caseAppetiteSchema } from "@/lib/case-appetite";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { enqueueJob } from "@/agent/jobs";
+import { enqueueJob } from "@/agent/job-queue";
 import { publicSourceUrl } from "@/agent/public-source-url";
 import { db, listCases } from "@/lib/db";
 import { putText } from "@/lib/storage";
@@ -17,6 +18,7 @@ const createSchema = z.object({
   tiv: z.number().positive().max(1_000_000_000),
   yearBuilt: z.number().int().min(1800).max(new Date().getFullYear()).nullable(),
   losses: z.number().int().min(0).max(1000).nullable(),
+  appetite: caseAppetiteSchema.optional(),
   brokerNotes: z.string().trim().min(10).max(20_000),
   publicSourceUrl: z.url().max(2000).nullable(),
 });
@@ -57,8 +59,8 @@ export async function POST(request: Request) {
     try {
       await client.query("BEGIN");
       await client.query(
-        "INSERT INTO cases (id, insured_name, state, tiv, year_built, losses, source_key, public_source_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-        [id, parsed.data.insuredName, parsed.data.state, parsed.data.tiv, parsed.data.yearBuilt, parsed.data.losses, sourceKey, parsed.data.publicSourceUrl],
+        "INSERT INTO cases (id, insured_name, state, tiv, year_built, losses, source_key, public_source_url, appetite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        [id, parsed.data.insuredName, parsed.data.state, parsed.data.tiv, parsed.data.yearBuilt, parsed.data.losses, sourceKey, parsed.data.publicSourceUrl, parsed.data.appetite ? JSON.stringify(parsed.data.appetite) : null],
       );
       await enqueueJob(id, "analyze", `analyze:${id}:0`, {}, new Date(), client);
       await client.query(

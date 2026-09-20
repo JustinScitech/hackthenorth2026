@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { DEMO_DURATION, RISK_SIGNALS, type RiskId } from "./demo-data";
@@ -94,7 +95,7 @@ export function createPropertyEngine(
   controls.maxTargetRadius = 15;
   controls.cursor.set(0, 1, 0);
   controls.screenSpacePanning = true;
-  controls.target.set(0, 0.65, 0);
+  controls.target.set(0, 2.4, 0);
   const positionFor = (view: {
     yaw: number;
     pitch: number;
@@ -163,9 +164,16 @@ export function createPropertyEngine(
     materials.forEach((m) => m.dispose());
   };
   let dirty = true;
-  new GLTFLoader().load(
-    "/models/northline.glb",
+  const decoder = new DRACOLoader()
+    .setDecoderPath({
+      js: "/models/draco/draco_wasm_wrapper.js",
+      wasm: "/models/draco/draco_decoder.wasm",
+    })
+    .setWorkerLimit(2);
+  new GLTFLoader().setDRACOLoader(decoder).load(
+    "/models/engineering-7.glb",
     (gltf) => {
+      decoder.dispose();
       if (disposed) {
         disposeRoot(gltf.scene);
         return;
@@ -182,6 +190,7 @@ export function createPropertyEngine(
         const own = originals.map((original) => {
           const mat = original.clone() as THREE.MeshStandardMaterial;
           mat.envMapIntensity = 0.7;
+          mat.forceSinglePass = true;
           mat.onBeforeCompile = (shader) => {
             shader.uniforms.astraScan = scanPosition;
             shader.uniforms.astraScanStrength = scanStrength;
@@ -217,6 +226,7 @@ export function createPropertyEngine(
     },
     undefined,
     () => {
+      decoder.dispose();
       if (!disposed) {
         failed = true;
         options.onFailure();
@@ -225,7 +235,7 @@ export function createPropertyEngine(
   );
   const visual = createInvestigationLayers(scene);
   const scanPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(16, 5),
+    new THREE.PlaneGeometry(20, 10),
     new THREE.MeshBasicMaterial({
       color: 0x89babe,
       transparent: true,
@@ -235,16 +245,16 @@ export function createPropertyEngine(
     }),
   );
   scanPlane.rotation.y = Math.PI / 2;
-  scanPlane.position.y = 2;
+  scanPlane.position.y = 4.5;
   scene.add(scanPlane);
   const hitSpecs: [RiskId, number[], number[]][] = [
-    ["roof", [-1, 3.7, -1.5], [8.6, 0.35, 5.7]],
-    ["flood", [8.65, 0.4, 0], [1.5, 0.7, 15]],
-    ["hazards", [6.1, 1.7, -4], [3.5, 3.1, 5.2]],
-    ["fire", [1.65, 0.7, 3.27], [0.9, 1, 0.9]],
-    ["construction", [3.42, 1.7, -1.5], [0.35, 3, 5.7]],
-    ["business", [-1, 1.5, 1.6], [8.6, 2.8, 0.4]],
-    ["claims", [-7.6, 0.6, -1], [1.5, 1.2, 5]],
+    ["roof", [0, 7.9, 0.4], [11.7, 1.1, 4.5]],
+    ["flood", [8.2, 0.3, 1.5], [3.1, 0.6, 5]],
+    ["hazards", [-8.1, 2.8, 2.95], [6.2, 1.3, 1.2]],
+    ["fire", [6.7, 0.65, 2.6], [0.75, 1, 0.75]],
+    ["construction", [5.85, 4.1, 0.4], [0.22, 7.4, 4.4]],
+    ["business", [5.85, 4, -3], [0.25, 7.4, 2.4]],
+    ["claims", [-8.2, 0.5, -1.5], [1.4, 1, 4.5]],
   ];
   const hitMaterial = new THREE.MeshBasicMaterial({ visible: false });
   const hitMeshes = hitSpecs.map(([id, p, s]) => {
@@ -498,20 +508,12 @@ export function createPropertyEngine(
           : "none";
       lastExpanded = state.expanded;
     }
-    if (state.resetView !== lastReset) {
+    const resetting = state.resetView !== lastReset;
+    if (resetting) {
       interacted = false;
       lastGuide = "";
       flyTo(CAMERA_VIEWS.site);
       lastReset = state.resetView;
-    }
-    if (state.command.revision !== lastCommand) {
-      if (lastCommand !== -1) {
-        interacted = true;
-        if (state.command.action === "zoom-in") zoom(0.8);
-        else if (state.command.action === "zoom-out") zoom(1.25);
-        else flyTo(CAMERA_VIEWS[state.command.action]);
-      }
-      lastCommand = state.command.revision;
     }
     const focusInspection = (id: RiskId, open: boolean) => {
       const base = INSPECTIONS[id].view;
@@ -521,12 +523,12 @@ export function createPropertyEngine(
         target[0] += Math.cos(base.yaw) * 2.6;
         target[2] -= Math.sin(base.yaw) * 2.6;
       }
-      if (id === "roof" && open) target[1] = 3.5;
+      if (id === "roof" && open) target[1] = 7.1;
       flyTo({
         ...base,
         target,
         zoom,
-        pitch: id === "roof" && open ? 0.95 : base.pitch,
+        pitch: id === "roof" && open ? 0.92 : base.pitch,
       });
     };
     if (state.selected !== lastSelection) {
@@ -535,6 +537,16 @@ export function createPropertyEngine(
         focusInspection(state.selected, state.inspection.cutaway);
       } else flyTo(CAMERA_VIEWS.site);
       lastSelection = state.selected;
+    }
+    const explicitCameraChange = state.command.revision !== lastCommand;
+    if (explicitCameraChange) {
+      if (lastCommand !== -1) {
+        interacted = !resetting;
+        if (state.command.action === "zoom-in") zoom(0.8);
+        else if (state.command.action === "zoom-out") zoom(1.25);
+        else flyTo(CAMERA_VIEWS[state.command.action]);
+      }
+      lastCommand = state.command.revision;
     }
     const guided =
       state.elapsed > 1400 && state.elapsed < 6500 && !state.reducedMotion;
@@ -551,7 +563,13 @@ export function createPropertyEngine(
       const key = guide ?? "site";
       if (key !== lastGuide) {
         const base = guide ? INSPECTIONS[guide].view : CAMERA_VIEWS.site;
-        flyTo({ ...base, zoom: guide ? Math.min(base.zoom, 1.16) : 1 }, 1100);
+        flyTo(
+          {
+            ...base,
+            zoom: guide ? Math.min(base.zoom, 1.08) : CAMERA_VIEWS.site.zoom,
+          },
+          1100,
+        );
         lastGuide = key;
       }
     }
@@ -562,13 +580,13 @@ export function createPropertyEngine(
         ["roof", "construction", "business", "fire"].includes(
           state.selected,
         )) ||
-        (!interacted && guide === "construction"),
+      (!interacted && guide === "construction"),
     );
     if (layer !== lastLayer || cutaway !== lastCutaway) {
       pendingShadow = true;
       dirty = true;
       lastLayer = layer;
-      if (state.selected && lastCutaway !== cutaway)
+      if (state.selected && lastCutaway !== cutaway && !explicitCameraChange)
         focusInspection(state.selected, cutaway);
       lastCutaway = cutaway;
     }
@@ -605,20 +623,40 @@ export function createPropertyEngine(
     let partsMoving = Math.abs(assemblyProgress - assemblyTarget) > 0.001;
     for (const part of parts) {
       let lift = 0,
-        opacity = 1;
-      if (part.kind === "roof" && cutaway) {
+        opacity =
+          part.kind === "canopyglass"
+            ? 0.3
+            : part.kind === "atriumshell"
+              ? 0.3
+              : part.kind === "atriumwall"
+                ? 0.62
+                : 1;
+      if (["roof", "atriumroof"].includes(part.kind) && cutaway) {
         lift = state.selected === "roof" ? 3 : 2.6;
         opacity = state.selected === "roof" ? 0.95 : 0.09;
       }
-      if (part.kind === "shell" && cutaway && state.selected !== "roof")
-        opacity = state.selected === "fire" ? 0.24 : 0.1;
+      if (
+        ["shell", "atriumshell", "atriumwall"].includes(part.kind) &&
+        cutaway &&
+        state.selected !== "roof"
+      )
+        opacity = 0.025;
+      if (part.kind === "upper" && cutaway && state.selected !== "roof")
+        opacity = state.selected === "construction" ? 0.16 : 0.035;
       const targetY = part.baseY + lift;
       const previousY = part.mesh.position.y;
       part.mesh.position.y = THREE.MathUtils.lerp(previousY, targetY, damping);
       if (Math.abs(previousY - targetY) > 0.001) partsMoving = true;
       part.mesh.castShadow = !(
         cutaway &&
-        (part.kind === "roof" || part.kind === "shell")
+        [
+          "roof",
+          "atriumroof",
+          "shell",
+          "atriumshell",
+          "atriumwall",
+          "upper",
+        ].includes(part.kind)
       );
       for (const mat of part.materials) {
         const previous = mat.opacity;
@@ -729,6 +767,7 @@ export function createPropertyEngine(
     controls.removeEventListener("change", changed);
     controls.removeEventListener("start", started);
     controls.dispose();
+    decoder.dispose();
     canvas.removeEventListener("pointerdown", down);
     canvas.removeEventListener("pointermove", move);
     canvas.removeEventListener("pointerup", up);

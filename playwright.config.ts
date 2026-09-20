@@ -24,7 +24,7 @@ export default defineConfig({
     },
   }],
   webServer: {
-    command: "node --env-file=.env --import tsx scripts/e2e-server.ts",
+    command: "node --env-file-if-exists=.env --import tsx scripts/e2e-server.ts",
     url: `http://localhost:${port}/sign-in`,
     reuseExistingServer: false,
     timeout: 60_000,
