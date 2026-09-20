@@ -115,6 +115,8 @@ async function main() {
       created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS triage_reports_generated_at_idx ON triage_reports(generated_at DESC);
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS draft_email text;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS draft_status text CHECK (draft_status IN ('pending', 'approved', 'edited'));
   `);
   const { runMigrations } = await getMigrations(auth.options);
   await runMigrations();

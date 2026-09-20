@@ -14,6 +14,7 @@ import { CaseReportEditor } from "./case-report-editor";
 import { SourcePicker } from "./source-picker";
 import { NextStepPanel } from "./next-step";
 import { SimilarCases } from "./similar-cases";
+import { BrokerDraft } from "./broker-draft";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
 function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
@@ -84,14 +85,14 @@ function PropertyContextSection({ context, result }: { context: CaseRecord["prop
   </section>;
 }
 
-function BrokerAction({ question, response, setResponse, submitting, onSubmit }: {
-  question: string | null; response: string; setResponse: (value: string) => void;
-  submitting: boolean; onSubmit: () => void;
+function BrokerAction({ caseRecord, response, setResponse, submitting, onSubmit, onRefresh }: {
+  caseRecord: CaseRecord; response: string; setResponse: (value: string) => void;
+  submitting: boolean; onSubmit: () => void; onRefresh: () => void;
 }) {
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); onSubmit(); }
   return <section className="action-section" aria-labelledby="broker-title">
     <div className="section-heading"><h2 id="broker-title">Broker information needed</h2><PaperPlaneTilt size={16} aria-hidden="true" /></div>
-    <p>{question}</p>
+    {caseRecord.draftEmail ? <BrokerDraft key={caseRecord.analysisRevision} caseRecord={caseRecord} onSaved={onRefresh} /> : <p>{caseRecord.question}</p>}
     <form onSubmit={submit}>
       <label>Broker response<textarea required minLength={3} maxLength={10000} rows={4} value={response} onChange={(event) => setResponse(event.target.value)} placeholder="Enter the broker's reply..." /></label>
       <button className="primary-button" disabled={submitting} type="submit"><PaperPlaneTilt size={15} />{submitting ? "Sending..." : "Add response and resume"}</button>
@@ -116,12 +117,12 @@ function ReviewAction({ reason, setReason, submitting, onDecision }: {
   </section>;
 }
 
-function CaseActions({ caseRecord, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
+function CaseActions({ caseRecord, response, setResponse, reason, setReason, submitting, onResponse, onDecision, onRefresh }: {
   caseRecord: CaseRecord; response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean;
-  onResponse: () => void; onDecision: (kind: ActionKind) => void;
+  onResponse: () => void; onDecision: (kind: ActionKind) => void; onRefresh: () => void;
 }) {
-  if (caseRecord.status === "waiting_for_broker") return <BrokerAction question={caseRecord.question} response={response} setResponse={setResponse} submitting={submitting} onSubmit={onResponse} />;
+  if (caseRecord.status === "waiting_for_broker") return <BrokerAction caseRecord={caseRecord} response={response} setResponse={setResponse} submitting={submitting} onSubmit={onResponse} onRefresh={onRefresh} />;
   if (caseRecord.status === "review_ready") return <ReviewAction reason={reason} setReason={setReason} submitting={submitting} onDecision={onDecision} />;
   if (caseRecord.status === "approved" || caseRecord.status === "declined") return <section className="detail-section"><div className="section-heading"><h2>Decision rationale</h2><Status value={caseRecord.status} /></div><p className="brief">{caseRecord.decision}</p></section>;
   return null;
@@ -142,13 +143,31 @@ const eventLabels: Record<string, string> = {
   source_discovery_failed: "Public source search unavailable", public_source_confirmed: "Public source confirmed",
   property_context_started: "Looking up public property records", property_context_completed: "Public property records gathered",
   property_context_skipped: "Public records skipped", property_context_failed: "Public records unavailable",
+  verifier_started: "Verifying findings against the sources", verifier_flagged: "Verifier flagged a finding",
+  verifier_completed: "Findings verified", verifier_skipped: "Verification skipped",
   analysis_completed: "Guidelines checked",
   broker_response_received: "Broker response received", broker_follow_up_due: "Broker follow-up due",
+  broker_email_drafted: "Broker email drafted", broker_email_edited: "Broker email edited", broker_email_approved: "Broker email approved and sent",
   approved: "Review approved", declined: "Review declined", job_failed: "Analysis failed",
   job_retry: "Retrying analysis", report_edited: "Report edited", analysis_stopped: "Analysis stopped",
 };
 
+function correspondenceDetail(event: AuditEvent): string | null {
+  const detail = event.detail;
+  if (event.eventType === "broker_email_drafted") {
+    const missing = Array.isArray(detail.missing) ? detail.missing.join(", ") : "";
+    const asked = missing ? `Asks the broker for ${missing}.` : "Asks the broker for the missing appetite fields.";
+    if (detail.source === "model") return `${asked} Drafted by Gemini from the broker's notes; awaiting the underwriter's approval.`;
+    return `${asked} ${detail.fallbackReason ? `${detail.fallbackReason}, so the` : "No drafting model configured, so the"} standard question is used.`;
+  }
+  if (event.eventType === "broker_email_edited") return `Wording changed by ${detail.by ?? "the underwriter"}; not yet approved.`;
+  if (event.eventType === "broker_email_approved") return `Approved by ${detail.by ?? "the underwriter"}${detail.edited ? " with edits" : " as drafted"} and recorded as sent. No email leaves this workspace.`;
+  return null;
+}
+
 function traceDetail(event: AuditEvent): string | null {
+  const correspondence = correspondenceDetail(event);
+  if (correspondence) return correspondence;
   if (event.eventType === "source_documents_loaded") {
     const count = Number(event.detail.count ?? 1);
     return count === 1 ? "Submission source read for this analysis." : `Submission and ${count - 1} broker ${count === 2 ? "response" : "responses"} read for this analysis.`;
@@ -186,6 +205,10 @@ function traceDetail(event: AuditEvent): string | null {
   }
   if (event.eventType === "source_discovery_failed") return String(event.detail.reason ?? "The search did not complete");
   if (event.eventType === "public_source_confirmed") return `${event.detail.url}${event.detail.candidate ? " (discovered candidate)" : " (entered by the underwriter)"}`;
+  if (event.eventType === "verifier_started") return `Reading ${event.detail.claims ?? "the"} findings and the brief back against the broker notes, intake form, and public sources.`;
+  if (event.eventType === "verifier_flagged") return `${event.detail.label ?? event.detail.id}: "${event.detail.quote ?? ""}" was not found in the sources${event.detail.previousResult && event.detail.previousResult !== "brief" ? `; ${event.detail.previousResult} became refer` : ""}.`;
+  if (event.eventType === "verifier_completed") return `${event.detail.checked ?? 0} claims checked · ${event.detail.supported ?? 0} supported · ${event.detail.flagged ?? 0} flagged${Number(event.detail.overruled) ? ` · ${event.detail.overruled} model objections overruled by the source text` : ""}`;
+  if (event.eventType === "verifier_skipped") return String(event.detail.reason ?? "Verification was skipped");
   if (event.eventType === "property_context_skipped" || event.eventType === "property_context_failed") return String(event.detail.reason ?? "");
   if (event.eventType === "property_context_completed") return `${event.detail.ok} of ${event.detail.total} public datasets answered for ${event.detail.matched}`;
   if (event.eventType === "public_research_completed") {
@@ -227,6 +250,7 @@ function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobS
       : latest?.eventType === "public_research_started" ? "Astra is reviewing the supplied public source"
       : latest?.eventType === "source_discovery_started" ? "Astra is searching for the assessor record"
         : latest?.eventType === "guideline_check_started" ? "Astra is checking the carrier appetite"
+        : latest?.eventType === "verifier_started" ? "Astra is verifying the findings against the sources"
           : caseRecord.status === "received" ? "Astra is starting the analysis" : "Astra is reading the submission";
   }
   if (jobStatus === "QUEUED") return "Analysis queued";
@@ -351,7 +375,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {caseRecord.publicEvidence && <section className="detail-section" aria-labelledby="evidence-title"><div className="section-heading"><h2 id="evidence-title">Public-source evidence</h2><ArrowSquareOut size={16} aria-hidden="true" /></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><div className="source-line"><a className="text-link" href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><span>External source; verify before relying on it.</span></div></section>}
       </div>
     </div>
-    <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} /></div>
+    <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} onRefresh={onReportSaved} /></div>
     {!working && <div className="conversation-action"><AgentChat id={id} voiceAvailable={voiceAvailable} turns={chatTurns} setTurns={setChatTurns} /></div>}
     <p className="demo-note">New analyses use the supplied 2025 commercial property appetite. Quoting and binding stay with the carrier.</p>
   </main>;

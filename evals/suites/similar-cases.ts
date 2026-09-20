@@ -71,7 +71,7 @@ function synthetic(group: Group, index: number): { record: CaseRecord; truth: Tr
       yearBuilt: { value: yearBuilt, source: "Broker text via Parser", confidence: 0.8 }, losses: { value: group.key === "tx-frame-declined" ? 3 : 0, source: "Intake form", confidence: 1 },
     },
     findings: [{ id: "state", label: "Territory", result: "pass", detail: `${group.state} is a written state`, source: "Intake form" }, ...group.refers],
-    brief: group.brief(name), question: null, decision: group.rationale, reportDraft: null, reportDraftVersion: 0, error: null, analysisRevision: 1,
+    brief: group.brief(name), question: null, draftEmail: null, draftStatus: null, decision: group.rationale, reportDraft: null, reportDraftVersion: 0, error: null, analysisRevision: 1,
     createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z",
   };
   return { record, truth: { state: group.state, construction: group.construction, decision: group.decision } };

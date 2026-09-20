@@ -12,7 +12,7 @@ const record: CaseRecord = {
     state: { value: "CO", source: "Intake", confidence: 1 }, tiv: { value: 6_250_000, source: "Intake", confidence: 1 },
     yearBuilt: { value: 2008, source: "Broker notes", confidence: 0.9 }, losses: { value: 1, source: "Broker notes", confidence: 0.8 },
   }, findings: [{ id: "year", label: "Building age", result: "pass", detail: "Within appetite.", source: "Broker notes" }],
-  brief: "The risk fits the carrier appetite.", question: null, decision: "Approved after review.", error: null,
+  brief: "The risk fits the carrier appetite.", question: null, draftEmail: null, draftStatus: null, decision: "Approved after review.", error: null,
   appetite: { business: "new", line: "property", premium: 90_000, constructionPercent: 75, lossValue: 20_000, lossHistoryComplete: true, effective: "2026-10-01", expiration: "2027-10-01" },
   appetiteResult: { id: "northline", account: "Northline Fabrication", score: 82, rawScore: 82, recommendation: "Review for acceptance", explanation: "Evidence supports review.", missingData: [], criteria: [{ concept: "state", factor: "Primary risk state", status: "target", points: 15, maximum: 15, detail: "Colorado is a target state.", source: "Intake" }] },
   analysisRevision: 1, reportDraft: null, reportDraftVersion: 0,

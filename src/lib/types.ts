@@ -55,6 +55,9 @@ export type EvidenceModelRun = { source: "Gemini"; model: string; status: "not_c
 export type PublicEvidence = { url: string; title: string; excerpt: string; signals?: EvidenceSignal[]; conflicts?: string[]; extraction?: EvidenceModelRun };
 export type { SourceCandidate };
 
+/** The agent's email to the broker: pending until the underwriter approves it, edited when they changed the text first. Approval is the "send"; no mail leaves the workspace. */
+export type DraftStatus = "pending" | "approved" | "edited";
+
 export type ReportSection = { id: string; title: string; body: string };
 export type ReportDraft = { sections: ReportSection[]; analysisRevision: number; editedBy: string; updatedAt: string };
 
@@ -84,6 +87,8 @@ export type CaseRecord = {
   findings: Finding[] | null;
   brief: string | null;
   question: string | null;
+  draftEmail: string | null;
+  draftStatus: DraftStatus | null;
   decision: string | null;
   reportDraft: ReportDraft | null;
   reportDraftVersion: number;
