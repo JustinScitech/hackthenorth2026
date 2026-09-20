@@ -58,7 +58,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         await client.query("ROLLBACK");
         return NextResponse.json({ error: "This action ID was already used for different content." }, { status: 409 });
       }
-      await enqueueJob(id, action.kind === "broker_response" ? "broker_response" : "decision", `action:${action.id}`, { actionId: action.id }, new Date(), client);
+      await enqueueJob(id, action.kind === "broker_response" ? "broker_response" : "decision", `action:${action.id}`, { actionId: action.id }, 0, client);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
