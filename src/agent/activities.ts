@@ -10,14 +10,13 @@ import { browsePublicSource } from "./public-source";
 import { evidenceFindings } from "./enrichment";
 import { gatherPropertyContext } from "./property-context";
 import { applyContextAdjustment, assessPropertyContext } from "./context-findings";
+import { discoverCaseSources } from "./source-discovery-activity";
 
 export async function researchPublicSource(caseId: string): Promise<void> {
   const caseRecord = await getCase(caseId);
   if (!caseRecord) throw new Error(`Case ${caseId} not found`);
-  if (!caseRecord.publicSourceUrl) {
-    await addAudit(caseId, "public_research_skipped", { reason: "No public source URL supplied" }, `research-skipped:${caseId}`);
-    return;
-  }
+  // No URL from the broker: search for the assessor record and let the underwriter confirm one (see source-discovery-activity.ts).
+  if (!caseRecord.publicSourceUrl) { await discoverCaseSources(caseRecord); return; }
   if (!process.env.BROWSERBASE_API_KEY) {
     await addAudit(caseId, "public_research_skipped", { reason: "Browserbase is not configured" }, `research-skipped:${caseId}`);
     return;
@@ -27,7 +26,7 @@ export async function researchPublicSource(caseId: string): Promise<void> {
     const evidence = await browsePublicSource(caseRecord.publicSourceUrl);
     await putMongoEvidence(caseId, evidence);
     await db.query("UPDATE cases SET public_evidence = $2, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(evidence)]);
-    await addAudit(caseId, "public_research_completed", { url: evidence.url, signals: (evidence.signals ?? []).map((signal) => signal.kind) }, `research:${caseId}`);
+    await addAudit(caseId, "public_research_completed", { url: evidence.url, signals: (evidence.signals ?? []).map((signal) => signal.kind), conflicts: (evidence.conflicts ?? []).length, model: evidence.extraction?.status }, `research:${caseId}`);
     logAgentEvent("public_research_completed", { caseId, signals: (evidence.signals ?? []).length });
   } catch (error) {
     captureAgentError(error);

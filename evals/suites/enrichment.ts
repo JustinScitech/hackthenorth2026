@@ -1,6 +1,7 @@
 import { evidenceFindings, extractEvidenceSignals, type EvidenceSignal } from "../../src/agent/enrichment";
+import { extractEvidence, mergeEvidenceSignals, parseModelSignals } from "../../src/agent/evidence-model";
 import type { Facts, Finding } from "../../src/lib/types";
-import { attempt, same, type CaseResult, type Suite } from "../runner";
+import { attempt, attemptAsync, same, type CaseResult, type Suite } from "../runner";
 
 /**
  * Browserbase / Federato enrichment: a public page fetched by the browser
@@ -69,6 +70,40 @@ const findingCases: { name: string; facts: Facts; signals: () => EvidenceSignal[
   { name: "findings are deterministic for the same page", facts: facts(), signals: () => extractEvidenceSignals(assessor), check: (f) => [same(f, evidenceFindings(facts(), evidence, extractEvidenceSignals(assessor))) ? "" : "findings differ between runs"].filter(Boolean) },
 ];
 
+/**
+ * The model pass reads the same page as the regex parser. The parser output is the
+ * floor: the model may add a signal it can quote, and may agree, but a disagreement
+ * has to reach the underwriter as a conflict rather than quietly replacing the value.
+ */
+const modelReply = (signals: unknown[]) => JSON.stringify({ signals });
+type Merged = ReturnType<typeof mergeEvidenceSignals>;
+const mergeCases: { name: string; page: string; model: unknown[] | string; check: (merged: Merged) => string[]; note?: string }[] = [
+  { name: "model agreeing with the parser keeps one signal per fact and no conflict", page: assessor, model: [{ kind: "yearBuilt", value: 1965, quote: "Year Built: 1965." }, { kind: "constructionType", value: "masonry", quote: "Construction: Masonry." }], check: (m) => [
+    m.conflicts.length === 0 ? "" : `unexpected conflicts ${m.conflicts}`,
+    m.signals.filter((item) => item.kind === "yearBuilt").length === 1 ? "" : "year built duplicated",
+    m.signals.find((item) => item.kind === "yearBuilt")?.agreement === "both" ? "" : "agreement should be recorded",
+  ].filter(Boolean) },
+  { name: "model year that differs from the parser becomes a conflict, not a replacement", page: assessor, model: [{ kind: "yearBuilt", value: 1988, quote: "Effective Year: 1988." }], check: (m) => [
+    m.signals.find((item) => item.kind === "yearBuilt")?.value === 1965 ? "" : `parser value overwritten: ${m.signals.find((item) => item.kind === "yearBuilt")?.value}`,
+    m.conflicts.length === 1 && /1965/.test(m.conflicts[0]) && /1988/.test(m.conflicts[0]) ? "" : `conflict missing or incomplete: ${JSON.stringify(m.conflicts)}`,
+  ].filter(Boolean), note: "The effective year is a classic model misread; the underwriter must see both values, never a silently swapped one." },
+  { name: "model-only signal with a verbatim quote is added and marked as model-read", page: listing, model: [{ kind: "occupancy", value: "light industrial or showroom", quote: "Ideal for light industrial or showroom use." }], check: (m) => {
+    const occupancy = m.signals.find((item) => item.kind === "occupancy");
+    return [occupancy ? "" : "occupancy missing", occupancy?.agreement === "model" ? "" : `agreement ${occupancy?.agreement}`, m.conflicts.length === 0 ? "" : `unexpected conflicts ${m.conflicts}`].filter(Boolean);
+  } },
+  { name: "model quote absent from the page is dropped", page: listing, model: [{ kind: "yearBuilt", value: 1999, quote: "Built in 1999" }], check: (m) => [
+    m.signals.find((item) => item.kind === "yearBuilt")?.value === 2018 ? "" : `year ${m.signals.find((item) => item.kind === "yearBuilt")?.value}`,
+    m.conflicts.length === 0 ? "" : `an unquoted value must not even raise a conflict: ${m.conflicts}`,
+  ].filter(Boolean), note: "A fabricated quote is the model inventing evidence; it cannot be allowed to contradict the page." },
+  { name: "malformed model JSON leaves the parser signals intact", page: assessor, model: "{ signals: [oops", check: (m) => [same(m.signals.map(({ kind, value }) => [kind, value]), extractEvidenceSignals(assessor).map(({ kind, value }) => [kind, value])) ? "" : "parser signals changed", m.conflicts.length === 0 ? "" : "conflict from garbage"].filter(Boolean) },
+  { name: "model output never removes a parser signal", page: assessor, model: [{ kind: "sprinklered", value: false, quote: "Sprinklered: Yes." }, { kind: "squareFeet", value: 4200, quote: "Building Sq Ft: 42,000." }], check: (m) => [
+    ...extractEvidenceSignals(assessor).map((signal) => m.signals.some((item) => item.kind === signal.kind && item.value === signal.value) ? "" : `${signal.kind} lost`),
+    m.conflicts.length === 2 ? "" : `expected two conflicts, got ${JSON.stringify(m.conflicts)}`,
+  ].filter(Boolean) },
+];
+
+const conflictEvidence = { ...evidence, conflicts: ["Year built differs: Parser 1965, Gemini 1988."] };
+
 export const enrichmentSuite: Suite = {
   name: "enrichment",
   description: "Public-source enrichment: cited structured signals from fetched pages and their effect on findings",
@@ -76,6 +111,30 @@ export const enrichmentSuite: Suite = {
     const results: CaseResult[] = [];
     for (const item of signalCases) results.push(attempt(`signals: ${item.name}`, () => item.check(extractEvidenceSignals(item.text)), item.note));
     for (const item of findingCases) results.push(attempt(`findings: ${item.name}`, () => item.check(evidenceFindings(item.facts, evidence, item.signals())), item.note));
+    for (const item of mergeCases) results.push(attempt(`merge: ${item.name}`, () => item.check(mergeEvidenceSignals(extractEvidenceSignals(item.page), parseModelSignals(typeof item.model === "string" ? item.model : modelReply(item.model), item.page).signals)), item.note));
+    results.push(attempt("merge: a conflict reaches the findings as a referral showing both values", () => {
+      const findings = evidenceFindings(facts(), conflictEvidence, extractEvidenceSignals(assessor));
+      const conflict = findings.find((item) => item.id.startsWith("evidence_conflict"));
+      return [conflict?.result === "refer" ? "" : `result ${conflict?.result}`, /1965/.test(conflict?.detail ?? "") && /1988/.test(conflict?.detail ?? "") ? "" : "detail must show both values", conflict?.source.includes("assessor.example.gov") ? "" : "source must name the host"].filter(Boolean);
+    }, "A parser/model disagreement is a referral, so it appears in the brief and the report rather than being averaged away."));
+    results.push(await attemptAsync("merge: model failure or timeout falls back to the parser without failing the case", async () => {
+      const failed = await extractEvidence(assessor, async () => { throw Object.assign(new Error("deadline"), { status: 504 }); });
+      const garbage = await extractEvidence(assessor, async () => ({ text: "<html>not json</html>" }));
+      return [
+        failed.model.status === "failed" && same(failed.signals.map(({ kind, value }) => [kind, value]), extractEvidenceSignals(assessor).map(({ kind, value }) => [kind, value])) ? "" : "timeout must leave parser signals",
+        garbage.model.status === "failed" && garbage.signals.length === extractEvidenceSignals(assessor).length ? "" : "malformed reply must leave parser signals",
+      ].filter(Boolean);
+    }));
+    results.push(await attemptAsync("merge: without a model key the result is exactly the parser output", async () => {
+      const key = process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_API_KEY;
+      try {
+        const result = await extractEvidence(assessor);
+        return [result.model.status === "not_configured" ? "" : `status ${result.model.status}`, same(result.signals.map(({ kind, value, quote }) => ({ kind, value, quote })), extractEvidenceSignals(assessor)) ? "" : "signals differ from parser"].filter(Boolean);
+      } finally {
+        if (key === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = key;
+      }
+    }));
     return results;
   },
 };

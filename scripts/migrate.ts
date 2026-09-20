@@ -50,7 +50,7 @@ async function main() {
     CREATE TABLE IF NOT EXISTS case_jobs (
       id uuid PRIMARY KEY,
       case_id uuid NOT NULL REFERENCES cases(id),
-      kind text NOT NULL CHECK (kind IN ('analyze', 'broker_response', 'decision', 'broker_follow_up')),
+      kind text NOT NULL CHECK (kind IN ('analyze', 'broker_response', 'decision', 'broker_follow_up', 'research')),
       job_key text NOT NULL UNIQUE,
       payload jsonb NOT NULL DEFAULT '{}'::jsonb,
       status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed')),
@@ -97,6 +97,9 @@ async function main() {
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS extraction_conflicts jsonb NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS address text;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS property_context jsonb;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS source_candidates jsonb;
+    ALTER TABLE case_jobs DROP CONSTRAINT IF EXISTS case_jobs_kind_check;
+    ALTER TABLE case_jobs ADD CONSTRAINT case_jobs_kind_check CHECK (kind IN ('analyze', 'broker_response', 'decision', 'broker_follow_up', 'research'));
   `);
   const { runMigrations } = await getMigrations(auth.options);
   await runMigrations();

@@ -1,6 +1,7 @@
 import type { CaseAppetite } from "./case-appetite";
 import type { RankedSubmission } from "../federato/scoring";
 import type { PropertyContext } from "../agent/property-context";
+import type { SourceCandidate } from "../agent/source-discovery";
 
 export type CaseStatus =
   | "received"
@@ -32,8 +33,12 @@ export type Finding = {
   source: string;
 };
 
-export type EvidenceSignal = { kind: "yearBuilt" | "constructionType" | "floodZone" | "sprinklered" | "occupancy" | "squareFeet"; value: string | number | boolean; quote: string };
-export type PublicEvidence = { url: string; title: string; excerpt: string; signals?: EvidenceSignal[] };
+/** `agreement` records who read the fact: the regex parser, the model pass, or both (see agent/evidence-model.ts). */
+export type EvidenceSignal = { kind: "yearBuilt" | "constructionType" | "floodZone" | "sprinklered" | "occupancy" | "squareFeet"; value: string | number | boolean; quote: string; agreement?: "parser" | "model" | "both" };
+export type EvidenceModelRun = { source: "Gemini"; model: string; status: "not_configured" | "completed" | "failed"; durationMs: number; dropped: number };
+/** `conflicts` are parser/model disagreements on the same page, worded like extraction conflicts; the parser value stays in `signals`. */
+export type PublicEvidence = { url: string; title: string; excerpt: string; signals?: EvidenceSignal[]; conflicts?: string[]; extraction?: EvidenceModelRun };
+export type { SourceCandidate };
 
 export type ReportSection = { id: string; title: string; body: string };
 export type ReportDraft = { sections: ReportSection[]; analysisRevision: number; editedBy: string; updatedAt: string };
@@ -49,6 +54,8 @@ export type CaseRecord = {
   appetiteResult?: RankedSubmission | null;
   sourceKey: string;
   publicSourceUrl: string | null;
+  /** Ranked assessor / property-record pages found by discovery when no source URL was supplied; the underwriter confirms one. */
+  sourceCandidates: SourceCandidate[] | null;
   address: string | null;
   publicEvidence: PublicEvidence | null;
   propertyContext: PropertyContext | null;

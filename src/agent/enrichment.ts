@@ -58,7 +58,7 @@ export function extractEvidenceSignals(pageText: string): EvidenceSignal[] {
 export function evidenceFindings(facts: Facts, evidence: PublicEvidence, signals: EvidenceSignal[]): Finding[] {
   const host = (() => { try { return new URL(evidence.url).hostname; } catch { return evidence.url; } })();
   const source = `Public source: ${host} (unverified)`;
-  const cite = (signal: EvidenceSignal) => `"${signal.quote}"`;
+  const cite = (signal: EvidenceSignal) => `"${signal.quote}"${signal.agreement === "model" ? " (read by the model; the parser found no labelled value)" : ""}`;
   const findings: Finding[] = [];
   for (const signal of signals) {
     const id = `evidence_${signal.kind}`;
@@ -86,6 +86,10 @@ export function evidenceFindings(facts: Facts, evidence: PublicEvidence, signals
     } else {
       findings.push({ id, label: "Public occupancy", result: "pass", detail: `The public source lists the use as ${signal.value}. ${cite(signal)}`, source });
     }
+  }
+  // A parser/model disagreement on the same page is a referral in its own right: both values are shown, neither is chosen.
+  for (const [index, conflict] of (evidence.conflicts ?? []).entries()) {
+    findings.push({ id: `evidence_conflict_${index}`, label: "Public source conflict", result: "refer", detail: `${conflict} The parser value is kept above; verify against the page before relying on either reading.`, source });
   }
   if (!findings.length) findings.push({ id: "evidence_none", label: "Public source", result: "unknown", detail: `The page at ${host} contained no structured property facts; the excerpt is attached for manual review.`, source });
   return findings;

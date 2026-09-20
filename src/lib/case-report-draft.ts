@@ -93,6 +93,7 @@ export function buildAgentReportSections(record: CaseRecord, audit: AuditEvent[]
     add("public-evidence", "Public source evidence", evidence ? [
       `Source: ${evidence.title || evidence.url}`, `URL: ${evidence.url}`, evidence.excerpt,
       ...(evidence.signals ?? []).map((signal) => `${title(signal.kind)}: ${value(signal.value)}\nSource quote: ${signal.quote}`),
+      ...(evidence.conflicts ?? []).map((conflict) => `Parser/model conflict: ${conflict}`),
       "External source; verify before relying on it.",
     ] : [`Source URL: ${record.publicSourceUrl}`, "Public source has not been reviewed yet."]);
   }
