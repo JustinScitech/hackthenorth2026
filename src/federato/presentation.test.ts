@@ -28,7 +28,7 @@ test("download summary is readable without technical API details", () => {
   assert.match(markdown, /Policy 1/);
   assert.match(markdown, /1 of 1 policies/);
   assert.match(markdown, /Match score 78\/100 · Priority score 49\/100/);
-  assert.match(markdown, /then underlying match score/);
+  assert.match(markdown, /verified matches, then open answers, then exceptions/);
 });
 
 test("appetite exceptions are explained as a human review decision", () => {

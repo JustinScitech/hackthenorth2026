@@ -1,9 +1,21 @@
 import { readValues, type Concept, type Mapping } from "./schema";
+import { classify, type Disposition } from "./disposition";
 
 export type Criterion = { concept: Concept; factor: string; status: "target" | "acceptable" | "outside" | "unknown"; points: number; maximum: number; detail: string; source: string };
 export type ScoreAdjustment = { label: string; points: number; detail: string; source: string };
+/** The values the eight factors were judged on, after schema mapping and derivation, so explanations can quote them. */
+export type SubmissionFacts = { account: string | null; business: string | null; line: string | null; state: string | null; tiv: number | null; premium: number | null; year: number | null; constructionPercent: number | null; lossValue: number | null; effective: string | null; expiration: string | null; lossLowerBound?: number | null };
 /** `score` is the priority used for ranking; when public property records moved it, `baseScore` holds the appetite-only value and `adjustments` list every point. `rawScore` is the uncapped carrier match. */
-export type RankedSubmission = { id: string; account: string; score: number; rawScore: number; recommendation: string; explanation: string; criteria: Criterion[]; missingData: string[]; evidenceNote?: string; lifecycleStatus?: string; baseScore?: number; adjustments?: ScoreAdjustment[]; };
+export type RankedSubmission = {
+  id: string; account: string; score: number; rawScore: number; recommendation: string; explanation: string; criteria: Criterion[]; missingData: string[]; evidenceNote?: string; lifecycleStatus?: string; baseScore?: number; adjustments?: ScoreAdjustment[];
+  facts?: SubmissionFacts;
+  /** Carrier vocabulary for the result; see disposition.ts. */
+  disposition?: Disposition;
+  /** Factors and required context items that decided the disposition, heaviest first. */
+  determining?: string[];
+  /** For Needs information: the disposition once every open answer lands inside appetite. */
+  ifResolved?: Disposition | null;
+};
 export const guidelineVersion = "Federato HTN 2026 / 2025 sample commercial property appetite";
 const targetStates = ["OH", "PA", "MD", "CO", "CA", "FL"];
 const acceptableStates = [...targetStates, "NC", "SC", "GA", "VA", "UT"];
@@ -40,10 +52,12 @@ export function scoreSubmission(row: Record<string, unknown>, mapping: Mapping, 
   const missingData: string[] = [];
   const account = value("account");
   if (typeof account !== "string" || !account.trim()) missingData.push("account name");
+  const dates: Record<"effective" | "expiration", string | null> = { effective: null, expiration: null };
   const date = (key: "effective" | "expiration") => {
     const v = value(key);
     const valid = typeof v === "string" && /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v.slice(0, 10)).toISOString().slice(0, 10) === v.slice(0, 10);
     if (!valid) missingData.push(`${key} date`);
+    if (valid) dates[key] = (v as string).slice(0, 10);
     return valid ? Date.parse(v as string) : null;
   };
   const effective = date("effective"), expiration = date("expiration");
@@ -61,5 +75,10 @@ export function scoreSubmission(row: Record<string, unknown>, mapping: Mapping, 
     `${outside.length ? `Exceptions: ${outside.map((item) => item.factor.toLowerCase()).join(", ")}. ` : ""}${missingData.length ? `Clarify ${missingData.join(", ")}. ` : ""}Recommendation: ${recommendation.toLowerCase()}; an underwriter makes the final decision.`,
     score !== rawScore ? `The raw ${rawScore}-point match score is capped at ${outside.length ? 49 : 69} to keep exceptions or incomplete evidence below fully verified matches.` : "",
   ].filter(Boolean).join(" ");
-  return { id: String(readValues(row, idPath)[0]), account: typeof account === "string" && account.trim() ? account : "Unknown account", score, rawScore, recommendation, explanation, criteria, missingData };
+  const facts: SubmissionFacts = {
+    account: typeof account === "string" && account.trim() ? account.trim() : null, business, line, state, tiv, premium,
+    year: year ?? oldestKnown, constructionPercent: construction, lossValue: loss, effective: dates.effective, expiration: dates.expiration,
+  };
+  const classification = classify({ criteria, missingData });
+  return { id: String(readValues(row, idPath)[0]), account: typeof account === "string" && account.trim() ? account : "Unknown account", score, rawScore, recommendation, explanation, criteria, missingData , facts, disposition: classification.disposition, determining: classification.determining, ifResolved: classification.ifResolved };
 }

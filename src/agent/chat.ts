@@ -24,7 +24,7 @@ function factLine<T>(label: string, item: Fact<T> | undefined, format: (value: T
 
 /** Everything the agent knows about the case, as plain lines the model can read. */
 export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[]): string {
-  const submitted = [`${caseRecord.state}`, `${money(caseRecord.tiv)} total insured value`];
+  const submitted = [caseRecord.state ?? "primary state pending", caseRecord.tiv === null ? "total insured value pending" : `${money(caseRecord.tiv)} total insured value`];
   if (caseRecord.yearBuilt !== null) submitted.push(`built ${caseRecord.yearBuilt}`);
   if (caseRecord.losses !== null) submitted.push(`${caseRecord.losses} losses reported on the form`);
   const lines: (string | null)[] = [

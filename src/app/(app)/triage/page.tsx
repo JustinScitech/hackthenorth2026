@@ -1,4 +1,5 @@
-"use client";
+import type { Metadata } from "next";
+import { Queue } from "@/app/ui/queue";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -105,4 +106,8 @@ export default function TriagePage() {
       </div>
     </>}
   </main>;
+export const metadata: Metadata = { title: "Queue" };
+
+export default function TriagePage() {
+  return <Queue />;
 }

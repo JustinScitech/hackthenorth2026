@@ -12,9 +12,14 @@ export const caseAppetiteSchema = z.object({
   expiration: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null),
 });
 export type CaseAppetite = z.infer<typeof caseAppetiteSchema>;
-export function mergeCaseAppetite(originalNotes: string, intake: Partial<CaseAppetite> | null | undefined, brokerReplies = ""): CaseAppetite {
-  const supplied = Object.fromEntries(Object.entries(intake ?? {}).filter(([, value]) => value !== null && value !== undefined));
-  return caseAppetiteSchema.parse({ ...brokerAppetite(originalNotes), ...supplied, ...brokerAppetite(brokerReplies) });
+/** Values the readers (models and parser) resolved from the joined broker text; they fill what the note's explicit lines and the intake leave blank. */
+export type ReadAppetite = Partial<Record<keyof CaseAppetite, { value: unknown }>>;
+/** Precedence, lowest first: explicit lines in the original note, values read from the text, the intake form, explicit lines in broker replies. */
+export function mergeCaseAppetite(originalNotes: string, intake: Partial<CaseAppetite> | null | undefined, brokerReplies = "", read: ReadAppetite = {}): CaseAppetite {
+  const stated = (fields: Record<string, unknown>) => Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== null && value !== undefined));
+  const supplied = stated(intake ?? {});
+  const extracted = stated(Object.fromEntries(Object.entries(read).map(([key, field]) => [key, field?.value])));
+  return caseAppetiteSchema.parse({ ...brokerAppetite(originalNotes), ...extracted, ...supplied, ...brokerAppetite(brokerReplies) });
 }
 export const caseMapping: Mapping = {
   account: "account", business: "business", line: "line", state: "state", tiv: "tiv", premium: "premium",

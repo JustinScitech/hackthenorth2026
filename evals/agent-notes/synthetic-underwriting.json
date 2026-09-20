@@ -8,7 +8,9 @@
     "notes": "Commercial property building constructed in 2008. The five-year loss value is $120,000. The broker has not supplied the number of claims in the past three years.",
     "expected": {
       "yearBuilt": 2008,
-      "losses": null
+      "losses": null,
+      "lossValue": 120000,
+      "lossHistoryComplete": null
     },
     "intake": {
       "state": "NY",

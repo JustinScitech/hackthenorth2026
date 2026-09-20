@@ -7,6 +7,7 @@ import type { CaseRecord } from "@/lib/types";
 import { Status } from "./status";
 import { useCases } from "./use-cases";
 import { AgentQuality } from "./agent-quality";
+import { QueueSummary } from "./queue-summary";
 
 const RANGES = [7, 14, 30] as const;
 
@@ -75,10 +76,14 @@ export function Overview() {
 
       {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
 
+      <QueueSummary />
+
+      <div className="section-divider" />
+
       <div className="tile-grid">
-        <Link className="tile" href="/cases/new"><span className="tile-index">01</span><FilePlus size={20} />Create a submission<ArrowUpRight className="external" size={16} /></Link>
-        <Link className="tile" href="/cases/new?sample=1"><span className="tile-index">02</span><Flask size={20} />Try the sample case<ArrowUpRight className="external" size={16} /></Link>
-        <Link className="tile" href="/triage"><span className="tile-index">03</span><ListNumbers size={20} />Rank Federato submissions<ArrowUpRight className="external" size={16} /></Link>
+        <Link className="tile" href="/triage"><span className="tile-index">01</span><ListNumbers size={20} />Open the Federato queue<ArrowUpRight className="external" size={16} /></Link>
+        <Link className="tile" href="/cases/new"><span className="tile-index">02</span><FilePlus size={20} />Create a submission<ArrowUpRight className="external" size={16} /></Link>
+        <Link className="tile" href="/cases/new?sample=1"><span className="tile-index">03</span><Flask size={20} />Try the sample case<ArrowUpRight className="external" size={16} /></Link>
         <Link className="tile" href="/cases"><span className="tile-index">04</span><Tray size={20} />Browse all cases<ArrowUpRight className="external" size={16} /></Link>
         <Link className="tile" href="/settings"><span className="tile-index">05</span><Sliders size={20} />Appearance and settings<ArrowUpRight className="external" size={16} /></Link>
         <Link className="tile" href="/docs"><span className="tile-index">06</span><BookOpen size={20} />Docs and API reference<ArrowUpRight className="external" size={16} /></Link>
@@ -100,7 +105,7 @@ export function Overview() {
             <div className="case-list">
               {recent.map((record) => (
                 <Link className="case-row" href={`/cases/${record.id}`} key={record.id}>
-                  <div className="case-main"><strong>{record.insuredName}</strong><span>{record.state} · ${record.tiv.toLocaleString()} TIV</span></div>
+                  <div className="case-main"><strong>{record.insuredName}</strong><span>{record.state ?? "State pending"} · {record.tiv === null ? "TIV pending" : `$${record.tiv.toLocaleString()} TIV`}</span></div>
                   <Status value={record.status} />
                   <time dateTime={record.createdAt}>{new Date(record.createdAt).toLocaleDateString()}</time>
                   <ArrowRight className="row-arrow" size={16} aria-hidden="true" />

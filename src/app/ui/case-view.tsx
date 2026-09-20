@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowSquareOut, Check, Clock, FileText, ListChecks, MapPin, PaperPlaneTilt, ShieldCheck, WarningCircle, X } from "@phosphor-icons/react/dist/ssr";
 import type { AuditEvent, CaseRecord, Fact, JobStatus } from "@/lib/types";
+import type { AppetiteFieldFacts, AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/types";
+import { APPETITE_FACT_ROWS, describeCandidate, formatFactValue, type FactField } from "./fact-evidence";
 import { Mark } from "./logo";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
@@ -13,6 +15,7 @@ import { CaseReportEditor } from "./case-report-editor";
 import { SourcePicker } from "./source-picker";
 import { ReviewActivity } from "./review-activity";
 import { ReviewResult } from "./review-result";
+import { NextStepPanel } from "./next-step";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
 function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
@@ -21,8 +24,27 @@ function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {
 
 type ActionKind = "approve" | "decline";
 
-function FactRow<T>({ label, fact, format = String }: { label: string; fact: Fact<T>; format?: (value: T) => string }) {
-  return <div className="fact-row"><span>{label}</span><strong>{fact.value === null ? "Not provided" : format(fact.value)}</strong><small>{fact.source} · {Math.round(fact.confidence * 100)}% confidence</small></div>;
+/** One fact with its provenance: the value, where it came from, the sentence it was read from, and any reader that disagreed. */
+function FactRow<T extends string | number | boolean>({ label, fact, field, format }: { label: string; fact: Fact<T>; field?: FactField; format?: (value: T) => string }) {
+  const show = format ?? ((value: T) => field ? formatFactValue(field, value) : String(value));
+  return <div className="fact-row">
+    <span>{label}</span>
+    <strong>{fact.value === null ? "Not provided" : show(fact.value)}</strong>
+    <small>{fact.source} · {Math.round(fact.confidence * 100)}% confidence</small>
+    {fact.quote && <q className="fact-quote">{fact.quote}</q>}
+    {field && fact.candidates && fact.candidates.length > 0 && <ul className="fact-candidates" aria-label={`Readers that disagree on ${label.toLowerCase()}`}>
+      {fact.candidates.map((candidate) => <li key={candidate.source}><span>{describeCandidate(field, candidate)}</span>{candidate.quote && <q>{candidate.quote}</q>}</li>)}
+    </ul>}
+  </div>;
+}
+
+/** The eight carrier appetite fields, each with its own source, once extraction has resolved them per field. */
+function AppetiteEvidence({ fields }: { fields: AppetiteFieldFacts | undefined }) {
+  if (!fields) return null;
+  return <section className="detail-section" aria-labelledby="appetite-facts-title">
+    <div className="section-heading"><h2 id="appetite-facts-title">Appetite evidence</h2><ListChecks size={16} aria-hidden="true" /></div>
+    <div className="fact-list">{APPETITE_FACT_ROWS.map(([field, label]) => fields[field] ? <FactRow key={field} label={label} field={field} fact={fields[field]!} /> : null)}</div>
+  </section>;
 }
 
 function Findings({ caseRecord }: { caseRecord: CaseRecord }) {
@@ -180,6 +202,7 @@ function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; wor
   const latest = audit.at(-1);
   const active = working && jobStatus === "RUNNING" && latest && (latest.eventType.endsWith("_started") || latest.eventType === "case_created");
   return <details className={`analysis-trace${working ? " is-working" : ""}`} role="region" aria-label="Activity trace" open={working}>
+  return <section className="analysis-trace-region" aria-label="Activity trace"><details className={`analysis-trace${working ? " is-working" : ""}`} open={working}>
     <summary className="trace-header"><span><ListChecks size={16} /> Agent activity <small>{audit.length} recorded steps · {working ? "live" : "saved"}</small></span><span className="trace-toggle">{working ? "Live updates" : "View steps"}</span></summary>
     <ol className="trace-list" aria-label="Agent activity history">{audit.map((event) => {
       const isActive = active && event.id === latest.id;
@@ -189,7 +212,7 @@ function AnalysisTrace({ audit, working, jobStatus }: { audit: AuditEvent[]; wor
         {traceDetail(event) && <p>{traceDetail(event)}</p>}
       </li>;
     })}</ol>
-  </details>;
+  </details></section>;
 }
 
 function jobMessage(caseRecord: CaseRecord, audit: AuditEvent[], jobStatus: JobStatus): string {
@@ -258,7 +281,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
     {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
     <div className="conversation-message request-message">
       <div className="message-avatar requester-avatar"><FileText size={16} aria-hidden="true" /></div>
-      <div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state} property · ${caseRecord.tiv.toLocaleString()} total insured value</p><time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div>
+      <div className="message-content"><p className="message-label">Submission</p><h1>{caseRecord.insuredName}</h1><p>{caseRecord.state ? `${caseRecord.state} property` : "Primary state pending"} · {caseRecord.tiv === null ? "insured value pending" : `$${caseRecord.tiv.toLocaleString()} total insured value`}</p>{caseRecord.origin && <p className="case-origin">Opened from the Federato queue: {caseRecord.origin.resource} {caseRecord.origin.id}, ranked {caseRecord.origin.rank} of {caseRecord.origin.of}{caseRecord.origin.lifecycleStatus && caseRecord.origin.lifecycleStatus !== "unknown" ? ` · ${caseRecord.origin.lifecycleStatus}` : ""}.</p>}<time dateTime={caseRecord.createdAt}>{new Date(caseRecord.createdAt).toLocaleString()}</time></div>
     </div>
     <div className="conversation-message agent-message">
       <div className={`message-avatar agent-avatar${working ? " is-working" : ""}`}>{working && <span className="ring ring-fast" aria-hidden="true"><i /></span>}{working ? <Mark size={20} /> : <ShieldCheck size={18} weight="duotone" aria-hidden="true" />}</div>
@@ -268,10 +291,12 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {caseRecord.status === "failed" && <div className="alert"><WarningCircle size={17} aria-hidden="true" />{caseRecord.error ?? "Analysis failed."}</div>}
         {caseRecord.brief ? <p className="brief">{caseRecord.brief}</p> : !working && <p className="brief">Analysis is in progress.</p>}
         {caseRecord.appetiteResult && <ReviewResult result={caseRecord.appetiteResult} label="Case" />}
+        {caseRecord.appetiteResult && <NextStepPanel result={caseRecord.appetiteResult} origin={caseRecord.origin} />}
         {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} working={working} jobStatus={jobStatus} />
-        {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
+        {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" field="yearBuilt" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" field="losses" fact={caseRecord.facts.losses} /></div></section>}
+        <AppetiteEvidence fields={caseRecord.facts?.appetite?.fields} />
         <Findings caseRecord={caseRecord} />
         <PropertyContextSection context={caseRecord.propertyContext} result={caseRecord.appetiteResult} />
         {!working && <SourcePicker key={`${id}:${caseRecord.analysisRevision}`} id={id} caseRecord={caseRecord} onConfirmed={onSourceConfirmed} />}

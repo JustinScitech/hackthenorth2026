@@ -79,7 +79,7 @@ export default function DocsPage() {
           <tr><td>Appetite recommendation</td><td>A match score out of 100 against the carrier appetite, a priority score for the queue, and the suggested next step.</td></tr>
           <tr><td>Listen to brief</td><td>The same brief read aloud, when the voice integration is on.</td></tr>
           <tr><td>Activity trace</td><td>Every step the agent took, in order: intake, both reads of the notes, public research, guideline checks, broker follow-ups, and review actions.</td></tr>
-          <tr><td>Extracted facts</td><td>State, insured value, year built, and loss count, each with where it came from and how confident the agent is. Facts are read twice by independent methods, and a disagreement between the reads becomes a finding of its own.</td></tr>
+          <tr><td>Extracted facts</td><td>State, insured value, year built, loss count, and each carrier appetite field, with where it came from, how confident the agent is, and the sentence of broker text it was read from. Facts are read by independent methods, a value is only ever cited with a verbatim quote, and a disagreement between the reads is listed beside the fact and becomes a finding of its own.</td></tr>
           <tr><td>Carrier appetite checks</td><td>Eight checks: primary risk state, total insured value, building age, total premium, submission type, line of business, construction mix, and five-year loss value. Each is <strong>pass</strong>, <strong>refer</strong>, or <strong>unknown</strong>, with the evidence and rule behind it.</td></tr>
           <tr><td>Public-source evidence</td><td>A cited excerpt from the URL you supplied, shown as context for you to verify.</td></tr>
           <tr><td>Public property records</td><td>With a property address, the agent pulls the public record: FEMA flood zone, wildfire history, USGS seismicity, ten years of weather and the elevation from Open-Meteo, fire stations, hydrants and neighbouring hazards from OpenStreetMap, EPA-regulated sites, the Census tract, US Drought Monitor, and federal disaster declarations. Each becomes a cited finding, and the hazards move the priority score by a stated number of points, listed line by line beside the appetite score.</td></tr>
@@ -97,10 +97,13 @@ export default function DocsPage() {
         <h2 id="decision">Approve or decline</h2>
         <p>When a case reaches <strong>Ready for review</strong>, write your rationale under <strong>Underwriter decision</strong> and choose <strong>Approve review</strong> or <strong>Decline</strong>. The decision and your reasoning are recorded on the case permanently and appear in the trace. Approving a review is a recommendation for the file. Quoting and binding happen in the carrier's own systems.</p>
 
-        <h2 id="triage">Federato triage</h2>
-        <p>Open <Link href="/triage">Federato triage</Link> and select <strong>Rank live records</strong>. The agent discovers what fields the live queue exposes, reads the submissions, and ranks them against the same appetite the cases use. Large queues take a few minutes.</p>
-        <p>Each ranked card shows the account, its match and priority scores, a plain recommendation, the next step, what supports it, and what to check. Open <strong>Appetite breakdown and data sources</strong> for the points on every factor and where each value came from, and <strong>Query reasoning and scoring method</strong> for the queries the agent ran and why.</p>
-        <p>Use <strong>Download summary</strong> for a Markdown report, <strong>Print / save PDF</strong> for a printable one, and <strong>Show all results</strong> to see past the top of the list. A run evaluates up to 1,000 records and tells you if it stopped there.</p>
+        <h2 id="triage">The queue</h2>
+        <p>Open <Link href="/triage">Queue</Link>. The last ranked queue loads straight away, and <strong>Rank again</strong> reads the live Federato API in about fifteen seconds: it discovers the fields the API exposes, reads every submission and each uniquely linked policy, and scores all of them against the same appetite the cases use.</p>
+        <p>Every row carries the carrier&apos;s own vocabulary. <strong>Target</strong> fits the target band on state, insured value, premium, and building age. <strong>Acceptable</strong> fits appetite on all eight factors with at least one outside the target band. <strong>Needs information</strong> has open answers; the row names each one, where it comes from, and what the submission becomes once they land. <strong>Outside appetite</strong> has an exception on at least one factor and says which, with the figure. The queue orders itself the same way: verified matches, then open answers, then exceptions.</p>
+        <p>Filter by line of business and disposition with the chips. <strong>Open as case</strong> turns a row into a case: every verified fact goes in as evidence, every open answer stays blank so the agent asks the broker for it, and the case remembers its place in the queue. <strong>Evidence and sources</strong> shows the points on every factor and where each value came from, and <strong>How the queue was read</strong> shows the queries the agent ran and why. <strong>More</strong> holds the slide deck and print options.</p>
+
+        <h2 id="models">Models and rules</h2>
+        <p>Rules decide; models read. Every appetite disposition comes from a deterministic engine that applies the carrier&apos;s thresholds, so the same evidence always gives the same answer and every factor cites its source. Language models do the reading: they pull the construction year and the loss count out of broker prose, and two independent reads plus a parser have to agree before a value is used. The <Link href="/scorecard">model scorecard</Link> measures each reader on the same broker notes: accuracy, invented values, latency, and cost.</p>
 
         <h2 id="quotes">Quote requests</h2>
         <p>Every conversation on the public estimate page lands in <Link href="/quotes">Quotes</Link> as one evolving record: the product and province, the estimate or referral it ended with, how many turns it took, which model read the messages, and the facts the assistant heard. The header counts how many are waiting for an advisor. The list refreshes on its own.</p>
@@ -146,7 +149,7 @@ export default function DocsPage() {
         <Endpoint method="POST" path="/api/cases/{id}/chat" id="case-chat" />
         <p>Ask the agent about a case. Send <code>text</code> with the recent <code>history</code>, or a multipart <code>audio</code> recording to be transcribed first; set <code>voice</code> to get the reply back as MP3 too.</p>
         <Endpoint method="POST" path="/api/triage" id="triage-api" />
-        <p>Run a live Federato ranking and get the full report.</p>
+        <p><code>POST</code> runs a live Federato ranking, stores it, and returns the full report; <code>GET</code> returns the last stored report.</p>
       </article>
       <aside className="docs-toc" aria-label="On this page">
         <p>On this page</p>

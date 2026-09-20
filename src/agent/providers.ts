@@ -6,7 +6,8 @@ import { traceModelCall } from "./monitoring";
  * prompt and the text to read, return the raw JSON string, and retry only
  * transient statuses. Callers validate the JSON against their own schema.
  */
-export type JsonResponse = { text?: string; modelVersion?: string; attemptCount?: number };
+export type TokenUsage = { input: number; output: number };
+export type JsonResponse = { text?: string; modelVersion?: string; attemptCount?: number; usage?: TokenUsage };
 
 export function errorCode(error: unknown): number | undefined {
   if (typeof error !== "object" || error === null || !("status" in error)) return undefined;
@@ -43,7 +44,8 @@ export function geminiJson(model: string, prompt: string, text: string, options:
       model, contents: `${prompt}\n\n${text.slice(0, 20_000)}`,
       config: { responseMimeType: "application/json", httpOptions: { timeout: options.timeoutMs ?? 45_000 } },
     });
-    return { text: response.text, modelVersion: response.modelVersion };
+    const meta = response.usageMetadata;
+    return { text: response.text, modelVersion: response.modelVersion, usage: meta ? { input: meta.promptTokenCount ?? 0, output: (meta.candidatesTokenCount ?? 0) + (meta.thoughtsTokenCount ?? 0) } : undefined };
   }), options.retries);
 }
 
@@ -102,7 +104,7 @@ export function openaiJson(model: string, prompt: string, text: string, schema: 
       signal: AbortSignal.timeout(options.timeoutMs ?? 45_000),
     });
     if (!response.ok) throw Object.assign(new Error(`OpenAI HTTP ${response.status}`), { status: response.status });
-    const body = await response.json() as { model?: string; choices?: { message?: { content?: string | null } }[] };
-    return { text: body.choices?.[0]?.message?.content ?? undefined, modelVersion: body.model };
+    const body = await response.json() as { model?: string; choices?: { message?: { content?: string | null } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
+    return { text: body.choices?.[0]?.message?.content ?? undefined, modelVersion: body.model, usage: body.usage ? { input: body.usage.prompt_tokens ?? 0, output: body.usage.completion_tokens ?? 0 } : undefined };
   }), options.retries);
 }
