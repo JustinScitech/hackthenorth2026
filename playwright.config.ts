@@ -20,7 +20,8 @@ export default defineConfig({
     use: {
       ...devices["Desktop Chrome"],
       browserName: "chromium",
-      ...(existsSync(localChrome) ? { launchOptions: { executablePath: localChrome } } : {}),
+      // A fake microphone lets the voice mode tests open the audio graph without a prompt.
+      launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"], ...(existsSync(localChrome) ? { executablePath: localChrome } : {}) },
     },
   }],
   webServer: {

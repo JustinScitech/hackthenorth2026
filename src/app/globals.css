@@ -361,7 +361,6 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .progress-line svg { color: var(--accent-ink); }
 .brief { font-size: 15.5px; line-height: 1.6; color: var(--text-secondary); }
 .agent-message > .message-content > .brief { margin: 0 0 18px; font-family: var(--font-display); font-size: 17px; font-variation-settings: "SOFT" 40; color: var(--text); }
-.brief-audio { display: block; width: min(100%, 360px); margin: 0 0 18px; }
 .detail-section { margin-bottom: 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .detail-section > .section-heading { margin: 0; padding: 12px 20px; border-bottom: 1px solid var(--border); }
 .detail-section > .brief { margin: 16px 20px; }
@@ -698,9 +697,36 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .agent-chat { display: grid; gap: 14px; }
 .agent-chat > .subtle { margin: -6px 0 0; }
 .agent-chat-thread { margin-top: 4px; }
-.agent-chat .brief-audio { margin: 8px 0 0; }
+.message-label-row { display: flex; align-items: center; gap: 8px; }
+.message-label-row .message-label { margin: 0; }
+.speak-button { width: 24px; height: 24px; min-height: 0; border-radius: 999px; }
+.speak-button.is-playing { color: var(--accent-ink); border-color: var(--accent); }
+.speak-button.is-playing svg { animation: pulse 1.4s ease-in-out infinite; }
 .agent-chat-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
 .agent-chat-toggle { display: inline-flex; flex-direction: row; align-items: center; gap: 7px; margin-right: auto; font-size: 13.5px; color: var(--text-secondary); cursor: pointer; }
 .agent-chat-toggle input { margin: 0; }
 .secondary-button.is-recording { border-color: var(--amber-ink); color: var(--amber-ink); }
 .secondary-button.is-recording svg { animation: pulse 1.4s ease-in-out infinite; }
+
+/* ---------- Voice mode (hands-free conversation with the agent) ---------- */
+.voice-overlay { position: fixed; inset: 0; z-index: 80; display: grid; grid-template-columns: minmax(0, 1fr) min(420px, 40vw); background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.voice-stage { display: grid; align-content: center; justify-items: center; gap: 22px; padding: 32px; text-align: center; }
+.voice-wave { display: block; width: min(440px, 82vw); height: 150px; cursor: pointer; }
+.voice-status { margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.voice-caption { margin: 0; max-width: 48ch; min-height: 3.2em; font-family: var(--font-display); font-size: 21px; line-height: 1.5; color: var(--text); }
+.voice-controls { display: flex; gap: 14px; margin-top: 6px; }
+.voice-controls .icon-button { width: 52px; height: 52px; border-radius: var(--radius-pill); }
+.voice-controls .icon-button.is-off { color: var(--amber-ink); border-color: var(--amber-ink); background: var(--amber-tint); }
+.voice-controls .voice-end { background: var(--primary-bg); border-color: var(--primary-bg); color: var(--primary-fg); }
+.voice-controls .voice-end:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.voice-transcript { overflow-y: auto; padding: 28px 24px; border-left: 1px solid var(--border); background: color-mix(in srgb, var(--card-bg) 55%, transparent); }
+.voice-transcript .quote-thread .conversation-message { margin-bottom: 14px; }
+.voice-transcript .request-message .message-content { padding: 12px 16px; }
+.voice-transcript .brief { font-size: 15px; }
+@media (max-width: 860px) {
+  .voice-overlay { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .voice-stage { padding: 28px 16px 18px; }
+  .voice-wave { height: 110px; }
+  .voice-caption { font-size: 18px; min-height: 0; }
+  .voice-transcript { border-left: 0; border-top: 1px solid var(--border); padding: 18px 16px; }
+}

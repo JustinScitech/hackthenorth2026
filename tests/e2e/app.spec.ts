@@ -342,7 +342,7 @@ test("case page chat sends a question and shows the agent's reply", async ({ aut
   }) }));
   await page.route(`**/api/cases/${id}/chat`, async (route) => {
     asked = route.request().postDataJSON();
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ question: asked?.text, spoken: false, reply: "Building age is the one to start with: 1974 sits past the appetite cut-off.", model: "test-model", audio: null }) });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ question: asked?.text, spoken: false, reply: "Building age is the one to start with: 1974 sits past the appetite cut-off.", model: "test-model", audio: "AAAA" }) });
   });
   await page.goto(`/cases/${id}`);
   await expect(page.getByRole("heading", { name: "Ask the agent" })).toBeVisible();
@@ -350,4 +350,28 @@ test("case page chat sends a question and shows the agent's reply", async ({ aut
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("Building age is the one to start with")).toBeVisible();
   expect(asked).toMatchObject({ text: "Which check should I start with?", history: [], voice: false });
+  // Spoken replies play on their own; the only control is a small speaker button, never the browser's player.
+  await expect(page.getByRole("button", { name: /Play reply|Stop/ })).toBeVisible();
+  await expect(page.locator("audio")).toHaveCount(0);
+});
+
+test("voice mode opens a hands-free conversation with the transcript alongside", async ({ authenticatedPage: page }) => {
+  const id = randomUUID();
+  await page.context().grantPermissions(["microphone"]);
+  await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+    case: { id, insuredName: "Garden State Distribution", state: "NJ", tiv: 6800000, yearBuilt: 1974, losses: 1, status: "review_ready", brief: "Two referrals: territory and building age.", facts: null, findings: null, publicEvidence: null, extractionConflicts: [], question: null, decision: null, error: null, analysisRevision: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    audit: [], jobStatus: "COMPLETED", voiceAvailable: true,
+  }) }));
+  await page.route(`**/api/cases/${id}/chat`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ question: "Where did the year built come from?", spoken: true, reply: "The broker notes.", model: "test-model", audio: null }) }));
+  await page.goto(`/cases/${id}`);
+  await page.getByRole("button", { name: "Voice" }).click();
+  const dialog = page.getByRole("dialog", { name: "Voice conversation with the agent" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("status")).toHaveText(/Listening|Thinking/);
+  await expect(dialog.getByText("Say something about the case")).toBeVisible();
+  if (process.env.VOICE_SHOT) { await page.waitForTimeout(800); await page.screenshot({ path: process.env.VOICE_SHOT }); }
+  await dialog.getByRole("button", { name: "Mute microphone" }).click();
+  await expect(dialog.getByRole("status")).toHaveText(/Muted|Thinking/);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
 });

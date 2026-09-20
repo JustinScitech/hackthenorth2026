@@ -71,7 +71,7 @@ export default function DocsPage() {
         <p>A <strong>refer</strong> means an underwriter should take a look. An <strong>unknown</strong> is a question for the broker.</p>
 
         <h2 id="ask">Ask the agent</h2>
-        <p>Under the analysis there is a small conversation box. Type a question, or press <strong>Talk</strong> and say it, and the agent answers from the case record: which check to start with, where a fact came from, what it would ask the broker, how the public source lines up with the notes. Replies name their source and confidence when that matters. With <strong>Speak replies</strong> on, each answer is read aloud as well as written.</p>
+        <p>Under the analysis there is a small conversation box. Type a question, or open <strong>Voice</strong> and just talk: the mic stays live, a pause ends your turn, the reply plays straight back with the transcript running alongside. Either way the agent answers from the case record: which check to start with, where a fact came from, what it would ask the broker, how the public source lines up with the notes. Replies name their source and confidence when that matters. With <strong>Speak replies</strong> on, each answer is read aloud as well as written.</p>
         <p>The conversation lives on the page while you keep it open. The case record stays as it is; broker replies and decisions still go through the forms below.</p>
 
         <h2 id="broker">Broker follow-up</h2>
