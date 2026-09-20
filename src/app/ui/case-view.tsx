@@ -182,13 +182,10 @@ const list = (items: unknown[]) => items.map((item) => FACT_NAMES[String(item)] 
 
 /** What the agent is looking for at this stage, so the reader knows what matters before the results land. */
 function stageFocus(caseRecord: CaseRecord): string {
-  const given = [caseRecord.yearBuilt !== null ? "Year built" : null, caseRecord.losses !== null ? "Loss count" : null].filter((name): name is string => name !== null);
   switch (caseRecord.status) {
-    case "received": return "Four facts decide appetite for this risk: state, insured value, year built and loss history. First job is to pin each one down and note where it came from.";
-    case "extracting": return given.length === 2
-      ? "All four facts were entered on the form. I'm still reading the broker's notes to confirm them and catch anything the notes contradict."
-      : `State and insured value came in structured. ${given.length ? `${given[0]} was given too. ` : ""}Year built and loss count are what brokers most often leave out or bury in prose, so that's what I'm reading for.`;
-    case "checking": return "Each fact is tested against the demo appetite: territory, the insured-value cap, building age and loss count. A referral means an underwriter should take a look.";
+    case "received": return "Eight factors determine appetite: submission type, line of business, primary risk state, insured value, premium, building age, construction mix, and five-year loss dollars. Account name and policy dates provide required context.";
+    case "extracting": return "Reading broker notes alongside supplied intake fields, recording sources, and flagging conflicts. Loss counts provide context but do not establish five-year loss dollars or complete account history.";
+    case "checking": return "Checking all eight carrier appetite factors and required account context. Missing evidence requires clarification; appetite exceptions require underwriter review. Public-source findings are separate from the appetite score.";
     default: return "";
   }
 }
@@ -201,13 +198,13 @@ function narrate(event: AuditEvent): { text: string; why?: string } | null {
   if (/_model_failed$/.test(event.eventType)) return { text: "Second read came back empty", why: "Carrying on with the first read alone. Anything taken from prose will carry lower confidence, and I'll say so." };
   switch (event.eventType) {
     case "case_created": return { text: "Logged the submission", why: "Recorded the broker's notes and the form values as the case's source of truth. Everything below points back to them." };
-    case "extraction_started": return { text: "Reading the broker's notes", why: "Looking for the two facts that drive the age and loss-history rules: when the building went up, and how many losses in the last three years." };
+    case "extraction_started": return { text: "Reading the broker's notes", why: "Extracting construction year and contextual loss counts, alongside explicitly supplied appetite fields. Five-year loss dollars and account-history completeness are separate requirements." };
     case "model_extraction_started": return { text: "Extracting the broker facts", why: "Two independent reads of the same notes: one catches figures the other misses, and disagreement between them is itself a finding." };
     case "extraction_completed": {
       const missing = Array.isArray(detail.missing) ? detail.missing : [];
       const conflicts = Number(detail.conflicts ?? 0);
-      if (missing.length) return { text: `Facts settled, except ${list(missing)}`, why: `The appetite rules need ${missing.length > 1 ? "those" : "that"} before they can run, so I'll pause and ask the broker.` };
-      return { text: "All four facts in hand", why: conflicts ? `${conflicts} value${conflicts === 1 ? "" : "s"} came back different from the two readers. That gets flagged as a referral.` : "Sources agree. Each value is stored with where it came from and how confident I am in it." };
+      if (missing.length) return { text: `Extraction complete; not supplied: ${list(missing)}`, why: "The next step checks all eight appetite factors and required account context to determine which missing information needs broker clarification." };
+      return { text: "Extraction complete", why: conflicts ? `${conflicts} value${conflicts === 1 ? "" : "s"} came back different from the two readers. That gets flagged as a referral.` : "Extracted values retain their sources and confidence. The guideline check determines whether the required appetite evidence is complete." };
     }
     case "public_research_started": return { text: "Visiting the public source the broker linked", why: "Looking for construction type, roof condition and neighbouring hazards. Notes rarely mention those, and they change the risk picture." };
     case "public_research_completed": {

@@ -20,7 +20,7 @@ test("quote page is public and turns a tenant message into an estimate that refi
   await estimate.getByRole("button", { name: "Update estimate" }).click();
   await expect(estimate).toContainText("$14–$18 a month");
   await expect(estimate.getByRole("list", { name: "What affects the price" })).toContainText("$2,500 deductible");
-  await expect(estimate).toContainText("not a binding quote");
+  await expect(estimate).toContainText("A licensed advisor confirms the final premium and coverage before anything is bound.");
 });
 
 test("quote assistant asks which product when the message does not say, then asks for required auto facts", async ({ page }) => {

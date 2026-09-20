@@ -8,7 +8,7 @@ test("public pages are accessible and protected pages require sign-in", async ({
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Underwriting that");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Documentation" }).click();
   await expect(page).toHaveURL(/\/docs$/);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("API reference");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("How to use Astra Risk");
   await page.goto("/cases");
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("button", { name: /Google/ })).toBeDisabled();
@@ -29,7 +29,7 @@ test("overview, case list, search, and navigation use real session and case data
   await page.goto("/overview");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Agent quality" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Agent quality" }).getByText("Past 30 days", { exact: false })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Agent quality" }).getByText(/^Past 30 days · local case and audit records/)).toBeVisible();
   await expect(page.getByRole("link", { name: /Cases/ }).first()).toBeVisible();
   await page.goto("/cases");
   await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
@@ -47,13 +47,16 @@ test("workspace matches the landing palette across desktop and mobile", async ({
   await page.goto("/overview");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(page.locator(".sidebar .brand-text")).toContainText("AstraRisk");
-  expect(await page.locator("body").evaluate((body) => getComputedStyle(body).backgroundColor)).toBe("rgb(246, 245, 241)");
-  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(83, 71, 184)");
+  expect(await page.locator("body").evaluate((body) => getComputedStyle(body).backgroundColor)).toBe("rgb(243, 239, 228)");
+  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(28, 30, 27)");
   await page.screenshot({ path: testInfo.outputPath("overview-desktop.png"), fullPage: true });
 
   await page.goto("/settings");
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
-  await expect.poll(() => page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(177, 167, 240)");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.goto("/overview");
+  await expect.poll(() => page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(236, 231, 217)");
+  await page.goto("/settings");
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Light" }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -163,7 +166,8 @@ test("case trace shows live progress and broker and underwriter actions", async 
     await route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' });
   });
   await page.goto(`/cases/${id}`);
-  await expect(page.getByRole("status")).toContainText("Extracting with gemini-3.8-flash");
+  await expect(page.getByRole("status")).toContainText("Astra is extracting the broker facts");
+  await expect(page.getByRole("status")).toContainText("Loss counts provide context but do not establish five-year loss dollars");
   await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Gemini model started");
   status = "waiting_for_broker";
   await page.reload();
