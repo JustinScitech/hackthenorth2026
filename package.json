@@ -31,11 +31,17 @@
     "next": "^16.3.5",
     "pg": "^8.16.0",
     "playwright-core": "^1.63.0",
+    "pptxgenjs": "^4.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.186.0",
     "tsx": "^4.20.0",
     "zod": "^4.0.0"
+  },
+  "overrides": {
+    "pptxgenjs": {
+      "image-size": "^2.0.4"
+    }
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

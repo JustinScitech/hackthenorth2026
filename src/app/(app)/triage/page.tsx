@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle, DownloadSimple, Info, ListNumbers, Printer, Warning, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import type { TriageReport } from "@/federato/triage";
-import { buildSummaryMarkdown, rankingExplanation, resourceLabels, summarizeSubmission } from "@/federato/presentation";
+import { rankingExplanation, resourceLabels, summarizeSubmission } from "@/federato/presentation";
 
 type Report = Omit<TriageReport, "schema">;
 export default function TriagePage() {
@@ -12,8 +12,10 @@ export default function TriagePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   async function run() {
-    setLoading(true); setError(""); setReport(null);
+    setLoading(true); setError(""); setExportError(""); setReport(null);
     try {
       const response = await fetch("/api/triage", { method: "POST" });
       const data = await response.json();
@@ -22,11 +24,18 @@ export default function TriagePage() {
     } catch (err) { setError(err instanceof Error ? err.message : "Unable to rank the queue."); }
     finally { setLoading(false); }
   }
-  function downloadSummary() {
-    if (!report) return;
-    const blob = new Blob([buildSummaryMarkdown(report)], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob); const link = document.createElement("a");
-    link.href = url; link.download = `underwriting-summary-${new Date(report.generatedAt).toISOString().slice(0, 10)}.md`; link.click(); URL.revokeObjectURL(url);
+  async function downloadSlides() {
+    if (!report || exporting) return;
+    setExporting(true);
+    setExportError("");
+    try {
+      const { downloadTriageSlides } = await import("@/federato/slides");
+      await downloadTriageSlides(report, showAll);
+    } catch {
+      setExportError("Could not create the slide deck. Please try again.");
+    } finally {
+      setExporting(false);
+    }
   }
   const rows = report ? showAll ? report.ranked : report.topSubmissions : [];
   const labels = report ? resourceLabels(report.resource) : null;
@@ -34,7 +43,7 @@ export default function TriagePage() {
     <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><span className="current">Federato triage</span></p>
     <div className="page-heading triage-heading">
       <div><p className="eyebrow">Federato challenge</p><h1>{labels ? `${labels.singular} priorities` : "Underwriting priorities"}</h1><p className="subtle">Rank the API queue against the supplied 2025 commercial property appetite.</p></div>
-      <button className="primary-button" onClick={run} disabled={loading}><ListNumbers size={16} />{loading ? "Discovering and scoring…" : "Rank live records"}</button>
+      <button className="primary-button" onClick={run} disabled={loading || exporting}><ListNumbers size={16} />{loading ? "Discovering and scoring…" : "Rank live records"}</button>
     </div>
     <p className="lede">Scores prioritize human review. Matching guidelines does not approve or bind coverage.</p>
     <div aria-live="polite">
@@ -58,7 +67,9 @@ export default function TriagePage() {
           {report.trace.map((step, index) => <details key={index}><summary>Query {index + 1}: {step.returned} records</summary><p>{step.reason}</p><pre>{JSON.stringify(step.query, null, 2)}</pre></details>)}
         </div>
       </details>
-      <div className="section-heading"><div><h2>{showAll ? `All evaluated ${labels?.plural}` : `Top ${report.top} ${labels?.plural}`}</h2><p className="subtle">Start with the recommended action, then open the evidence when you need the detail.</p></div><div className="actions"><button className="quiet-button" onClick={downloadSummary}><DownloadSimple size={15} />Download summary</button><button className="quiet-button" onClick={() => window.print()}><Printer size={15} />Print / save PDF</button><button className="quiet-button" onClick={() => setShowAll(!showAll)}>{showAll ? "Show top results" : "Show all results"}</button></div></div>
+      <div className="section-heading"><div><h2>{showAll ? `All evaluated ${labels?.plural}` : `Top ${report.top} ${labels?.plural}`}</h2><p className="subtle">Start with the recommended action, then open the evidence when you need the detail.</p></div><div className="actions"><button className="quiet-button" onClick={downloadSlides} disabled={exporting} title="Download the displayed results as an editable PowerPoint deck"><DownloadSimple size={15} />{exporting ? "Creating slides…" : "Download slides"}</button><button className="quiet-button" onClick={() => window.print()}><Printer size={15} />Print / save PDF</button><button className="quiet-button" onClick={() => setShowAll(!showAll)}>{showAll ? "Show top results" : "Show all results"}</button></div></div>
+      {exportError && <p role="alert" className="alert">{exportError}</p>}
+      <p role="status" className="subtle">{exporting ? "Preparing your PowerPoint deck…" : `Slide export includes ${showAll ? "all evaluated" : "the top-ranked"} ${labels?.plural} shown below (.pptx).`}</p>
       <p className="subtle triage-ranking-note">{rankingExplanation}</p>
       {!rows.length && <div className="card"><p className="empty-state">The API returned an empty queue.</p></div>}
       <div className="triage-list">
