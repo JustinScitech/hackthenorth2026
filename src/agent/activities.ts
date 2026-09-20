@@ -14,6 +14,7 @@ import { applyContextAdjustment, assessPropertyContext } from "./context-finding
 import { discoverCaseSources } from "./source-discovery-activity";
 import { verifyCase } from "./verifier";
 import { draftCaseEmail } from "./correspondence-case";
+import { carryForwardFacts } from "./fact-carryover";
 
 export async function ensureCaseActive(caseId: string, signal?: AbortSignal): Promise<void> {
   signal?.throwIfAborted();
@@ -106,7 +107,11 @@ export async function extractCase(caseId: string, signal?: AbortSignal): Promise
   }, signal);
   await ensureCaseActive(caseId, signal);
   const appetite = resolveCaseAppetite(texts[0], caseRecord.appetite, texts.slice(1).join("\n"), extraction.fields);
-  const facts = buildFacts({ ...caseRecord, appetite: appetite.value }, extraction.extracted, { ...extraction.fields, appetite: appetite.fields });
+  const fresh = buildFacts({ ...caseRecord, appetite: appetite.value }, extraction.extracted, { ...extraction.fields, appetite: appetite.fields });
+  // A revision no model could read keeps what the last one knew, so a quota blip never asks the broker to repeat themselves.
+  const modelCompleted = extraction.attempts.some((attempt) => attempt.status === "completed");
+  const { facts, carried } = carryForwardFacts(caseRecord.facts as Facts | null, fresh, modelCompleted);
+  if (carried.length) await addAudit(caseId, "facts_carried_forward", { revision: caseRecord.analysisRevision, fields: carried, reason: "No model answered for this revision; the parser alone read the text" }, `carried:${caseId}:${caseRecord.analysisRevision}`);
   const saved = await db.query("UPDATE cases SET facts = $2, extraction_conflicts = $3, updated_at = now() WHERE id = $1 AND status <> 'stopped' RETURNING id", [caseId, JSON.stringify(facts), JSON.stringify(extraction.conflicts)]);
   if (!saved.rowCount) throw new DOMException("Case analysis stopped", "AbortError");
   await addAudit(caseId, "extraction_completed", {

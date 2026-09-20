@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { CaseRecord, Finding } from "../lib/types";
 import { geminiModels } from "./providers";
-import { appetiteGuideText, applyVerdicts, flaggable, normalizeForMatch, renderSources, scoringText, verifyCase, verifyFindings, type VerifierSources, type VerifierVerdict } from "./verifier";
+import { appetiteGuideText, applyVerdicts, flaggable, normalizeForMatch, propertyRecordLine, renderSources, scoringText, verifyCase, verifyFindings, type VerifierSources, type VerifierVerdict } from "./verifier";
 
 const sources: VerifierSources = {
   brokerNotes: "Commercial property submission for Ridgeway Distribution LLC. Warehouse constructed in 1985. No losses in the past three years. Premium: $85,000.",
@@ -269,14 +269,23 @@ test("verifyCase reads the intake form, broker replies, public evidence, and pro
     loadBrokerTexts: async () => ["Original submission text.", "Broker reply: the roof is original."],
     generate: async (_model, _prompt, text) => { request = text; return { text: JSON.stringify({ verdicts: [] }) }; },
   });
-  const record = { ...caseRecord, propertyContext: { address: "1 Main St", geocoded: { matchedAddress: "1 Main St" }, geocodeUrl: "", gatheredAt: "", sources: [{ id: "flood", label: "Flood zone", status: "ok", url: "", summary: "FEMA zone X.", data: {}, ms: 1 }, { id: "wildfire", label: "Wildfire", status: "unavailable", url: "", summary: "Unavailable.", data: {}, ms: 1 }] } } as unknown as CaseRecord;
+  const record = { ...caseRecord, propertyContext: { address: "1 Main St", geocoded: { matchedAddress: "1 Main St" }, geocodeUrl: "", gatheredAt: "", sources: [{ id: "flood", label: "Flood zone", status: "ok", url: "", summary: "FEMA zone X.", data: {}, ms: 1 }, { id: "surroundings", label: "Surroundings", status: "ok", url: "", summary: "6 hydrants mapped within 300 m.", data: { fuelStationsWithin150m: 0, building: { heightFt: 456 } }, ms: 1 }, { id: "wildfire", label: "Wildfire", status: "unavailable", url: "", summary: "Unavailable.", data: {}, ms: 1 }] } } as unknown as CaseRecord;
   await verifyCase("case-1", record, { findings: clone(findings), brief }, deps);
   assert.match(request, /Original submission text\.[\s\S]*BROKER UPDATE[\s\S]*Broker reply: the roof is original\./);
   assert.match(request, /total insured value: \$75,000,000/);
   assert.match(request, /premium: \$85,000/);
   assert.match(request, /eligible construction percent: 75%/);
   assert.match(request, /Year Built: 1985\. Construction: Masonry/);
-  assert.match(request, /\[Public property records\]\nFlood zone: FEMA zone X\./);
+  assert.match(request, /\[Public property records\]\nFlood zone: FEMA zone X\.\n/);
+  assert.match(request, /Surroundings: 6 hydrants mapped within 300 m\. Data: \{"fuelStationsWithin150m":0,"building":\{"heightFt":456\}\}/, "the data a context finding is built from is a source too");
+  assert.match(request, /Wildfire: did not answer this time\./, "a dataset that did not answer is named, as the review says");
   assert.match(request, /\[Carrier appetite guide\]\nSubmission type: New business is acceptable/);
   assert.doesNotMatch(request, /Unavailable\./);
+});
+
+test("a property record line carries compact data, caps it, and names a dataset that did not answer", () => {
+  assert.equal(propertyRecordLine({ label: "Elevation", status: "ok", summary: "About 430 ft.", data: {} }), "Elevation: About 430 ft.");
+  assert.equal(propertyRecordLine({ label: "Census", status: "unavailable", summary: "Unavailable: timeout.", data: {} }), "Census: did not answer this time.");
+  const long = propertyRecordLine({ label: "EPA", status: "ok", summary: "62 facilities.", data: { names: Array.from({ length: 80 }, (_, index) => `Facility number ${index}`) } });
+  assert.ok(long.length < 800 && long.endsWith("…"), String(long.length));
 });

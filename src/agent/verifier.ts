@@ -28,7 +28,7 @@ export type VerifierSources = {
   intake?: Record<string, string | number | boolean | null | undefined> | null;
   /** Excerpt of the public page fetched for the case. */
   publicEvidence?: string | null;
-  /** One summary line per public property dataset that answered. */
+  /** One line per public property dataset: its summary and compact data when it answered, or a note that it did not. */
   propertyRecords?: string[] | null;
   /** The carrier rule text the appetite findings are built from, so thresholds such as "$150M" count as sourced. */
   guide?: string | null;
@@ -260,12 +260,25 @@ export function intakeSources(caseRecord: CaseRecord): NonNullable<VerifierSourc
   };
 }
 
+const MAX_RECORD_DATA_CHARS = 700;
+
+/**
+ * A dataset's line for the verifier. The context findings are built from the dataset's data, not
+ * only its summary (a mapped building height, a zero count of fuel stations), so the data rides
+ * along in compact JSON; a dataset that did not answer is named, because the review says so too.
+ */
+export function propertyRecordLine(source: { label: string; status: "ok" | "unavailable"; summary: string; data: unknown }): string {
+  if (source.status !== "ok") return `${source.label}: did not answer this time.`;
+  const data = source.data && typeof source.data === "object" && Object.keys(source.data).length ? JSON.stringify(source.data) : "";
+  return `${source.label}: ${source.summary}${data ? ` Data: ${data.length > MAX_RECORD_DATA_CHARS ? `${data.slice(0, MAX_RECORD_DATA_CHARS)}…` : data}` : ""}`;
+}
+
 export function caseSources(caseRecord: CaseRecord, brokerTexts: string[], appetiteResult?: RankedSubmission | null): VerifierSources {
   return {
     brokerNotes: brokerTexts.join(BROKER_UPDATE_SEPARATOR),
     intake: intakeSources(caseRecord),
     publicEvidence: caseRecord.publicEvidence?.excerpt ?? null,
-    propertyRecords: (caseRecord.propertyContext?.sources ?? []).filter((source) => source.status === "ok").map((source) => `${source.label}: ${source.summary}`),
+    propertyRecords: (caseRecord.propertyContext?.sources ?? []).map(propertyRecordLine),
     guide: appetiteGuideText(),
     scoring: appetiteResult ? scoringText(appetiteResult) : null,
   };
