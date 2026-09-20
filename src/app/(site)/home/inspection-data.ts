@@ -73,7 +73,7 @@ export const INSPECTIONS: Record<
       "Request membrane and maintenance records",
     ],
     sourceExcerpt:
-      "The reference set shows a rooftop mechanical enclosure and the atrium's sawtooth clerestories. Roof age, condition, and replacement records are not provided.",
+      "The reference set shows a rooftop mechanical enclosure and the atrium's sawtooth clerestories. Roof age, condition, and replacement records still need to be supplied.",
     sourceKind: "Photo-informed model · sample review note",
     nextAction: "Request a dated roof inspection and maintenance schedule.",
     view: { yaw: 0.22, pitch: 0.59, zoom: 1.3, target: [0, 5.8, -0.5] },
@@ -81,7 +81,7 @@ export const INSPECTIONS: Record<
   flood: {
     action: "Explore campus surface water",
     summary:
-      "Raise the illustrative water level around the paved entry. Site elevations and drainage capacity have not been surveyed in this model.",
+      "Raise the illustrative water level around the paved entry. Site elevations and drainage capacity still need a survey.",
     metric: "Scenario only",
     metricLabel: "No assigned flood zone",
     steps: [
@@ -90,7 +90,7 @@ export const INSPECTIONS: Record<
       "Request verified elevations and drainage records",
     ],
     sourceExcerpt:
-      "This water surface is a visual scenario. It does not represent an official flood zone, predicted water level, or verified flood exposure at Engineering 7.",
+      "This water surface is a visual scenario. The official flood zone, predicted water level, and verified exposure at Engineering 7 come from survey records.",
     sourceKind: "Synthetic drainage scenario",
     nextAction: "Obtain a site survey and local drainage assessment.",
     view: { yaw: 1.04, pitch: 0.94, zoom: 1.16, target: [3.1, 1.2, 0] },
@@ -107,7 +107,7 @@ export const INSPECTIONS: Record<
       "Request current inspection certificates",
     ],
     sourceExcerpt:
-      "Hydrant position and sprinkler paths in this scene are illustrative. No actual E7 coverage, inspection status, or fire-system design is asserted.",
+      "Hydrant position and sprinkler paths in this scene are illustrative. Actual E7 coverage, inspection status, and fire-system design come from the protection records.",
     sourceKind: "Synthetic fire-protection example",
     nextAction: "Verify hydrant access and obtain protection-system records.",
     view: { yaw: 0.58, pitch: 1.13, zoom: 1.2, target: [1, 3.2, 0] },
@@ -168,7 +168,7 @@ export const INSPECTIONS: Record<
   claims: {
     action: "Link the sample loss records",
     summary:
-      "Astra demonstrates how annual records are matched to a property and checked for gaps. These are synthetic records, not Waterloo's claims history.",
+      "Astra demonstrates how annual records are matched to a property and checked for gaps. These are synthetic records built for the demo.",
     metric: "Demo records",
     metricLabel: "No real loss information accessed",
     steps: [
@@ -177,7 +177,7 @@ export const INSPECTIONS: Record<
       "Check dates and flag evidence gaps",
     ],
     sourceExcerpt:
-      "Demonstration data only. All claim values, coverage periods, risk scores, and appetite results are synthetic and do not describe the University of Waterloo's insurance history.",
+      "Demonstration data only. All claim values, coverage periods, risk scores, and appetite results are synthetic and belong to this demo alone.",
     sourceKind: "Synthetic loss-run example",
     nextAction: "Request authorized, current loss runs for a real assessment.",
     view: { yaw: 0.64, pitch: 1.01, zoom: 0.95, target: [0, 2.4, 0] },

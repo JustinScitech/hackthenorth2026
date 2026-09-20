@@ -36,7 +36,7 @@ export default function TriagePage() {
       <div><p className="eyebrow">Federato challenge</p><h1>{labels ? `${labels.singular} priorities` : "Underwriting priorities"}</h1><p className="subtle">Rank the API queue against the supplied 2025 commercial property appetite.</p></div>
       <button className="primary-button" onClick={run} disabled={loading}><ListNumbers size={16} />{loading ? "Discovering and scoring…" : "Rank live records"}</button>
     </div>
-    <p className="lede">Scores prioritize human review. Matching guidelines does not approve or bind coverage.</p>
+    <p className="lede">Scores order the queue for human review. Approval and binding stay with the underwriter.</p>
     <div aria-live="polite">
       {loading && <div className="notice"><Info size={17} aria-hidden="true" />Discovering available fields and reading the queue. Large queues may take a few minutes.</div>}
       {error && <div role="alert" className="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
@@ -44,16 +44,16 @@ export default function TriagePage() {
     {!report && !loading && !error && <div className="card"><p className="empty-state">Run triage to discover the resource and see ranked records, per-factor scores, and the reasoning behind each query.</p></div>}
     {report && <>
       <p className="triage-meta"><span>{report.evaluated} of {report.total} <code>{report.resource}</code> records evaluated</span><span aria-hidden="true">·</span><time dateTime={report.generatedAt}>{new Date(report.generatedAt).toLocaleString()}</time></p>
-      {report.resource === "Policy" && <p className="subtle">Scope: Policy records across lifecycle statuses, not the standalone Submission queue.</p>}
+      {report.resource === "Policy" && <p className="subtle">Scope: Policy records across lifecycle statuses.</p>}
       {report.resource === "Submission" && <p className="subtle">Scope: actual submissions across all lifecycle statuses, including unmatched submissions. Policy evidence is used only for verified unique links.</p>}
-      {report.enrichmentComplete === false && <p className="notice">Policy lookup was partial. No policy enrichment was used because link uniqueness could not be verified.</p>}
-      {report.ranked.length > 0 && report.ranked.every((item) => item.criteria.some((criterion) => criterion.status === "outside")) && <div className="notice"><Warning size={17} aria-hidden="true" />All evaluated records have at least one appetite exception. These are the highest-ranked records in this scope, not fully in-appetite matches.</div>}
+      {report.enrichmentComplete === false && <p className="notice">Policy lookup was partial, so the ranking relies on submission data alone.</p>}
+      {report.ranked.length > 0 && report.ranked.every((item) => item.criteria.some((criterion) => criterion.status === "outside")) && <div className="notice"><Warning size={17} aria-hidden="true" />Every evaluated record has at least one appetite exception, so this list shows the closest fits in scope.</div>}
       {report.truncated && <div className="notice"><Info size={17} aria-hidden="true" />Partial ranking: the 1,000-record limit was reached. Results cover only the evaluated records.</div>}
       <details className="triage-plan popup">
         <summary>Query reasoning and scoring method</summary>
         <div className="triage-plan-body">
           <p><span className="annotation">{report.guidelineVersion}</span></p>
-          <p>Eight weighted criteria total 100 points. Target matches earn full points; acceptable matches earn 80%; unknowns and exceptions earn zero. Exceptions cap the total at 49; incomplete required data caps it at 69. Weights and caps are application choices, not carrier-prescribed scores.</p>
+          <p>Eight weighted criteria total 100 points. Target matches earn full points; acceptable matches earn 80%; unknowns and exceptions earn zero. Exceptions cap the total at 49; incomplete required data caps it at 69. Weights and caps are choices made in this app.</p>
           <ul>{report.reasoning.map((reason) => <li key={reason}>{reason}</li>)}</ul>
           {report.trace.map((step, index) => <details key={index}><summary>Query {index + 1}: {step.returned} records</summary><p>{step.reason}</p><pre>{JSON.stringify(step.query, null, 2)}</pre></details>)}
         </div>

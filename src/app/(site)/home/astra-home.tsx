@@ -555,7 +555,7 @@ export function AstraHome() {
                   <p>
                     {waterLevel > 0.65
                       ? "Scenario reaches the campus service area. Building elevation needs verification."
-                      : "Water remains near the drainage edge. A low setting does not establish safety."}
+                      : "Water remains near the drainage edge. Safety at this level still depends on a survey."}
                   </p>
                 </div>
               )}

@@ -207,7 +207,7 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
           </div>
         </div>
         <div className="form-section">
-          <div className="form-section-title"><h2>Carrier appetite evidence</h2><p>All amounts are USD. Leave unknown fields blank; do not substitute loss counts for five-year loss dollars.</p></div>
+          <div className="form-section-title"><h2>Carrier appetite evidence</h2><p>All amounts are USD. Leave unknown fields blank. Five-year loss dollars are a separate figure from the loss count above.</p></div>
           <label>Business type<select value={appetite.business ?? ""} onChange={(event) => setAppetite({ ...appetite, business: event.target.value === "new" ? "new" : event.target.value === "renewal" ? "renewal" : null })}><option value="">Unknown</option><option value="new">New business</option><option value="renewal">Renewal business</option></select></label>
           <label>Line of business<input value={appetite.line ?? ""} onChange={(event) => setAppetite({ ...appetite, line: event.target.value || null })} placeholder="property" /></label>
           {([{ key: "premium", label: "Total premium (USD)" }, { key: "constructionPercent", label: "Eligible construction percent (by building count)" }, { key: "lossValue", label: "Five-year loss value (USD)" }] as const).map(({ key, label }) => <label key={key}>{label}<input type="number" min="0" max={key === "constructionPercent" ? 100 : undefined} step="any" value={appetite[key] ?? ""} onChange={(event) => setAppetite({ ...appetite, [key]: event.target.value === "" ? null : Number(event.target.value) })} /></label>)}

@@ -80,7 +80,7 @@ export const rankingSuite: Suite = {
     add("plain-language summaries agree with the recommendation", summariesAgree, "summary status disagrees with bucket");
     add("the trace explains every page request", report.trace.length === 2 && report.trace.every((step) => step.reason.length > 0 && step.returned > 0), JSON.stringify(report.trace.map((step) => step.returned)));
     const markdown = buildSummaryMarkdown(report);
-    add("downloadable summary lists every top record without raw scoring internals", report.topSubmissions.every((item) => markdown.includes(`. ${item.account}`)) && !markdown.includes("rawScore") && !/capped at/.test(markdown) && markdown.includes("does not approve, bind, or decline"), "summary markdown is incomplete or leaks internals");
+    add("downloadable summary lists every top record without raw scoring internals", report.topSubmissions.every((item) => markdown.includes(`. ${item.account}`)) && !markdown.includes("rawScore") && !/capped at/.test(markdown) && markdown.includes("stay with the underwriter"), "summary markdown is incomplete or leaks internals");
     return results;
   },
 };

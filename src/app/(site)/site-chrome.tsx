@@ -32,7 +32,7 @@ export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
-        <span>Astra Risk · Durable, human-reviewed underwriting. Demo guidelines only; nothing here binds coverage.</span>
+        <span>Astra Risk · Underwriting help with a person on every decision. Demo guidelines; binding stays with the carrier.</span>
         <nav aria-label="Footer"><Link href="/quote">Get an estimate</Link><Link href="/docs">Docs</Link><Link href="/docs#api">API reference</Link><Link href="/overview">Workspace</Link><Link href="/settings">Settings</Link></nav>
       </div>
     </footer>

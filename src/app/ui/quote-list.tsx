@@ -44,7 +44,7 @@ export function QuoteList() {
           <Link className="primary-button" href="/quote" target="_blank" rel="noopener noreferrer">Open the public assistant<ArrowUpRight size={14} /></Link>
         </div>
       </div>
-      <p className="lede">Every conversation on the public estimate page lands here as one evolving record: the facts the assistant heard, the estimate or next step it gave, and whether an advisor needs to follow up. Free text is never stored.</p>
+      <p className="lede">Every conversation on the public estimate page lands here as one evolving record: the facts the assistant heard, the estimate or next step it gave, and whether an advisor needs to follow up. Only the structured facts are stored.</p>
       {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
       <div className="card">
         <div className="card-header"><span>{referrals ? `${referrals} waiting for an advisor` : "No referrals waiting"}</span><span className="count">{quotes.length}</span></div>

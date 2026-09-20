@@ -693,3 +693,14 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .quote-heard div { display: inline-flex; gap: 5px; }
 .quote-heard dt { color: var(--muted); }
 .quote-heard dd { margin: 0; color: var(--text-secondary); }
+
+/* ---------- Ask the agent (case chat) ---------- */
+.agent-chat { display: grid; gap: 14px; }
+.agent-chat > .subtle { margin: -6px 0 0; }
+.agent-chat-thread { margin-top: 4px; }
+.agent-chat .brief-audio { margin: 8px 0 0; }
+.agent-chat-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.agent-chat-toggle { display: inline-flex; flex-direction: row; align-items: center; gap: 7px; margin-right: auto; font-size: 13.5px; color: var(--text-secondary); cursor: pointer; }
+.agent-chat-toggle input { margin: 0; }
+.secondary-button.is-recording { border-color: var(--amber-ink); color: var(--amber-ink); }
+.secondary-button.is-recording svg { animation: pulse 1.4s ease-in-out infinite; }

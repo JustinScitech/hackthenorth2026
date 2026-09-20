@@ -26,7 +26,7 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 - Optional Gemini and OpenAI APIs: independent structured extraction from unstructured broker notes, resolved by agreement with a deterministic parser; the parser alone works without keys
 - Optional Browserbase: visit an explicitly supplied public source, read year built, construction, size, sprinklers, and flood zone from the page, and turn each into a cited finding that corroborates, contradicts, or adds to the broker facts
 - Optional Sentry: error monitoring, agent traces, structured logs, per-model-call AI spans, and job, analysis, and eval metrics from the worker, web app, and browser, read back into the overview dashboard; every event is scrubbed of submission text
-- Optional ElevenLabs: spoken underwriter review brief
+- Optional ElevenLabs: spoken underwriter review brief, and a voice conversation with the agent on the case page (speech-to-text in, speech back out)
 
 ## Code layout
 

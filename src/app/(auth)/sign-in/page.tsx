@@ -18,7 +18,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         <h1>Sign in</h1>
         <p>Use an approved Google account to open the underwriting workspace.</p>
         {error && <div className="alert" role="alert">Sign-in could not be completed. Check your account access and try again.</div>}
-        {!configured && <div className="alert" role="alert">Google sign-in is not configured yet.</div>}
+        {!configured && <div className="alert" role="alert">Google sign-in still needs to be set up.</div>}
         <SignInButton disabled={!configured} />
       </div>
     </div>

@@ -7,6 +7,7 @@ import type { AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/
 import { Mark } from "./logo";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
+import { AgentChat } from "./agent-chat";
 import { summarizeSubmission } from "@/federato/presentation";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
@@ -125,7 +126,7 @@ function traceDetail(event: AuditEvent): string | null {
     const signals = Array.isArray(event.detail.signals) ? event.detail.signals as string[] : [];
     return signals.length ? `Public source saved as evidence · ${signals.length} signal${signals.length === 1 ? "" : "s"}: ${signals.join(", ")}` : "Public source saved as evidence";
   }
-  if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; no message was sent";
+  if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; the case is still waiting on the broker";
   return null;
 }
 
@@ -187,7 +188,7 @@ function stageFocus(caseRecord: CaseRecord): string {
     case "extracting": return given.length === 2
       ? "All four facts were entered on the form. I'm still reading the broker's notes to confirm them and catch anything the notes contradict."
       : `State and insured value came in structured. ${given.length ? `${given[0]} was given too. ` : ""}Year built and loss count are what brokers most often leave out or bury in prose, so that's what I'm reading for.`;
-    case "checking": return "Each fact is tested against the demo appetite: territory, the insured-value cap, building age and loss count. A referral means an underwriter should look, not that the risk is declined.";
+    case "checking": return "Each fact is tested against the demo appetite: territory, the insured-value cap, building age and loss count. A referral means an underwriter should take a look.";
     default: return "";
   }
 }
@@ -196,7 +197,7 @@ function stageFocus(caseRecord: CaseRecord): string {
 function narrate(event: AuditEvent): { text: string; why?: string } | null {
   const detail = event.detail;
   if (/_model_started$/.test(event.eventType)) return { text: "Taking a second read of the notes" };
-  if (/_model_completed$/.test(event.eventType)) return { text: `Second read finished in ${seconds(detail.durationMs)}`, why: "I don't take either read on trust: the two have to agree before a value is used, and where they don't, that becomes a finding." };
+  if (/_model_completed$/.test(event.eventType)) return { text: `Second read finished in ${seconds(detail.durationMs)}`, why: "The two reads have to agree before a value is used. Where they differ, that becomes a finding." };
   if (/_model_failed$/.test(event.eventType)) return { text: "Second read came back empty", why: "Carrying on with the first read alone. Anything taken from prose will carry lower confidence, and I'll say so." };
   switch (event.eventType) {
     case "case_created": return { text: "Logged the submission", why: "Recorded the broker's notes and the form values as the case's source of truth. Everything below points back to them." };
@@ -205,23 +206,23 @@ function narrate(event: AuditEvent): { text: string; why?: string } | null {
     case "extraction_completed": {
       const missing = Array.isArray(detail.missing) ? detail.missing : [];
       const conflicts = Number(detail.conflicts ?? 0);
-      if (missing.length) return { text: `Facts settled, except ${list(missing)}`, why: `The appetite rules can't be applied without ${missing.length > 1 ? "them" : "it"}, so rather than guess I'll pause and ask the broker.` };
-      return { text: "All four facts in hand", why: conflicts ? `${conflicts} value${conflicts === 1 ? "" : "s"} came back different from the two readers. That gets flagged as a referral rather than silently resolved.` : "Sources agree. Each value is stored with where it came from and how confident I am in it." };
+      if (missing.length) return { text: `Facts settled, except ${list(missing)}`, why: `The appetite rules need ${missing.length > 1 ? "those" : "that"} before they can run, so I'll pause and ask the broker.` };
+      return { text: "All four facts in hand", why: conflicts ? `${conflicts} value${conflicts === 1 ? "" : "s"} came back different from the two readers. That gets flagged as a referral.` : "Sources agree. Each value is stored with where it came from and how confident I am in it." };
     }
     case "public_research_started": return { text: "Visiting the public source the broker linked", why: "Looking for construction type, roof condition and neighbouring hazards. Notes rarely mention those, and they change the risk picture." };
     case "public_research_completed": {
       const signals = Array.isArray(detail.signals) ? detail.signals as string[] : [];
-      return { text: "Public page saved as evidence", why: signals.length ? `Worth weighing against the submission: ${signals.join(", ")}.` : "Nothing on the page raised a signal. It stays on file as context." };
+      return { text: "Public page saved as evidence", why: signals.length ? `Worth weighing against the submission: ${signals.join(", ")}.` : "The page is on file as context and leaves the picture unchanged." };
     }
     case "public_research_skipped": return { text: "No public research this time", why: String(detail.reason ?? "No source was supplied.") };
     case "public_research_failed": return { text: "Public source unreachable", why: "Proceeding on the submission alone and recording the gap in the trace." };
-    case "guideline_check_started": return { text: "Checking the demo appetite", why: "Territory, insured-value cap, building age and loss count each come back pass, refer or unknown. Unknowns are questions, not verdicts." };
+    case "guideline_check_started": return { text: "Checking the demo appetite", why: "Territory, insured-value cap, building age and loss count each come back pass, refer or unknown. An unknown is a question for the broker." };
     case "analysis_completed": {
       const refer = Number(detail.refer ?? 0), pass = Number(detail.pass ?? 0), unknown = Number(detail.unknown ?? 0);
-      return { text: `${pass} passed · ${refer} referred · ${unknown} unknown`, why: detail.status === "waiting_for_broker" ? "One answer depends on the broker, so I'm pausing and writing the question." : refer ? "Referrals are the part worth your time. The brief leads with them." : "Nothing needs escalation. Writing the brief for your review." };
+      return { text: `${pass} passed · ${refer} referred · ${unknown} unknown`, why: detail.status === "waiting_for_broker" ? "One answer depends on the broker, so I'm pausing and writing the question." : refer ? "Referrals are the part worth your time. The brief leads with them." : "Everything passed. Writing the brief for your review." };
     }
     case "broker_response_received": return { text: "Broker replied", why: "Re-reading the notes with the new information. Anything that changed is checked again from scratch." };
-    case "broker_follow_up_due": return { text: "Follow-up window elapsed", why: "No message was sent; this is a reminder that the case is still waiting on the broker." };
+    case "broker_follow_up_due": return { text: "Follow-up window elapsed", why: "A reminder that the case is still waiting on the broker." };
     case "job_failed": return { text: "Analysis stopped", why: String(detail.reason ?? "Something went wrong. The trace has the detail.") };
     default: return null;
   }
@@ -268,7 +269,7 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
       {STAGES.map((stage, index) => <li key={stage.label} data-state={index < current ? "done" : index === current ? "active" : "todo"}><span className="working-step" aria-hidden="true">{index < current && <Check size={10} weight="bold" />}</span>{stage.label}</li>)}
     </ol>
     {stalled
-      ? <p className="working-focus working-stalled">This case is in the queue and will start automatically as soon as the analysis service is free. Nothing is needed from you; this page keeps checking on its own.</p>
+      ? <p className="working-focus working-stalled">This case is in the queue and will start automatically as soon as the analysis service is free. This page keeps checking on its own, so you can sit tight.</p>
       : <p className="working-focus">{stageFocus(caseRecord)}</p>}
     {thoughts.length > 0 && <ol className="thinking" aria-label="What the agent is doing">
       {thoughts.map((entry, index) => <li key={entry.id} className={index === thoughts.length - 1 ? "is-current" : undefined}>
@@ -316,6 +317,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
       </div>
     </div>
     <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} /></div>
-    <p className="demo-note">New analyses use the supplied 2025 commercial property appetite. A review decision does not quote or bind coverage.</p>
+    {!working && <div className="conversation-action"><AgentChat id={id} voiceAvailable={voiceAvailable} /></div>}
+    <p className="demo-note">New analyses use the supplied 2025 commercial property appetite. Quoting and binding stay with the carrier.</p>
   </main>;
 }

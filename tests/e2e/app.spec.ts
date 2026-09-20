@@ -332,3 +332,22 @@ test("a retried decision action returns success without duplicating the decision
     await db.end();
   }
 });
+
+test("case page chat sends a question and shows the agent's reply", async ({ authenticatedPage: page }) => {
+  const id = randomUUID();
+  let asked: { text?: string; history?: unknown; voice?: boolean } | null = null;
+  await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+    case: { id, insuredName: "Garden State Distribution", state: "NJ", tiv: 6800000, yearBuilt: 1974, losses: 1, status: "review_ready", brief: "Two referrals: territory and building age.", facts: null, findings: null, publicEvidence: null, extractionConflicts: [], question: null, decision: null, error: null, analysisRevision: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    audit: [], jobStatus: "COMPLETED", voiceAvailable: false,
+  }) }));
+  await page.route(`**/api/cases/${id}/chat`, async (route) => {
+    asked = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ question: asked?.text, spoken: false, reply: "Building age is the one to start with: 1974 sits past the appetite cut-off.", model: "test-model", audio: null }) });
+  });
+  await page.goto(`/cases/${id}`);
+  await expect(page.getByRole("heading", { name: "Ask the agent" })).toBeVisible();
+  await page.getByLabel("Your question").fill("Which check should I start with?");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Building age is the one to start with")).toBeVisible();
+  expect(asked).toMatchObject({ text: "Which check should I start with?", history: [], voice: false });
+});

@@ -1,0 +1,89 @@
+import type { AuditEvent, CaseRecord, Fact } from "@/lib/types";
+import { shouldFallThroughGeminiError } from "./model";
+import { errorCode, geminiModels, geminiText, type ChatContent } from "./providers";
+
+export type ChatTurn = { role: "you" | "agent"; text: string };
+
+/** Earlier turns that ride along with each question: enough for a natural back-and-forth without dragging a whole session into every call. */
+const HISTORY_LIMIT = 12;
+
+export const CHAT_PROMPT = [
+  "You are Astra, the underwriting agent that analysed the commercial property case below, and you are talking with the underwriter who is reviewing it. They may be speaking to you out loud, and your reply may be read aloud.",
+  "Answer from the case record. Give a fact's source and confidence when it matters. When the record lacks something, say so and suggest where it would come from.",
+  "Keep replies short and conversational: two to four plain sentences, spoken-word style, with no headings, lists, or markdown. Say things directly and skip framing by contrast, such as 'not X, but Y'.",
+  "You explain and recommend; the underwriter decides. Quoting and binding happen elsewhere. Broker replies and decisions go through the forms on the case page, so point there when asked to change the case.",
+].join(" ");
+
+const money = (value: number) => `$${value.toLocaleString("en-US")}`;
+
+function factLine<T>(label: string, item: Fact<T> | undefined, format: (value: T) => string = String): string | null {
+  if (!item) return null;
+  return `${label}: ${item.value === null ? "unknown" : format(item.value)} (${item.source}, ${Math.round(item.confidence * 100)}% confidence)`;
+}
+
+/** Everything the agent knows about the case, as plain lines the model can read. */
+export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[]): string {
+  const submitted = [`${caseRecord.state}`, `${money(caseRecord.tiv)} total insured value`];
+  if (caseRecord.yearBuilt !== null) submitted.push(`built ${caseRecord.yearBuilt}`);
+  if (caseRecord.losses !== null) submitted.push(`${caseRecord.losses} losses reported on the form`);
+  const lines: (string | null)[] = [
+    `Insured: ${caseRecord.insuredName}`,
+    `Status: ${caseRecord.status.replaceAll("_", " ")}`,
+    `Submitted: ${submitted.join(", ")}`,
+  ];
+  if (caseRecord.facts) {
+    lines.push("Extracted facts:");
+    lines.push(factLine("State", caseRecord.facts.state));
+    lines.push(factLine("Total insured value", caseRecord.facts.tiv, money));
+    lines.push(factLine("Year built", caseRecord.facts.yearBuilt));
+    lines.push(factLine("Loss count, past three years", caseRecord.facts.losses));
+  }
+  if (caseRecord.extractionConflicts.length) lines.push(`Conflicts between sources: ${caseRecord.extractionConflicts.join("; ")}`);
+  if (caseRecord.appetite) lines.push(`Appetite evidence on the form: ${JSON.stringify(caseRecord.appetite)}`);
+  if (caseRecord.findings?.length) {
+    lines.push("Carrier appetite checks:");
+    for (const finding of caseRecord.findings) lines.push(`- ${finding.label}: ${finding.result}. ${finding.detail} (source: ${finding.source})`);
+  }
+  if (caseRecord.appetiteResult) {
+    const result = caseRecord.appetiteResult;
+    lines.push(`Appetite result: match score ${result.rawScore}/100, priority score ${result.score}/100. ${result.recommendation} ${result.explanation}`);
+  }
+  if (caseRecord.publicEvidence) lines.push(`Public source (${caseRecord.publicEvidence.url}): ${caseRecord.publicEvidence.excerpt}`);
+  if (caseRecord.brief) lines.push(`Review brief: ${caseRecord.brief}`);
+  if (caseRecord.question) lines.push(`Open question for the broker: ${caseRecord.question}`);
+  if (caseRecord.decision) lines.push(`Underwriter decision (${caseRecord.status}): ${caseRecord.decision}`);
+  if (caseRecord.error) lines.push(`Analysis error: ${caseRecord.error}`);
+  if (audit.length) lines.push(`Recent activity: ${audit.slice(-8).map((event) => `${event.eventType.replaceAll("_", " ")} at ${new Date(event.createdAt).toISOString()}`).join("; ")}`);
+  return lines.filter((line): line is string => line !== null).join("\n");
+}
+
+/**
+ * Answers one question about a case, carrying the recent conversation so follow-ups make sense.
+ * Walks the Gemini waterfall like extraction does, with one difference: a model that is out of
+ * quota (429) is skipped for the next one, because a conversation should keep going during a demo
+ * even when one model's free-tier allowance for the day is spent.
+ */
+export async function answerCaseQuestion(caseRecord: CaseRecord, audit: AuditEvent[], history: ChatTurn[], question: string): Promise<{ reply: string; model: string }> {
+  if (!process.env.GEMINI_API_KEY) throw Object.assign(new Error("No chat model is configured"), { status: 503 });
+  const system = `${CHAT_PROMPT}\n\nCase record:\n${caseBriefing(caseRecord, audit)}`;
+  const turns = history.slice(-HISTORY_LIMIT);
+  // Gemini wants the conversation to open with the user, so a leading agent turn is dropped.
+  while (turns[0]?.role === "agent") turns.shift();
+  const contents: ChatContent[] = [
+    ...turns.map((turn): ChatContent => ({ role: turn.role === "you" ? "user" : "model", text: turn.text })),
+    { role: "user", text: question },
+  ];
+  let lastError: unknown;
+  for (const model of geminiModels()) {
+    try {
+      const response = await geminiText(model, system, contents, { retries: 1, timeoutMs: 30_000 });
+      const reply = response.text?.trim();
+      if (reply) return { reply, model: response.modelVersion ?? model };
+      lastError = new Error(`Empty reply from ${model}`);
+    } catch (error) {
+      lastError = error;
+      if (!shouldFallThroughGeminiError(error) && errorCode(error) !== 429) break;
+    }
+  }
+  throw lastError ?? new Error("No model answered");
+}

@@ -5,8 +5,8 @@ import { Info } from "@phosphor-icons/react/dist/ssr";
 export const metadata: Metadata = { title: "How to use Astra Risk", description: "Get an insurance estimate by chatting, hand a commercial property submission to the underwriting agent, and see what it gives back." };
 
 const NAV = [
-  { group: "Guide", items: [["#introduction", "What Astra Risk does"], ["#estimate", "Get an estimate"], ["#submit", "Submit a case"], ["#results", "What the agent gives you"], ["#broker", "Broker follow-up"], ["#decision", "Approve or decline"], ["#triage", "Federato triage"], ["#quotes", "Quote requests"], ["#workspace", "Overview and settings"]] },
-  { group: "Reference", items: [["#statuses", "Case statuses"], ["#limits", "What it will not do"], ["#api", "API"]] },
+  { group: "Guide", items: [["#introduction", "What Astra Risk does"], ["#estimate", "Get an estimate"], ["#submit", "Submit a case"], ["#results", "What the agent gives you"], ["#ask", "Ask the agent"], ["#broker", "Broker follow-up"], ["#decision", "Approve or decline"], ["#triage", "Federato triage"], ["#quotes", "Quote requests"], ["#workspace", "Overview and settings"]] },
+  { group: "Reference", items: [["#statuses", "Case statuses"], ["#limits", "Where the lines are"], ["#api", "API"]] },
 ];
 
 function Endpoint({ method, path, id }: { method: "GET" | "POST"; path: string; id: string }) {
@@ -29,29 +29,29 @@ export default function DocsPage() {
           <li><strong><Link href="/quote">Get an estimate</Link></strong> is public. Chat with the assistant about tenant or car insurance and get a price range, the reasons behind it, and the questions that would tighten it.</li>
           <li><strong><Link href="/overview">The workspace</Link></strong> is for underwriters. Hand it a broker&apos;s commercial property submission and the agent reads the notes, checks them against the carrier appetite, asks the broker when something is missing, and writes a brief for you to approve or decline. It can also rank the live Federato queue.</li>
         </ul>
-        <div className="notice"><Info size={17} aria-hidden="true" />Nothing here quotes or binds coverage. Estimates use demo rate tables and cases use the supplied 2025 commercial property appetite.</div>
+        <div className="notice"><Info size={17} aria-hidden="true" />Estimates come from demo rate tables and cases use the supplied 2025 commercial property appetite. Quoting and binding stay with the carrier.</div>
 
         <h2 id="estimate">Get an estimate</h2>
-        <p>Open <Link href="/quote">Get an estimate</Link>. No account is needed. Type what you know in your own words, for example:</p>
+        <p>Open <Link href="/quote">Get an estimate</Link>. It is open to anyone. Type what you know in your own words, for example:</p>
         <pre className="code-block"><code>I rent an apartment in Toronto, my things are worth about $20,000, no claims.</code></pre>
         <p>The assistant replies with:</p>
         <ul>
           <li><strong>A price range</strong> per month and per year, in Canadian dollars.</li>
-          <li><strong>What affects the price</strong>: each factor it used and whether it pushed the price up, down, or neither.</li>
-          <li><strong>What it assumed</strong> for anything you did not mention, so you can correct it.</li>
+          <li><strong>What affects the price</strong>: each factor it used and whether it pushed the price up, down, or left it alone.</li>
+          <li><strong>What it assumed</strong> to fill the gaps, so you can correct it.</li>
           <li><strong>Questions</strong>, each with a one-line reason it is being asked.</li>
         </ul>
-        <p>If your message did not say which product you want, it asks first: tenant insurance or car insurance. If something required is missing, it asks for that before showing any price.</p>
-        <p>Answer the questions with the dropdowns and fields under the estimate and select <strong>Update estimate</strong>. Everything you have already said is remembered, so nothing is asked twice. You can also keep typing; new messages add to what the assistant already knows.</p>
-        <p>Some situations need a person. Three or more claims, unusually high-value contents, classic or very expensive vehicles, and provinces where basic auto insurance comes from the public insurer (British Columbia, Saskatchewan, Manitoba) all end with a next step instead of a price. The assistant tells you why and what to do next.</p>
-        <p>The line at the bottom of each reply names which model read your message. Only the facts it understood are saved; your text is not.</p>
+        <p>If your message leaves the product open, it asks first: tenant insurance or car insurance. If something required is missing, it asks for that before showing a price.</p>
+        <p>Answer the questions with the dropdowns and fields under the estimate and select <strong>Update estimate</strong>. Everything you have already said is remembered, so each question comes up once. You can also keep typing; new messages add to what the assistant already knows.</p>
+        <p>Some situations need a person. Three or more claims, unusually high-value contents, classic or very expensive vehicles, and provinces where basic auto insurance comes from the public insurer (British Columbia, Saskatchewan, Manitoba) all end with a next step in place of a price. The assistant tells you why and what to do next.</p>
+        <p>The line at the bottom of each reply names which model read your message. Only the facts it understood are saved.</p>
 
         <h2 id="submit">Submit a case</h2>
         <p>Sign in with an approved Google account, then choose <strong>Create case</strong> in the sidebar or <strong>Create a submission</strong> on the overview page.</p>
         <ol>
           <li><strong>Pick a sample or start blank.</strong> The sample menu has five ready-made submissions: an acceptable risk, territory and age referrals, a loss referral, a case that needs broker follow-up, and one with full appetite evidence. Use them to see each outcome without typing anything.</li>
           <li><strong>Fill in the insured.</strong> Name, state, total insured value, and, if you have them, the oldest building year and historical loss count.</li>
-          <li><strong>Add carrier appetite evidence</strong> where you know it: new or renewal business, line, premium, eligible construction percentage, five-year loss dollars, and policy dates. Leave anything unknown blank. The agent will ask rather than guess.</li>
+          <li><strong>Add carrier appetite evidence</strong> where you know it: new or renewal business, line, premium, eligible construction percentage, five-year loss dollars, and policy dates. Leave anything unknown blank. The agent asks the broker for it.</li>
           <li><strong>Paste the broker&apos;s notes.</strong> Unstructured text is fine. Optionally add a public URL about the property and the agent will visit it for extra evidence.</li>
           <li>Select <strong>Start analysis</strong>.</li>
         </ol>
@@ -64,18 +64,22 @@ export default function DocsPage() {
           <tr><td>Appetite recommendation</td><td>A match score out of 100 against the carrier appetite, a priority score for the queue, and the suggested next step.</td></tr>
           <tr><td>Listen to brief</td><td>The same brief read aloud, when the voice integration is on.</td></tr>
           <tr><td>Activity trace</td><td>Every step the agent took, in order: intake, both reads of the notes, public research, guideline checks, broker follow-ups, and review actions.</td></tr>
-          <tr><td>Extracted facts</td><td>State, insured value, year built, and loss count, each with where it came from and how confident the agent is. Facts are read twice by independent methods; when the reads disagree, that becomes a finding instead of a silent choice.</td></tr>
+          <tr><td>Extracted facts</td><td>State, insured value, year built, and loss count, each with where it came from and how confident the agent is. Facts are read twice by independent methods, and a disagreement between the reads becomes a finding of its own.</td></tr>
           <tr><td>Carrier appetite checks</td><td>Eight checks: primary risk state, total insured value, building age, total premium, submission type, line of business, construction mix, and five-year loss value. Each is <strong>pass</strong>, <strong>refer</strong>, or <strong>unknown</strong>, with the evidence and rule behind it.</td></tr>
-          <tr><td>Public-source evidence</td><td>A cited excerpt from the URL you supplied, shown as context to verify rather than as a fact.</td></tr>
+          <tr><td>Public-source evidence</td><td>A cited excerpt from the URL you supplied, shown as context for you to verify.</td></tr>
         </tbody></table>
-        <p>A <strong>refer</strong> means an underwriter should look, not that the risk is declined. An <strong>unknown</strong> is a question, not a verdict.</p>
+        <p>A <strong>refer</strong> means an underwriter should take a look. An <strong>unknown</strong> is a question for the broker.</p>
+
+        <h2 id="ask">Ask the agent</h2>
+        <p>Under the analysis there is a small conversation box. Type a question, or press <strong>Talk</strong> and say it, and the agent answers from the case record: which check to start with, where a fact came from, what it would ask the broker, how the public source lines up with the notes. Replies name their source and confidence when that matters. With <strong>Speak replies</strong> on, each answer is read aloud as well as written.</p>
+        <p>The conversation lives on the page while you keep it open. The case record stays as it is; broker replies and decisions still go through the forms below.</p>
 
         <h2 id="broker">Broker follow-up</h2>
         <p>If a required fact is missing, the case pauses at <strong>Waiting for broker</strong> and the page shows the exact question to send. When the broker answers, paste their reply into <strong>Broker response</strong> and select <strong>Add response and resume</strong>. The agent re-reads the submission with the new information, re-runs every check, and produces a fresh brief.</p>
-        <p>Paused cases keep their place. If a day passes without a reply, the trace notes that the follow-up is due; no message is sent on your behalf.</p>
+        <p>Paused cases keep their place. If a day passes with the broker still quiet, the trace notes that the follow-up is due. Sending the reminder is up to you.</p>
 
         <h2 id="decision">Approve or decline</h2>
-        <p>When a case reaches <strong>Ready for review</strong>, write your rationale under <strong>Underwriter decision</strong> and choose <strong>Approve review</strong> or <strong>Decline</strong>. The decision and your reasoning are recorded on the case permanently and appear in the trace. Approving a review is a recommendation for the file; it does not quote or bind coverage.</p>
+        <p>When a case reaches <strong>Ready for review</strong>, write your rationale under <strong>Underwriter decision</strong> and choose <strong>Approve review</strong> or <strong>Decline</strong>. The decision and your reasoning are recorded on the case permanently and appear in the trace. Approving a review is a recommendation for the file. Quoting and binding happen in the carrier's own systems.</p>
 
         <h2 id="triage">Federato triage</h2>
         <p>Open <Link href="/triage">Federato triage</Link> and select <strong>Rank live records</strong>. The agent discovers what fields the live queue exposes, reads the submissions, and ranks them against the same appetite the cases use. Large queues take a few minutes.</p>
@@ -100,13 +104,13 @@ export default function DocsPage() {
           <tr><td>Needs attention</td><td>Analysis could not finish. The reason is shown on the case.</td></tr>
         </tbody></table>
 
-        <h2 id="limits">What it will not do</h2>
+        <h2 id="limits">Where the lines are</h2>
         <ul>
-          <li>It never quotes or binds coverage. Every estimate is a demo range and every case ends with a human decision.</li>
-          <li>It only visits the public URL you give it. It does not search for or profile people, and page text is shown as evidence to verify, not treated as fact.</li>
-          <li>It does not send messages to brokers or customers. Follow-up questions are shown to you to send.</li>
-          <li>It does not keep the text you type on the estimate page, only the facts it understood.</li>
-          <li>The activity trace records what the agent did and when. It does not show or store a model&apos;s private reasoning.</li>
+          <li>Every estimate is a demo range and every case ends with a human decision. Quoting and binding stay with the carrier.</li>
+          <li>Public research goes to the one URL you supply. Page text comes back as evidence for you to verify.</li>
+          <li>Follow-up questions are written for you to send; the agent stays off email and messaging.</li>
+          <li>On the estimate page, only the facts the assistant understood are kept.</li>
+          <li>The activity trace records what the agent did and when, in the agent&apos;s own words on the page.</li>
         </ul>
 
         <h2 id="api">API</h2>
@@ -123,6 +127,8 @@ export default function DocsPage() {
         <p>Deliver a broker response (<code>kind: "broker_response"</code>) or a decision (<code>kind: "approve" | "decline"</code>) with a reason. Include a client-generated <code>id</code> so a retry is safe.</p>
         <Endpoint method="GET" path="/api/cases/{id}/audio" id="case-audio" />
         <p>The review brief as spoken audio.</p>
+        <Endpoint method="POST" path="/api/cases/{id}/chat" id="case-chat" />
+        <p>Ask the agent about a case. Send <code>text</code> with the recent <code>history</code>, or a multipart <code>audio</code> recording to be transcribed first; set <code>voice</code> to get the reply back as MP3 too.</p>
         <Endpoint method="POST" path="/api/triage" id="triage-api" />
         <p>Run a live Federato ranking and get the full report.</p>
       </article>

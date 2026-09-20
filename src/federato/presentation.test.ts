@@ -39,9 +39,9 @@ test("appetite exceptions are explained as a human review decision", () => {
     criteria: [{ concept: "state", factor: "Primary risk state", status: "outside", points: 0, maximum: 15, detail: "Observed NY; outside the accepted states.", source: "state" }],
   });
   assert.equal(result.status, "refer");
-  assert.equal(result.title, "Outside appetite — underwriting review needed");
+  assert.equal(result.title, "Outside appetite: underwriting review needed");
   assert.equal(result.action, "Refer for underwriting review: primary risk state outside appetite.");
-  assert.match(result.plainExplanation, /does not fit/);
+  assert.match(result.plainExplanation, /sits outside/);
   assert.match(result.plainExplanation, /Observed NY/);
 });
 
