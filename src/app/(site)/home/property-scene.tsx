@@ -1,14 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import {
-  Buildings,
-  ClockCounterClockwise,
-  Drop,
-  Fire,
-  HardHat,
-  Scan,
-  Warehouse,
-} from "@phosphor-icons/react/dist/ssr";
 import { RISK_SIGNALS, type RiskId } from "./demo-data";
 import type { CameraCommand, SceneInspection } from "./inspection-data";
 import { createPropertyEngine } from "./scene-engine";
@@ -26,15 +17,6 @@ type Props = {
   inspection: SceneInspection;
   expanded: boolean;
   onAvailability: (available: boolean) => void;
-};
-const ICONS = {
-  roof: HardHat,
-  flood: Drop,
-  fire: Fire,
-  construction: Buildings,
-  hazards: Warehouse,
-  business: Scan,
-  claims: ClockCounterClockwise,
 };
 const FALLBACK_POSITIONS = [
   [40, 34],
@@ -56,6 +38,9 @@ export default function PropertyScene(props: Props) {
     [hovered, setHovered] = useState<RiskId | null>(null);
   useEffect(() => {
     if (!mount.current) return;
+    let placed: { left: number; top: number }[] = [];
+    let width = 0;
+    let height = 0;
     return createPropertyEngine(mount.current, {
       getState: () => current.current,
       onReady: () => {
@@ -72,10 +57,28 @@ export default function PropertyScene(props: Props) {
       onHover: setHovered,
       onSelect: (id) => current.current.onSelect(id),
       onProject: (index, x, y, inView, nodeX, nodeY) => {
+        if (index === 0) {
+          placed = [];
+          width = mount.current?.clientWidth ?? 0;
+          height = mount.current?.clientHeight ?? 0;
+        }
         const label = labels.current[index];
         if (label) {
-          label.style.left = `${x}%`;
-          label.style.top = `${y}%`;
+          const originLeft = x * width / 100;
+          const originTop = y * height / 100;
+          let left = originLeft;
+          let top = originTop;
+          for (let attempt = 0; attempt < 97; attempt++) {
+            const radius = Math.ceil(attempt / 8) * 36;
+            const angle = attempt * Math.PI / 4;
+            left = Math.max(20, Math.min(width - 20, originLeft + Math.cos(angle) * radius));
+            top = Math.max(20, Math.min(height - 20, originTop + Math.sin(angle) * radius));
+            if (placed.every((point) => Math.hypot(left - point.left, top - point.top) >= 36)) break;
+          }
+          if (inView) placed.push({ left, top });
+          label.style.left = `${left}px`;
+          label.style.top = `${top}px`;
+          label.dataset.labelSide = left > width / 2 ? "left" : "right";
           label.style.visibility = inView ? "" : "hidden";
         }
         connections.current[index]?.setAttribute(
@@ -140,7 +143,6 @@ export default function PropertyScene(props: Props) {
       </svg>
       <div className={styles.riskMarkers} aria-label="Property risk signals">
         {RISK_SIGNALS.map((signal, index) => {
-          const Icon = ICONS[signal.id];
           const visible =
             props.showSignals &&
             (props.elapsed >= signal.revealAt ||
@@ -158,24 +160,23 @@ export default function PropertyScene(props: Props) {
               }
               onMouseEnter={() => setHovered(signal.id)}
               onMouseLeave={() => setHovered(null)}
-              aria-label={`${signal.label}: ${signal.value}. Inspect evidence.`}
+              aria-label={`${index + 1}. ${signal.label}: ${signal.value}. Inspect evidence.`}
               aria-pressed={props.selected === signal.id}
               tabIndex={visible ? 0 : -1}
               aria-hidden={!visible}
-              className={`${styles.riskMarker} ${visible ? styles.markerVisible : ""} ${signal.severity === "attention" ? styles.markerAttention : ""} ${hovered === signal.id || props.selected === signal.id ? styles.markerExpanded : ""} ${["roof", "flood", "hazards"].includes(signal.id) ? styles.markerLabeled : ""}`}
+              className={`${styles.riskMarker} ${visible ? styles.markerVisible : ""} ${signal.severity === "attention" ? styles.markerAttention : ""} ${hovered === signal.id || props.selected === signal.id ? styles.markerExpanded : ""}`}
               style={{
                 left: `${FALLBACK_POSITIONS[index][0]}%`,
                 top: `${FALLBACK_POSITIONS[index][1]}%`,
               }}
             >
               <span className={styles.markerIcon}>
-                <Icon size={13} />
+                {index + 1}
               </span>
               <span className={styles.markerText}>
                 <strong>{signal.shortLabel}</strong>
                 <small>{signal.value}</small>
               </span>
-              <span className={styles.markerStem} />
             </button>
           );
         })}

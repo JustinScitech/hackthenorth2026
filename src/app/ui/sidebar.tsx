@@ -3,9 +3,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Briefcase, CaretRight, Globe, List, ListNumbers, Moon, Plus, Receipt, SignOut, Sliders, SquaresFour, Sun, Tray, X } from "@phosphor-icons/react/dist/ssr";
+import { BookOpen, Briefcase, CaretRight, List, ListNumbers, Moon, Plus, Receipt, SignOut, Sliders, SquaresFour, Sun, Tray, X } from "@phosphor-icons/react/dist/ssr";
 import { useTheme } from "./theme";
-import { Wordmark } from "./logo";
+import { Mark, Wordmark } from "./logo";
 import { authClient } from "@/lib/auth-client";
 
 function Brand() {
@@ -84,7 +84,7 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
         </nav>
         <div className="sidebar-bottom">
           <NavLink href="/docs" active={false}><BookOpen size={17} />Docs and API reference</NavLink>
-          <NavLink href="/" active={false}><Globe size={17} />Astra Risk home</NavLink>
+          <NavLink href="/" active={false}><Mark size={17} />Home</NavLink>
           <div className="sidebar-user"><span className="avatar" aria-hidden="true">{(user.name || user.email).slice(0, 1).toUpperCase()}</span><span className="sidebar-user-details"><strong>{user.name || user.email}</strong><small>{user.email}</small></span><button className="icon-button" type="button" onClick={() => void signOut()} disabled={signingOut} aria-label="Sign out" title="Sign out"><SignOut size={16} /></button></div>
           {signOutError && <p className="sidebar-auth-error" role="alert">Could not sign out. Try again.</p>}
         </div>

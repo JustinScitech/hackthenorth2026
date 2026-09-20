@@ -43,7 +43,7 @@ export const CAMERA_VIEWS: Record<CameraPreset, View & { label: string }> = {
     label: "Inside the E7 atrium",
     yaw: 1.53,
     pitch: 1.3,
-    zoom: 2.1,
+    zoom: 1.15,
     target: [0, 3.7, -3.05],
   },
 };
