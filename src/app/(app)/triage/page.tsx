@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle, DownloadSimple, Info, ListNumbers, Printer, Warning, WarningCircle } from "@phosphor-icons/react/dist/ssr";
 import type { TriageReport } from "@/federato/triage";
 import { rankingExplanation, resourceLabels, summarizeSubmission } from "@/federato/presentation";
+import { buildReviewPlan, summarizeQueue } from "@/federato/review-plan";
 
 type Report = Omit<TriageReport, "schema">;
 export default function TriagePage() {
@@ -39,6 +40,7 @@ export default function TriagePage() {
   }
   const rows = report ? showAll ? report.ranked : report.topSubmissions : [];
   const labels = report ? resourceLabels(report.resource) : null;
+  const queue = report ? summarizeQueue(report.ranked) : null;
   return <main className="shell triage-page">
     <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><span className="current">Federato triage</span></p>
     <div className="page-heading triage-heading">
@@ -58,6 +60,10 @@ export default function TriagePage() {
       {report.enrichmentComplete === false && <p className="notice">Policy lookup was partial, so the ranking relies on submission data alone.</p>}
       {report.ranked.length > 0 && report.ranked.every((item) => item.criteria.some((criterion) => criterion.status === "outside")) && <div className="notice"><Warning size={17} aria-hidden="true" />Every evaluated record has at least one appetite exception, so this list shows the closest fits in scope.</div>}
       {report.truncated && <div className="notice"><Info size={17} aria-hidden="true" />Partial ranking: the 1,000-record limit was reached. Results cover only the evaluated records.</div>}
+      {queue && <section className="queue-health" aria-label="Queue review status">
+        <dl><div><dt>Ready for review</dt><dd>{queue.ready}</dd></div><div><dt>Needs information</dt><dd>{queue.incomplete}</dd></div><div><dt>Appetite exceptions</dt><dd>{queue.exceptions}</dd></div></dl>
+        <p className="subtle">Across all evaluated records. {queue.withEvidenceGaps} also have evidence gaps, including records with exceptions. Ready for review does not mean approved.</p>
+      </section>}
       <details className="triage-plan popup">
         <summary>Query reasoning and scoring method</summary>
         <div className="triage-plan-body">
@@ -73,10 +79,16 @@ export default function TriagePage() {
       <p className="subtle triage-ranking-note">{rankingExplanation}</p>
       {!rows.length && <div className="card"><p className="empty-state">The API returned an empty queue.</p></div>}
       <div className="triage-list">
-        {rows.map((item, index) => { const summary = summarizeSubmission(item); const Icon = summary.status === "positive" ? CheckCircle : summary.status === "refer" ? Warning : WarningCircle; return <article key={item.id} className="triage-card card">
+        {rows.map((item, index) => { const summary = summarizeSubmission(item); const plan = buildReviewPlan(item); const Icon = summary.status === "positive" ? CheckCircle : summary.status === "refer" ? Warning : WarningCircle; return <article key={item.id} className="triage-card card">
           <div className="card-header"><h2><span className="rank" aria-label={`Rank ${index + 1}`}>{index + 1}</span>{item.account}</h2><div className="triage-scores"><div><span className="subtle">Match score</span><span className="score">{item.rawScore}<small>/100</small></span></div><p className="subtle">Priority score: {item.score}/100</p></div></div>
           <p className="subtle triage-provenance">Lifecycle status: {item.lifecycleStatus}. {item.evidenceNote}</p>
           <div className="card-body"><div className={`decision-banner decision-${summary.status}`}><Icon size={18} aria-hidden="true" /><div><strong>{summary.title}</strong><span>{summary.plainExplanation}</span></div></div><p className="next-action"><strong>Next step:</strong> {summary.action}</p><div className="plain-facts">{summary.strengths.length > 0 && <div><strong>What supports this:</strong> {summary.strengths.join(", ")}</div>}{summary.questions.length > 0 && <div><strong>What to check:</strong> {summary.questions.join(", ")}</div>}</div><details className="technical-detail"><summary>Show the detailed reasoning</summary><p className="subtle" style={{ marginBottom: 10 }}><span className="annotation">{labels?.singular} {item.id}</span> {item.recommendation}</p><p>{item.explanation}</p></details></div>
+          <details className="review-plan"><summary>Review checklist · {plan.exceptions} exceptions · {plan.gaps} evidence gaps</summary>
+            <div className="review-plan-body"><p className="subtle">{plan.assessed} of {plan.total} appetite factors can be assessed from supplied data. This measures availability, not independent verification or approval.</p>
+              {plan.tasks.length ? <ol>{plan.tasks.map((task) => <li key={`${task.kind}-${task.factor}`}><strong>{task.kind === "exception" ? "Refer" : "Clarify"}: {task.factor}</strong><p>{task.action}</p><details><summary>Evidence behind this task</summary><p>{task.reason}</p><p className="subtle">Source: {task.source ?? "Required submission context; no supporting field available"}</p></details></li>)}</ol> : <p>No unresolved appetite checks. Confirm source accuracy before an underwriter makes the final decision.</p>}
+              <p className="subtle">Checklist only: no documents have been requested and no exceptions have been approved.</p>
+            </div>
+          </details>
           <details><summary>Appetite breakdown and data sources</summary><div className="triage-table-wrap"><table className="triage-table"><thead><tr><th>Factor</th><th>Result</th><th>Points</th><th>Evidence and rule</th></tr></thead><tbody>{item.criteria.map((criterion) => <tr key={criterion.factor}><th scope="row">{criterion.factor}</th><td>{criterion.status}</td><td>{criterion.points}/{criterion.maximum}</td><td>{criterion.detail}<small>Source: {criterion.source}</small></td></tr>)}</tbody></table></div></details>
         </article>; })}
       </div>

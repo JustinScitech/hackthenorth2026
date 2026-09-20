@@ -10,6 +10,9 @@ test("triage UI exposes underwriting recommendation and appetite evidence", asyn
   await page.getByRole("button", { name: "Rank live records" }).click();
   await expect(page.getByRole("heading", { name: "New property" })).toBeVisible();
   await expect(page.getByText("Good match for review")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Queue review status" })).toContainText("Ready for review does not mean approved");
+  await page.getByText("Review checklist · 0 exceptions · 0 evidence gaps").click();
+  await expect(page.getByText("No unresolved appetite checks.", { exact: false })).toBeVisible();
   await expect(page.getByText("New property matches the supplied carrier guidelines on the available information.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Print / save PDF" })).toBeVisible();
   await page.evaluate(() => { window.print = () => { (window as Window & { __printCalled?: boolean }).__printCalled = true; }; });
