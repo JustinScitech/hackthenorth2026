@@ -607,6 +607,10 @@ select { width: auto; padding-right: 30px; appearance: none; background-image: l
   /* Opacity-only pulses carry no motion, so the agent's live state stays visible (Remote Desktop sessions report reduced motion). */
   .message-live::before, .working-rail li[data-state="active"] .working-step, .thinking li.is-current::before, .analysis-trace.is-working .trace-list li:last-child::before, .status-received .status-dot, .status-extracting .status-dot, .status-checking .status-dot, .pending-tag::before { animation: pulse 1.4s ease-in-out infinite !important; }
   .working-ellipsis::after { animation: ellipsis 1.5s steps(4, end) infinite !important; }
+  /* The travelling segment would otherwise freeze at one spot and look broken; show the whole outline breathing instead. */
+  .ring i { background: var(--accent); transform: translate(-50%, -50%); animation: none !important; }
+  .ring { animation: pulse 1.6s ease-in-out infinite !important; }
+  .is-stalled .ring i { background: var(--amber-ink); }
 }
 
 /* Sentry telemetry panel on /overview: stat tiles with a detail line, a daily eval chart, and span tables. */
