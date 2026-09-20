@@ -28,6 +28,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const caseRecord = await getCase(id);
     if (!caseRecord) return NextResponse.json({ error: "Case not found." }, { status: 404 });
+    if (caseRecord.status === "stopped") return NextResponse.json({ error: "This analysis was stopped." }, { status: 409 });
     const action = parsed.data;
     const sourceKey = action.kind === "broker_response"
       ? `cases/${id}/responses/${action.id}-${createHash("sha256").update(action.response).digest("hex")}.txt`

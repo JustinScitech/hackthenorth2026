@@ -17,9 +17,10 @@ function withChatSignatures(report: StoredTriageReport) {
   return { ...report, chatSignatures: recent ? Object.fromEntries(report.ranked.map((item) => [item.id, signReviewItem(report.resource, report.generatedAt, item)])) : {} };
 }
 
-async function rankQueue(progress?: Parameters<typeof runTriage>[2]) {
+async function rankQueue(progress?: Parameters<typeof runTriage>[2], signal?: AbortSignal) {
   const { client, options } = liveConfiguration();
-  const { schema: _schema, ...result } = await runTriage(client, options, progress);
+  const { schema: _schema, ...result } = await runTriage(client, { ...options, signal }, progress);
+  signal?.throwIfAborted();
   try { await saveTriageReport(result); }
   catch (error) { console.warn("Ranked queue was served without being saved", error instanceof Error ? error.name : "UnknownError"); }
   return withChatSignatures(result);
@@ -44,13 +45,13 @@ export async function POST(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin || origin !== new URL(request.url).origin) return Response.json({ error: "Use the queue page on this site." }, { status: 403 });
   if (request.headers.get("accept")?.includes("text/event-stream")) {
-    return createEventStream<ReviewStreamEvent<unknown>>(async (emit) => {
-      try { emit({ type: "result", data: await rankQueue((data) => emit({ type: "progress", data })) }); }
+    return createEventStream<ReviewStreamEvent<unknown>>(async (emit, signal) => {
+      try { emit({ type: "result", data: await rankQueue((data) => emit({ type: "progress", data }), signal) }); }
       catch (error) { emit({ type: "error", data: { error: error instanceof Error ? error.message : "Federato triage failed." } }); }
     }, request.signal);
   }
   try {
-    return Response.json(await rankQueue(), { headers: noStore });
+    return Response.json(await rankQueue(undefined, request.signal), { headers: noStore });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Federato triage failed." }, { status: 502, headers: noStore });
   }

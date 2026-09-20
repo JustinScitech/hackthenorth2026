@@ -11,9 +11,10 @@ export type CaseStatus =
   | "review_ready"
   | "approved"
   | "declined"
-  | "failed";
+  | "failed"
+  | "stopped";
 
-export type JobStatus = "QUEUED" | "RUNNING" | "WAITING" | "COMPLETED" | "FAILED";
+export type JobStatus = "QUEUED" | "RUNNING" | "WAITING" | "COMPLETED" | "FAILED" | "STOPPED";
 
 /** A source that stated a value for a fact, kept when sources disagree so the reviewer sees the alternatives. */
 export type FactCandidate<T> = { source: string; value: T; quote?: string };

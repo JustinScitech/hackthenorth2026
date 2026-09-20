@@ -13,6 +13,36 @@ test("triage accepts the shared live event stream", async ({ authenticatedPage: 
   await expect(page.getByText("1 of 1")).toBeVisible();
 });
 
+test("stopping a streamed ranking aborts the run and keeps the queue empty", async ({ authenticatedPage: page }) => {
+  await page.route("**/api/triage", async (route) => {
+    if (route.request().method() === "GET") await route.fulfill({ status: 200, contentType: "application/json", body: '{"report":null}' });
+    else await route.continue();
+  });
+  await page.goto("/triage");
+  await page.evaluate(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      if (input !== "/api/triage" || init?.method !== "POST") return originalFetch(input, init);
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('data: {"type":"progress","data":{"stage":"reading","message":"Reading Submission records"}}\n\n'));
+          init.signal?.addEventListener("abort", () => {
+            (window as Window & { __triageAborted?: boolean }).__triageAborted = true;
+            controller.error(new DOMException("The operation was aborted.", "AbortError"));
+          }, { once: true });
+        },
+      });
+      return Promise.resolve(new Response(body, { headers: { "Content-Type": "text/event-stream" } }));
+    };
+  });
+  await page.getByRole("button", { name: "Rank the live queue" }).first().click();
+  await expect(page.getByText("Reading Submission records")).toBeVisible();
+  await page.getByRole("button", { name: "Stop ranking" }).click();
+  await expect(page.getByRole("status")).toHaveText("Live ranking stopped.");
+  await expect.poll(() => page.evaluate(() => (window as Window & { __triageAborted?: boolean }).__triageAborted)).toBe(true);
+  await expect(page.getByText("The queue has yet to be ranked.")).toBeVisible();
+});
+
 test("the queue explains each submission, exports it, and opens it as a case the agent works", async ({ authenticatedPage: page }) => {
   test.setTimeout(90_000);
   // A fresh id each run: the queue offers "Open case" instead of "Open as case" once a submission has a case.
@@ -80,6 +110,8 @@ test("real cases share carrier scoring, distinguish renewals, and rank the queue
     expect(record.appetiteResult.missingData).toEqual([]);
     // Public property records may move the priority score; the appetite-only score is what the guideline pins.
     expect(record.appetiteResult.baseScore ?? record.appetiteResult.score).toBe(business === "new" ? 94 : 49);
+    expect(record.appetiteResult.score).toBeGreaterThanOrEqual(0);
+    expect(record.appetiteResult.score).toBeLessThanOrEqual(100);
     expect(record.appetiteResult.rawScore).toBe(business === "new" ? 94 : 86);
     if (business === "new") {
       const recommendation = page.getByRole("region", { name: "Where this stands" });

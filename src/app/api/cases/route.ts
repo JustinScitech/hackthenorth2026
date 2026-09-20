@@ -25,7 +25,8 @@ const createSchema = z.object({
   yearBuilt: z.number().int().min(1800).max(new Date().getFullYear()).nullable(),
   losses: z.number().int().min(0).max(1000).nullable(),
   appetite: caseAppetiteSchema.optional(),
-  brokerNotes: z.string().trim().min(10).max(20_000),
+  brokerNotes: z.string().trim().min(10).max(40_000),
+  sourceFilename: z.string().trim().min(1).max(200).optional(),
   publicSourceUrl: z.url().max(2000).nullable(),
   origin: originSchema.optional(),
   address: z.string().trim().min(5).max(200).nullable().optional(),
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
       await enqueueJob(id, "analyze", `analyze:${id}:0`, {}, 0, client);
       await client.query(
         "INSERT INTO audit_events (case_id, event_type, event_key, detail) VALUES ($1, 'case_created', $2, $3)",
-        [id, `created:${id}`, JSON.stringify({ source: parsed.data.origin ? "federato_queue" : "intake_form", documentStore: "mongodb", ...(parsed.data.origin ? { origin: parsed.data.origin } : {}) })],
+        [id, `created:${id}`, JSON.stringify({ source: parsed.data.origin ? "federato_queue" : parsed.data.sourceFilename ? "uploaded_pdf" : "intake_form", filename: parsed.data.sourceFilename, documentStore: "mongodb", ...(parsed.data.origin ? { origin: parsed.data.origin } : {}) })],
       );
       await client.query("COMMIT");
     } catch (error) {

@@ -19,7 +19,9 @@ export async function enqueueJob(caseId: string, kind: JobKind, key: string, pay
   );
 }
 
-export async function caseJobStatus(caseId: string): Promise<"QUEUED" | "RUNNING" | "WAITING" | "COMPLETED" | "FAILED"> {
+export async function caseJobStatus(caseId: string): Promise<"QUEUED" | "RUNNING" | "WAITING" | "COMPLETED" | "FAILED" | "STOPPED"> {
+  const record = await getCase(caseId);
+  if (record?.status === "stopped") return "STOPPED";
   const result = await db.query(
     `SELECT status, kind, (lease_until > now()) AS leased FROM case_jobs WHERE case_id = $1 AND finished_at IS NULL
      ORDER BY created_at DESC LIMIT 1`, [caseId],
@@ -29,7 +31,6 @@ export async function caseJobStatus(caseId: string): Promise<"QUEUED" | "RUNNING
     if (row.status === "running" && row.leased) return "RUNNING";
     if (row.kind !== "broker_follow_up") return "QUEUED";
   }
-  const record = await getCase(caseId);
   if (record?.status === "failed") return "FAILED";
   if (record?.status === "approved" || record?.status === "declined") return "COMPLETED";
   return "WAITING";

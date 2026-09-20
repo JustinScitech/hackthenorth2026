@@ -35,7 +35,7 @@ export type Query = {
   sort?: { field: string; direction?: "asc" | "desc" }[];
   pagination?: { limit?: number; offset?: number };
 };
-export interface DataClient { schema(): Promise<unknown>; query(query: Query): Promise<{ rows: Record<string, unknown>[]; total: number }> }
+export interface DataClient { schema(signal?: AbortSignal): Promise<unknown>; query(query: Query, signal?: AbortSignal): Promise<{ rows: Record<string, unknown>[]; total: number }> }
 
 export class FederatoClient implements DataClient {
   private token?: { value: string; expiresAt: number };
@@ -44,10 +44,11 @@ export class FederatoClient implements DataClient {
     this.endpoints = validateEndpoints(endpoints);
     if (!credentials.clientId || !credentials.clientSecret) throw new Error("Set FEDERATO_CLIENT_ID and FEDERATO_CLIENT_SECRET on the server to run live triage.");
   }
-  private async accessToken(): Promise<string> {
+  private async accessToken(signal?: AbortSignal): Promise<string> {
+    signal?.throwIfAborted();
     if (this.token && this.token.expiresAt > Date.now() + 60_000) return this.token.value;
     const response = await this.request(this.endpoints.authUrl, {
-      method: "POST", headers: { "Content-Type": "application/json" }, redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20_000),
+      method: "POST", headers: { "Content-Type": "application/json" }, redirect: "error", cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000),
       body: JSON.stringify({ client_id: this.credentials.clientId, client_secret: this.credentials.clientSecret, audience: this.endpoints.audience, grant_type: "client_credentials" }),
     });
     if (!response.ok) throw new Error(`Federato authentication failed (HTTP ${response.status}). Check the organizer-issued credentials.`);
@@ -56,16 +57,18 @@ export class FederatoClient implements DataClient {
     this.token = { value: parsed.data.access_token, expiresAt: Date.now() + parsed.data.expires_in * 1000 };
     return this.token.value;
   }
-  private async call(action: "schema" | "query", payload?: Query): Promise<unknown> {
+  private async call(action: "schema" | "query", payload?: Query, signal?: AbortSignal): Promise<unknown> {
     for (let attempt = 0; attempt < 3; attempt++) {
-      const token = await this.accessToken();
+      signal?.throwIfAborted();
+      const token = await this.accessToken(signal);
       const response = await this.request(this.endpoints.handlerUrl, {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action, ...(payload ? { payload } : {}) }),
-        redirect: "error", cache: "no-store", signal: AbortSignal.timeout(25_000),
+        redirect: "error", cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(25_000)]) : AbortSignal.timeout(25_000),
       });
       if (response.status === 401 && attempt === 0) { this.token = undefined; continue; }
       if ((response.status === 429 || response.status >= 500) && attempt < 2) {
+        signal?.throwIfAborted();
         const retry = Number(response.headers.get("retry-after"));
         await new Promise((resolve) => setTimeout(resolve, Math.min(5000, Math.max(500, Number.isFinite(retry) ? retry * 1000 : 500 * 2 ** attempt))));
         continue;
@@ -79,9 +82,9 @@ export class FederatoClient implements DataClient {
     }
     throw new Error("Federato request retry limit reached.");
   }
-  schema() { return this.call("schema"); }
-  async query(query: Query) {
-    const result = await this.call("query", query);
+  schema(signal?: AbortSignal) { return this.call("schema", undefined, signal); }
+  async query(query: Query, signal?: AbortSignal) {
+    const result = await this.call("query", query, signal);
     // Ungrouped live queries use results; grouped examples in the guide use groups.
     const rows = z.array(z.record(z.string(), z.unknown()));
     const parsed = z.union([

@@ -14,6 +14,7 @@ import { AgentChat, type ChatTurn } from "./agent-chat";
 import { loadCases } from "./load-cases";
 import { ReviewActivity } from "./review-activity";
 import { ReviewResult } from "./review-result";
+import { PdfTriage } from "./pdf-triage";
 
 type Row = { item: RankedSubmission; rank: number; step: NextStep; property: boolean };
 type LineFilter = "property" | "all";
@@ -40,6 +41,8 @@ export function Queue() {
   const [report, setReport] = useState<Report | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(true);
   const [ranking, setRanking] = useState(false);
+  const [stopped, setStopped] = useState(false);
+  const runController = useRef<AbortController | null>(null);
   const [error, setError] = useState("");
   const [line, setLine] = useState<LineFilter>("property");
   const [bucket, setBucket] = useState<BucketFilter>("all");
@@ -76,23 +79,28 @@ export function Queue() {
   async function rank() {
     if (rankingRef.current) return;
     rankingRef.current = true;
-    setRanking(true); setError(""); setOpenError(""); setActivity([]); setSelectedId(null); setChatTurns([]);
+    const controller = new AbortController();
+    runController.current = controller;
+    setRanking(true); setStopped(false); setError(""); setOpenError(""); setActivity([]); setSelectedId(null); setChatTurns([]);
     try {
-      const response = await fetch("/api/triage", { method: "POST", headers: { Accept: "text/event-stream" } });
+      const response = await fetch("/api/triage", { method: "POST", headers: { Accept: "text/event-stream" }, signal: controller.signal });
       if (response.headers.get("content-type")?.includes("text/event-stream")) {
         let completed = false;
         await readReviewStream<Report>(response, (event) => {
+          if (controller.signal.aborted) return;
           if (event.type === "progress") setActivity((current) => [...current, { ...event.data, id: String(current.length) }]);
           if (event.type === "result") { completed = true; setReport(event.data); setBucket("all"); }
         });
+        controller.signal.throwIfAborted();
         if (!completed) throw new Error("The live review was interrupted. Run it again.");
       } else {
         const data = await response.json() as Report & { error?: string };
+        controller.signal.throwIfAborted();
         if (!response.ok) throw new Error(data.error ?? "Unable to rank the queue.");
         setReport(data); setBucket("all");
       }
-    } catch (err) { setError(err instanceof Error ? err.message : "Unable to rank the queue."); }
-    finally { rankingRef.current = false; setRanking(false); }
+    } catch (err) { if (controller.signal.aborted) setStopped(true); else setError(err instanceof Error ? err.message : "Unable to rank the queue."); }
+    finally { if (runController.current === controller) runController.current = null; rankingRef.current = false; setRanking(false); }
   }
 
   async function openCase(row: Row) {
@@ -133,13 +141,15 @@ export function Queue() {
     <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><span className="current">Queue</span></p>
     <div className="page-heading triage-heading">
       <div><p className="eyebrow">Federato · live</p><h1>Queue</h1><p className="subtle">Every submission in the carrier&apos;s queue, read against the 2025 commercial property appetite. Each row says where it stands, why, and what would change it.</p></div>
-      <button className="primary-button" onClick={rank} disabled={ranking || exporting}><ListNumbers size={16} />{ranking ? "Reading the queue…" : report ? "Rank again" : "Rank the live queue"}</button>
+      <div className="actions"><button className="primary-button" onClick={rank} disabled={ranking || exporting}><ListNumbers size={16} />{ranking ? "Reading the queue…" : report ? "Rank again" : "Rank the live queue"}</button>{ranking && <button className="quiet-button" type="button" onClick={() => runController.current?.abort()}>Stop ranking</button>}</div>
     </div>
     <div aria-live="polite">
       {(ranking || activity.length > 0) && <ReviewActivity events={activity} working={ranking} />}
+      {stopped && <div className="notice" role="status">Live ranking stopped.</div>}
       {error && <div role="alert" className="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
       {openError && <div role="alert" className="alert"><WarningCircle size={17} aria-hidden="true" />{openError}</div>}
     </div>
+    <PdfTriage />
     {!report && !ranking && !loadingLatest && !error && <div className="card"><div className="panel-empty"><span className="empty-icon"><ListNumbers size={22} /></span><strong>The queue has yet to be ranked.</strong><p>Rank it once and every submission gets a disposition, a one-line reason, and a next step. The result stays here for the next visit.</p><button className="primary-button accent" type="button" onClick={rank}>Rank the live queue</button></div></div>}
     {!report && loadingLatest && <p className="subtle">Loading the last ranked queue…</p>}
     {report && <>

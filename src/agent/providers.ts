@@ -16,14 +16,16 @@ export function errorCode(error: unknown): number | undefined {
 
 const transient = (status: number | undefined) => status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 
-export type CallOptions = { retries?: number; timeoutMs?: number };
+export type CallOptions = { retries?: number; timeoutMs?: number; signal?: AbortSignal };
 
-async function withRetries(call: () => Promise<JsonResponse>, retries = 3): Promise<JsonResponse> {
+async function withRetries(call: () => Promise<JsonResponse>, retries = 3, signal?: AbortSignal): Promise<JsonResponse> {
   for (let attempt = 0; attempt < retries; attempt++) {
+    signal?.throwIfAborted();
     try {
       const response = await call();
       return { ...response, attemptCount: attempt + 1 };
     } catch (error) {
+      signal?.throwIfAborted();
       if (!transient(errorCode(error)) || attempt === retries - 1) throw error;
       await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
     }
@@ -42,11 +44,11 @@ export function geminiJson(model: string, prompt: string, text: string, options:
   return withRetries(() => traceModelCall("gemini", model, async () => {
     const response = await gemini.models.generateContent({
       model, contents: `${prompt}\n\n${text.slice(0, 20_000)}`,
-      config: { responseMimeType: "application/json", httpOptions: { timeout: options.timeoutMs ?? 45_000 } },
+      config: { responseMimeType: "application/json", abortSignal: options.signal, httpOptions: { timeout: options.timeoutMs ?? 45_000 } },
     });
     const meta = response.usageMetadata;
     return { text: response.text, modelVersion: response.modelVersion, usage: meta ? { input: meta.promptTokenCount ?? 0, output: (meta.candidatesTokenCount ?? 0) + (meta.thoughtsTokenCount ?? 0) } : undefined };
-  }), options.retries);
+  }), options.retries, options.signal);
 }
 
 export type ChatContent = { role: "user" | "model"; text: string };
@@ -61,7 +63,7 @@ export function geminiText(model: string, system: string, contents: ChatContent[
       config: { systemInstruction: system, httpOptions: { timeout: options.timeoutMs ?? 45_000 } },
     });
     return { text: response.text, modelVersion: response.modelVersion };
-  }), options.retries);
+  }), options.retries, options.signal);
 }
 
 /** Streams visible reply text from the same model and prompt path used for a complete answer. */
@@ -101,10 +103,10 @@ export function openaiJson(model: string, prompt: string, text: string, schema: 
         messages: [{ role: "system", content: prompt }, { role: "user", content: text.slice(0, 20_000) }],
         response_format: { type: "json_schema", json_schema: { name: "extraction", strict: true, schema } },
       }),
-      signal: AbortSignal.timeout(options.timeoutMs ?? 45_000),
+      signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs ?? 45_000)]) : AbortSignal.timeout(options.timeoutMs ?? 45_000),
     });
     if (!response.ok) throw Object.assign(new Error(`OpenAI HTTP ${response.status}`), { status: response.status });
     const body = await response.json() as { model?: string; choices?: { message?: { content?: string | null } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     return { text: body.choices?.[0]?.message?.content ?? undefined, modelVersion: body.model, usage: body.usage ? { input: body.usage.prompt_tokens ?? 0, output: body.usage.completion_tokens ?? 0 } : undefined };
-  }), options.retries);
+  }), options.retries, options.signal);
 }
