@@ -44,14 +44,19 @@ test("Gemini waterfall uses the next model after a transient failure", async () 
   assert.equal(attempts[1].reading?.yearBuilt.quote, "The building was constructed in 2005 and had no losses in the past three years.");
 });
 
-test("Gemini waterfall stops on project quota errors", async () => {
+test("Gemini waterfall moves past a model that is out of quota and stops on a bad key", async () => {
   const called: string[] = [];
   const attempts = await runGeminiWaterfall(async (model) => {
     called.push(model);
-    throw { status: 429 };
+    if (model === GEMINI_WATERFALL[0]) throw { status: 429 };
+    return { text: '{"yearBuilt":{"value":1988,"quote":null},"losses":{"value":3,"quote":null}}' };
   });
-  assert.deepEqual(called, [GEMINI_WATERFALL[0]]);
-  assert.equal(attempts[0].errorCode, 429);
+  assert.deepEqual(called, GEMINI_WATERFALL.slice(0, 2));
+  assert.deepEqual(attempts.map((attempt) => attempt.errorCode), [429, undefined]);
+  const denied: string[] = [];
+  const stopped = await runGeminiWaterfall(async (model) => { denied.push(model); throw { status: 401 }; });
+  assert.deepEqual(denied, [GEMINI_WATERFALL[0]]);
+  assert.equal(stopped[0].errorCode, 401);
 });
 
 test("Gemini waterfall reaches the fourth model when earlier models fail", async () => {
@@ -79,7 +84,7 @@ test("malformed JSON and non-object responses fail the attempt, not the job, and
 test("only recoverable Gemini errors fall through", () => {
   assert.equal(shouldFallThroughGeminiError({ status: 503 }), true);
   assert.equal(shouldFallThroughGeminiError({ status: 404 }), true);
-  assert.equal(shouldFallThroughGeminiError({ status: 429 }), false);
+  assert.equal(shouldFallThroughGeminiError({ status: 429 }), true);
   assert.equal(shouldFallThroughGeminiError({ status: 401 }), false);
   assert.equal(shouldFallThroughGeminiError({ status: 400 }), false);
 });

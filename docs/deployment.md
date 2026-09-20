@@ -57,6 +57,8 @@ Create the index once per Atlas cluster, either with `npm run mongo:vector-index
 }
 ```
 
+Cases analysed before this feature was deployed are not in `case_memory` until they are re-checked or decided; `npm run mongo:backfill-memory` embeds every analysed case once (decided cases first, one embedding call each, `BACKFILL_PAUSE_MS` apart) so existing decisions count as precedent right away.
+
 The `status` filter field lets the query ask only for approved or declined cases. The MongoDB client runs the Stable API without strict mode because `$vectorSearch` is outside the Stable API. `npm run eval -- --suite similar-cases` exercises the Atlas path only when `MONGODB_URI` is an Atlas URI; the run writes and removes twelve `eval-similar-*` documents in `case_memory`.
 
 ## Vercel without a worker

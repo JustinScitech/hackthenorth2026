@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { BROKER_UPDATE_SEPARATOR } from "./analysis";
-import { EXTRACTION_FIELDS, EXTRACTION_PROMPT, FIELD_LABELS, emptyReading, openaiSchema, parseModelOutput, parserReading, quoteInText, readingValues, resolveReadings } from "./extraction-schema";
+import { EXTRACTION_FIELDS, EXTRACTION_PROMPT, FIELD_LABELS, coerceNumber, emptyReading, openaiSchema, parseModelOutput, parserReading, quoteInText, readingValues, resolveReadings } from "./extraction-schema";
 
 const note = "Business type: new\nLine of business: Property\nPremium: $85,000\nEligible construction percent: 75%\nFive-year loss value: $12,000\nFive-year history complete: yes\nEffective date: 2026-01-01\nExpiration date: 2027-01-01\nThe warehouse was constructed in 2005. No losses in the past three years.";
 
@@ -48,7 +48,7 @@ test("malformed fields are dropped one at a time instead of failing the reading"
     losses: { value: -1, quote: "No losses in the past three years." },
     business: { value: "renewal business", quote: "Business type: new" },
     line: { value: 42, quote: null },
-    premium: { value: "85k", quote: "Premium: $85,000" },
+    premium: { value: "eighty-five thousand", quote: "Premium: $85,000" },
     constructionPercent: { value: 175, quote: "Eligible construction percent: 75%" },
     lossValue: { value: 12000, quote: "Five-year loss value: $12,000" },
     lossHistoryComplete: { value: "yes", quote: "Five-year history complete: yes" },
@@ -142,4 +142,26 @@ test("resolveReadings runs every field through the resolver with models ahead of
   assert.equal(fields.business.conflict, "Business type differs: Gemini gemini-3.8-flash renewal, Parser new.");
   assert.deepEqual([fields.lossValue.value, fields.lossValue.source, fields.lossValue.quote], [12000, "Parser", "Five-year loss value: $12,000"]);
   assert.deepEqual([fields.losses.value, fields.losses.confidence], [0, 0.6]);
+});
+
+test("numbers a model writes as text are read the way a broker writes them, and words stay malformed", () => {
+  assert.deepEqual(["$48,000", "48k", "48K", "$1.2M", "70%", "2005", " 85,000.50 "].map(coerceNumber), [48_000, 48_000, 48_000, 1_200_000, 70, 2005, 85_000.5]);
+  assert.deepEqual(["forty-eight thousand", "48k-ish", "", "1e5", "$"].map(coerceNumber), ["forty-eight thousand", "48k-ish", "", "1e5", "$"]);
+  assert.equal(coerceNumber(48_000), 48_000);
+  assert.equal(coerceNumber(null), null);
+  const prose = "Premium's about 48k for the year. Roughly 70% of the schedule is masonry. Five-year losses total $1.2M. Built in 2005.";
+  const reading = parseModelOutput({
+    premium: { value: "48k", quote: "Premium's about 48k for the year." },
+    constructionPercent: { value: "70%", quote: "Roughly 70% of the schedule is masonry." },
+    lossValue: { value: "$1.2M", quote: "Five-year losses total $1.2M." },
+    yearBuilt: { value: "2005", quote: "Built in 2005." },
+    losses: { value: "3k", quote: null },
+    business: { value: "48k", quote: null },
+  }, prose);
+  assert.ok(reading);
+  assert.deepEqual([reading.premium.value, reading.constructionPercent.value, reading.lossValue.value, reading.yearBuilt.value], [48_000, 70, 1_200_000, 2005]);
+  assert.equal(reading.premium.quote, "Premium's about 48k for the year.");
+  assert.equal(reading.losses.value, null, "a coerced number still has to pass the field's own range");
+  assert.equal(reading.business.value, null, "only numeric fields are coerced");
+  assert.match(EXTRACTION_PROMPT, /about 48k/);
 });

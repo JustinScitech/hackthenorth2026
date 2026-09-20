@@ -1,6 +1,6 @@
 import type { AuditEvent, CaseRecord, Fact } from "@/lib/types";
 import { shouldFallThroughGeminiError } from "./model";
-import { errorCode, geminiModels, geminiText, type ChatContent } from "./providers";
+import { geminiModels, geminiText, type ChatContent } from "./providers";
 
 export type ChatTurn = { role: "you" | "agent"; text: string };
 
@@ -68,9 +68,8 @@ export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[], preced
 
 /**
  * Answers one question about a case, carrying the recent conversation so follow-ups make sense.
- * Walks the Gemini waterfall like extraction does, with one difference: a model that is out of
- * quota (429) is skipped for the next one, because a conversation should keep going during a demo
- * even when one model's free-tier allowance for the day is spent.
+ * Walks the Gemini waterfall like extraction does, so a model that is out of quota for the day
+ * is skipped for the next one and the conversation keeps going.
  */
 export async function answerCaseQuestion(caseRecord: CaseRecord, audit: AuditEvent[], history: ChatTurn[], question: string, precedent: string[] = []): Promise<{ reply: string; model: string }> {
   if (!process.env.GEMINI_API_KEY) throw Object.assign(new Error("No chat model is configured"), { status: 503 });
@@ -91,7 +90,7 @@ export async function answerCaseQuestion(caseRecord: CaseRecord, audit: AuditEve
       lastError = new Error(`Empty reply from ${model}`);
     } catch (error) {
       lastError = error;
-      if (!shouldFallThroughGeminiError(error) && errorCode(error) !== 429) break;
+      if (!shouldFallThroughGeminiError(error)) break;
     }
   }
   throw lastError ?? new Error("No model answered");

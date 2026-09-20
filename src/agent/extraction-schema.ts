@@ -43,6 +43,7 @@ export const EXTRACTION_PROMPT = [
   "You extract facts for a commercial property underwriting review from broker text. Return only a JSON object with exactly these keys: yearBuilt, losses, business, line, premium, constructionPercent, lossValue, lossHistoryComplete, effective, expiration.",
   'Each key maps to {"value": ..., "quote": ...}. "value" is the fact, or null when the text does not state it. "quote" is the single sentence or line of the broker text that states the value, copied verbatim and unchanged; it is null whenever value is null.',
   "Never infer, estimate, compute, or convert a value: if the text does not state it, value and quote are both null.",
+  'A figure written in shorthand or hedged as approximate is still stated: "about 48k" is 48000, "$1.2M" is 1200000, and "roughly 70%" is 70.',
   "yearBuilt: integer year the building was originally constructed; renovation, roof, retrofit, and appraisal years are not it, and when several buildings are listed use the oldest.",
   "losses: integer count of losses or claims in the past three years; a count over a different window, a dollar amount, or a claim reference number is not it, except that zero losses over a longer window is zero.",
   'business: "new" or "renewal". line: the line of business in lowercase, for example "property".',
@@ -69,13 +70,26 @@ const valueSchemas: Record<ExtractionField, z.ZodTypeAny> = {
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const normalizeSpace = (text: string) => text.replace(/\s+/g, " ").trim();
 const MAX_QUOTE = 600;
+const NUMERIC_FIELDS: ReadonlySet<ExtractionField> = new Set<ExtractionField>(["yearBuilt", "losses", "premium", "constructionPercent", "lossValue"]);
+const SHORTHAND = /^\$?\s?(\d[\d,]*(?:\.\d+)?)\s?([kKmM])?\s?%?$/;
+
+/** A number a model wrote as text ("$48,000", "48k", "1.2M", "70%") becomes the number; anything else is left for the schema to reject. */
+export function coerceNumber(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const match = SHORTHAND.exec(value.trim());
+  if (!match) return value;
+  const amount = Number(match[1].replace(/,/g, ""));
+  if (!Number.isFinite(amount)) return value;
+  const scale = match[2]?.toLowerCase() === "k" ? 1_000 : match[2]?.toLowerCase() === "m" ? 1_000_000 : 1;
+  return amount * scale;
+}
 
 /** Accepts {value, quote} or a bare value; lower-cases the enum-like fields so "NEW" and "Property" match the parser's reading. */
 function fieldReading<F extends ExtractionField>(field: F): z.ZodType<FieldReading<F>> {
   const shape = z.object({ value: valueSchemas[field].nullable(), quote: z.string().nullable() }) as unknown as z.ZodType<FieldReading<F>>;
   return z.preprocess((raw) => {
     const { value, quote } = isRecord(raw) && ("value" in raw || "quote" in raw) ? raw : { value: raw, quote: null };
-    const normalized = typeof value === "string" && (field === "business" || field === "line") ? value.trim().toLowerCase() : value;
+    const normalized = typeof value === "string" && (field === "business" || field === "line") ? value.trim().toLowerCase() : NUMERIC_FIELDS.has(field) ? coerceNumber(value) : value;
     const text = typeof quote === "string" ? normalizeSpace(quote) : "";
     return { value: normalized === undefined ? null : normalized, quote: text && text.length <= MAX_QUOTE ? text : null };
   }, shape).catch({ value: null, quote: null } as FieldReading<F>);

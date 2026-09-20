@@ -21,12 +21,14 @@ async function postgres() {
     const now = await db.query("SELECT now() AS now");
     add("PostgreSQL", "pass", `${host(target)} answers; server time ${new Date(now.rows[0].now).toISOString()}`);
   } catch (error) { add("PostgreSQL", "fail", error instanceof Error ? error.message : String(error)); return false; }
-  const columns = await db.query("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'cases' AND column_name IN ('address', 'property_context', 'origin', 'state', 'tiv')");
+  const columns = await db.query("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'cases' AND column_name IN ('address', 'property_context', 'origin', 'source_candidates', 'draft_email', 'draft_status', 'state', 'tiv')");
   const have = new Map(columns.rows.map((row) => [row.column_name as string, row.is_nullable === "YES"]));
   const tables = new Set((await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")).rows.map((row) => row.table_name as string));
-  const missing = ["address", "property_context", "origin"].filter((name) => !have.has(name));
+  const missing = ["address", "property_context", "origin", "source_candidates", "draft_email", "draft_status"].filter((name) => !have.has(name));
   if (!tables.has("triage_reports")) missing.push("triage_reports table");
   if (have.get("state") === false || have.get("tiv") === false) missing.push("nullable cases.state and cases.tiv");
+  const jobKinds = await db.query("SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'case_jobs_kind_check'");
+  if (!String(jobKinds.rows[0]?.def ?? "").includes("'research'")) missing.push("the research job kind on case_jobs");
   add("Schema", missing.length ? "fail" : "pass", missing.length ? `missing ${missing.join(", ")}; run npm run db:migrate against this database` : "every table and column the current code writes is present");
   const jobs = await db.query(`SELECT status, count(*)::int AS n, min(run_at) AS oldest, bool_or(lease_until > now()) AS leased FROM case_jobs WHERE finished_at IS NULL GROUP BY status`);
   const stalled = jobs.rows.filter((row) => row.status === "queued" && minutes(row.oldest)! > 2 || row.status === "running" && !row.leased);

@@ -170,7 +170,7 @@ test("a hung model call times out and leaves the findings unchanged", async () =
   assert.equal(result.brief, brief);
 });
 
-test("a transient failure falls through to the next model; a quota error stops the waterfall", async () => {
+test("a transient failure falls through to the next model; a quota error on every model fails the pass, a bad key stops it at once", async () => {
   const called: string[] = [];
   const result = await verifyFindings(findings, sources, { generate: async (model) => { called.push(model); if (model === models[0]) throw { status: 503 }; return { text: JSON.stringify({ verdicts: verdicts({ id: "evidence_yearBuilt", supported: false, reason: "No roof work.", quote: "roof replaced in 2019" }) }) }; } });
   assert.deepEqual(called, models.slice(0, 2));
@@ -179,7 +179,10 @@ test("a transient failure falls through to the next model; a quota error stops t
   assert.deepEqual(result.flagged, ["evidence_yearBuilt"]);
   const quota = await verifyFindings(findings, sources, { generate: async () => { throw { status: 429 }; } });
   assert.equal(quota.status, "failed");
-  assert.equal(quota.attempts.length, 1);
+  assert.equal(quota.attempts.length, models.length, "quota is per model, so every model gets its turn");
+  const denied = await verifyFindings(findings, sources, { generate: async () => { throw { status: 401 }; } });
+  assert.equal(denied.status, "failed");
+  assert.equal(denied.attempts.length, 1);
 });
 
 test("nothing to check or no source text is skipped without a model call", async () => {

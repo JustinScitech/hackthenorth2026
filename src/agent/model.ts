@@ -23,9 +23,14 @@ export type ModelObserver<T = ExtractedFields> = (event: "started" | "completed"
 export type JsonParser<T> = (text: string) => T;
 type AttemptParser<T> = (text: string | undefined) => { value: T; reading?: Reading };
 
+/**
+ * Whether the next Gemini model is worth trying. Quota (429) is counted per model on the
+ * team key, so an exhausted model falls through like an outage; only a client-side error
+ * such as a bad key or a rejected request stops the waterfall.
+ */
 export function shouldFallThroughGeminiError(error: unknown): boolean {
   const code = errorCode(error);
-  return code === undefined || code === 404 || code === 408 || code >= 500;
+  return code === undefined || code === 404 || code === 408 || code === 429 || code >= 500;
 }
 
 /** Kept for the activity trace and tests; resolveField now decides which value is used. */

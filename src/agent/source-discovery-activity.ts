@@ -25,7 +25,8 @@ export async function discoverCaseSources(caseRecord: CaseRecord, search?: Searc
     return candidates;
   } catch (error) {
     captureAgentError(error, { where: "source_discovery" });
-    await db.query("UPDATE cases SET source_candidates = '[]'::jsonb, updated_at = now() WHERE id = $1", [caseId]);
+    // The empty list marks discovery as tried; if even that write fails (say, a schema that lags the code), the case still proceeds to its checks.
+    await db.query("UPDATE cases SET source_candidates = '[]'::jsonb, updated_at = now() WHERE id = $1", [caseId]).catch(captureAgentError);
     await addAudit(caseId, "source_discovery_failed", { reason: error instanceof Error ? error.message.slice(0, 160) : "Unknown error" }, `discovery-failed:${caseId}`);
     return [];
   }

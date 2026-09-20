@@ -134,7 +134,7 @@ async function runModel(prompt: string, text: string, options: CorrespondenceOpt
       last = { status: "failed", model, durationMs: Math.round(performance.now() - started), errorCode: errorCode(error) };
       console.warn("Gemini correspondence unavailable", model, error instanceof Error ? error.name : "UnknownError");
       await options.onEvent?.({ event: "failed", model, durationMs: last.durationMs, errorCode: last.errorCode });
-      if (!shouldFallThroughGeminiError(error) && errorCode(error) !== 429) break;
+      if (!shouldFallThroughGeminiError(error)) break;
     }
   }
   return last;
