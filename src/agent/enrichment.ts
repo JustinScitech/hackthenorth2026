@@ -6,7 +6,7 @@ export type { EvidenceSignal };
 
 /** FEMA Special Flood Hazard Area designations; X, B, C, and D are not. */
 const highRiskFloodZones = ["A", "AE", "AH", "AO", "AR", "A99", "V", "VE"];
-const referConstruction = /\b(?:wood|frame|joisted masonry)\b/i;
+const referConstruction = /\b(?:wood|frame)\b/i;
 const passConstruction = /\b(?:masonry|steel|concrete|non[- ]?combustible|fire[- ]?resistive|tilt[- ]?up)\b/i;
 
 /** The sentence (or labelled fragment) that contains a match, trimmed to something quotable. */
@@ -35,7 +35,7 @@ export function extractEvidenceSignals(pageText: string): EvidenceSignal[] {
   const year = text.match(/\b(?:year\s+built|built|constructed)(?:\s+in)?\s*[:#-]?\s*(1[89]\d{2}|20\d{2})\b/i);
   if (year && Number(year[1]) <= thisYear) take("yearBuilt", year, Number(year[1]));
 
-  const construction = text.match(/\b(?:construction(?:\s+type)?|building\s+type)\s*[:#-]\s*([A-Za-z][A-Za-z /-]{2,40}?)(?=[.;,]|\s+\w+:|$)/i)
+  const construction = text.match(/\b(?:construction(?:\s+type)?|building\s+type)\s*[:#-]\s*([A-Za-z][A-Za-z /-]{1,40}?)(?=[.;,]|\s+\w+:|$)/i)
     ?? text.match(/\b((?:tilt[- ]?up\s+concrete|steel|masonry|concrete|wood\s+frame|frame|non[- ]?combustible|fire[- ]?resistive))\s+(?:building|construction|structure)\b/i);
   if (construction) take("constructionType", construction, construction[1].trim());
 
@@ -78,8 +78,9 @@ export function evidenceFindings(facts: Facts, evidence: PublicEvidence, signals
       findings.push({ id, label: "Public sprinkler status", result: signal.value ? "pass" : "refer", detail: signal.value ? `The public source describes the building as sprinklered. ${cite(signal)}` : `The public source describes the building as not sprinklered; confirm fire protection. ${cite(signal)}`, source });
     } else if (signal.kind === "constructionType") {
       const label = String(signal.value);
-      const result = referConstruction.test(label) ? "refer" : passConstruction.test(label) ? "pass" : "unknown";
-      findings.push({ id, label: "Public construction type", result, detail: `${result === "refer" ? "Combustible construction reported" : result === "pass" ? "Non-combustible construction reported" : "Construction reported"}: ${label}. ${cite(signal)}`, source });
+      const eligible = ["jm", "joisted masonry", "steel frame", "steel", "non combustible", "non combustible/steel", "masonry non combustible", "mnc"].includes(label.toLowerCase().replace(/[_-]/g, " ").replace(/\s+/g, " ").trim());
+      const result = eligible ? "pass" : referConstruction.test(label) ? "refer" : passConstruction.test(label) ? "pass" : "unknown";
+      findings.push({ id, label: "Public construction type", result, detail: `${eligible ? "Appetite-eligible construction category reported" : result === "refer" ? "Combustible construction reported" : "Construction reported"}: ${label}. Verify the account-wide eligible construction percentage separately; the required mix comes from the full building schedule. ${cite(signal)}`, source });
     } else if (signal.kind === "squareFeet") {
       findings.push({ id, label: "Public building size", result: "pass", detail: `The public source lists ${Number(signal.value).toLocaleString("en-US")} square feet. ${cite(signal)}`, source });
     } else {

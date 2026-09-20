@@ -47,6 +47,21 @@ export function geminiJson(model: string, prompt: string, text: string, options:
   }), options.retries);
 }
 
+export type ChatContent = { role: "user" | "model"; text: string };
+
+/** Plain-text generation with a system instruction and a short conversation, for the case chat. Same client, retries, and tracing as the JSON call. */
+export function geminiText(model: string, system: string, contents: ChatContent[], options: CallOptions = {}): Promise<JsonResponse> {
+  const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  return withRetries(() => traceModelCall("gemini", model, async () => {
+    const response = await gemini.models.generateContent({
+      model,
+      contents: contents.map((turn) => ({ role: turn.role, parts: [{ text: turn.text.slice(0, 20_000) }] })),
+      config: { systemInstruction: system, httpOptions: { timeout: options.timeoutMs ?? 45_000 } },
+    });
+    return { text: response.text, modelVersion: response.modelVersion };
+  }), options.retries);
+}
+
 export const DEFAULT_OPENAI_MODEL = "gpt-5-mini";
 
 export function openaiModel(): string {

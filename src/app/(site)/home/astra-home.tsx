@@ -1,25 +1,23 @@
 "use client";
+import sceneAssets from "./scene-assets.json";
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   ArrowCounterClockwise,
   ArrowDown,
-  ArrowRight,
   ArrowUpRight,
   ArrowsIn,
   ArrowsOut,
   Buildings,
   CaretRight,
   Check,
-  Checks,
   ClockCounterClockwise,
   CornersOut,
   Drop,
   FileText,
   Fire,
   HardHat,
-  MapPin,
   Minus,
   Play,
   Plus,
@@ -61,7 +59,7 @@ const PropertyScene = dynamic(() => import("./property-scene"), {
       {/* A small, locally rendered poster paints before the 3D bundle loads. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/models/engineering-7-poster.webp"
+        src={sceneAssets.poster}
         alt="Photo-informed digital twin of Waterloo Engineering 7"
         className={styles.scenePoster}
         fetchPriority="high"
@@ -274,7 +272,7 @@ export function AstraHome() {
         <div className={`${ui.container} ${ui.navInner}`}>
           <Link href="/" className={ui.brand} aria-label="Astra Risk home">
             <Mark size={24} priority />
-            Astra<small>Risk</small>
+            <span>Astra<small>Risk</small></span>
           </Link>
           <nav className={ui.navLinks} aria-label="Main navigation">
             <a href="#experience">Platform</a>
@@ -319,37 +317,11 @@ export function AstraHome() {
               <ArrowDown size={15} className={ui.iconDown} />
             </a>
           </div>
-          <div className={ui.submission} key={run} style={{ "--i": 4 } as React.CSSProperties}>
-            <span
-              className={`${ui.documentIcon} ${ready && !complete ? ui.documentEntering : ""}`}
-            >
-              <FileText size={18} />
-            </span>
-            <span className={ui.submissionText}>
-              <strong>Waterloo_E7_Demo.pdf</strong>
-              <span>Submission · ACORD + schedule + loss runs</span>
-            </span>
-            <span
-              className={`${ui.documentStatus} ${elapsed > 1200 ? ui.documentDone : ""}`}
-            >
-              {elapsed > 1200 ? <Checks size={16} /> : <ArrowRight size={16} />}
-            </span>
-          </div>
+
         </div>
 
-        <div className={ui.stageFrame}>
-        {ready && elapsed < 1300 && !reduced && (
-          <div
-            key={`submission-${run}`}
-            className={styles.submissionTransfer}
-            aria-hidden="true"
-          >
-            <svg viewBox="0 0 300 90" preserveAspectRatio="none">
-              <path d="M 0 0 H 85 Q 120 0 120 30 V 55 Q 120 80 150 80 H 300" />
-            </svg>
-            <FileText size={18} className={styles.flyingDocument} />
-          </div>
-        )}
+        <div className={`${ui.stageFrame} ${expanded ? ui.stageFrameExpanded : ""}`}>
+
         <div
           data-astra-stage
           className={`${styles.sceneStage} ${expanded ? styles.sceneExpanded : ""} ${selected ? styles.sceneInspecting : ""}`}
@@ -361,8 +333,7 @@ export function AstraHome() {
           <div className={styles.sceneTopline}>
             <span>
               <span className={styles.liveDot} />
-              Live risk survey
-              <small>Engineering 7, University of Waterloo</small>
+              Waterloo Engineering 7
             </span>
             <span className={styles.demoTag}>Illustrative demo</span>
           </div>
@@ -430,30 +401,7 @@ export function AstraHome() {
               </small>
             </span>
           </div>
-          <div className={styles.siteName}>
-            <MapPin size={13} />
-            <span>
-              Waterloo Engineering 7
-              <small>Photo-informed model · simulated assessment</small>
-            </span>
-          </div>
-          <div
-            data-astra-node
-            className={`${styles.astraNode} ${running && ready ? styles.nodeRunning : ""}`}
-          >
-            <Mark size={22} />
-            <span>
-              Astra
-              <small>
-                {!ready
-                  ? "Connecting to site"
-                  : complete
-                    ? "Investigation complete"
-                    : WORKFLOW[phase].label + " in progress"}
-              </small>
-            </span>
-            <span className={styles.liveDot} />
-          </div>
+
           <div className={styles.sceneTools} aria-label="Scene controls">
             <button
               type="button"
@@ -507,6 +455,9 @@ export function AstraHome() {
                   ["site", "Site"],
                   ["roof", "Roof"],
                   ["street", "Street"],
+                  ["bridge", "Bridge"],
+                  ["entry", "Steps"],
+                  ["rear", "Rear"],
                   ["atrium", "Atrium"],
                   ["plan", "Plan"],
                 ] as const
@@ -515,10 +466,8 @@ export function AstraHome() {
                   type="button"
                   key={id}
                   onClick={() => {
-                    if (id === "atrium") {
-                      setExpanded(true);
-                      setSelected("business");
-                    }
+                    setSelected(null);
+                    if (["atrium", "entry", "bridge", "rear"].includes(id)) setExpanded(true);
                     cameraAction(id);
                   }}
                   disabled={!sceneAvailable}
@@ -553,73 +502,6 @@ export function AstraHome() {
             <small>Drag to orbit · Shift-drag to pan · Scroll to zoom</small>
           </div>
 
-          <aside
-            className={`${styles.decisionPanel} ${elapsed >= 1200 && !selected ? styles.panelVisible : ""}`}
-            aria-label="Underwriting decision"
-          >
-            <div className={styles.panelHeading}>
-              <span className={styles.liveDot} />
-              Underwriting snapshot<span>№ 01</span>
-            </div>
-            <div className={styles.panelProperty}>
-              Waterloo Engineering 7<span>Teaching & research</span>
-            </div>
-            <div className={styles.scoreRow}>
-              <span>Risk score</span>
-              <strong>
-                {elapsed >= 5600 ? DEMO_PROPERTY.riskScore : "—"}
-                <small> / 100</small>
-              </strong>
-            </div>
-            <div className={styles.appetiteRow}>
-              <span>Appetite match</span>
-              <strong>
-                {elapsed >= 5900
-                  ? Math.min(92, Math.round(((elapsed - 5900) / 700) * 92))
-                  : "—"}
-                <small>%</small>
-              </strong>
-            </div>
-            <div className={styles.matchTrack}>
-              <i
-                style={{
-                  width:
-                    elapsed >= 6600
-                      ? "92%"
-                      : `${Math.max(0, ((elapsed - 5900) / 700) * 92)}%`,
-                }}
-              />
-            </div>
-            <div className={styles.panelFindings}>
-              <span>Key findings</span>
-              <p>
-                <Check size={11} />
-                {count >= 4
-                  ? "Construction evidence linked"
-                  : "Reading property schedule…"}
-              </p>
-              <p>
-                <span className={styles.amberDot} />
-                {count >= 3
-                  ? "Roof & drainage records needed"
-                  : "Investigating site exposure…"}
-              </p>
-            </div>
-            <div
-              className={`${styles.recommendation} ${complete ? styles.recommendationReady : ""}`}
-            >
-              <ShieldCheck size={16} />
-              <span>
-                {complete ? "Proceed to Quote" : "Evaluating risk…"}
-                <small>
-                  {complete
-                    ? "Recommended · subject to review"
-                    : "Connecting the evidence"}
-                </small>
-              </span>
-              {complete && <ArrowUpRight size={14} />}
-            </div>
-          </aside>
 
           {evidence && inspection && (
             <aside
@@ -681,7 +563,7 @@ export function AstraHome() {
                   <p>
                     {waterLevel > 0.65
                       ? "Scenario reaches the campus service area. Building elevation needs verification."
-                      : "Water remains near the drainage edge. A low setting does not establish safety."}
+                      : "Water remains near the drainage edge. Safety at this level still depends on a survey."}
                   </p>
                 </div>
               )}
@@ -815,23 +697,6 @@ export function AstraHome() {
 
       </div>
 
-      <div className={ui.container}>
-      <section className={ui.stats} aria-label="Assessment summary">
-        <div>
-          <strong>{elapsed >= 1200 ? "24" : "—"}</strong>
-          <span>Facts extracted</span>
-        </div>
-        <div>
-          <strong>{count}</strong>
-          <span>Risk signals investigated</span>
-        </div>
-        <div>
-          <strong>100%</strong>
-          <span>Explainable findings</span>
-        </div>
-      </section>
-
-      </div>
 
       <section id="underwriting" className={`${ui.container} ${ui.band}`} data-astra-reveal>
         <div className={ui.bandHead}>
@@ -973,7 +838,7 @@ export function AstraHome() {
         <div className={`${ui.container} ${ui.footerInner}`}>
           <Link href="/" className={ui.brand}>
             <Mark size={20} />
-            Astra<small>Risk</small>
+            <span>Astra<small>Risk</small></span>
           </Link>
           <span>Every decision, shown with its evidence.</span>
           <nav aria-label="Footer navigation">

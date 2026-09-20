@@ -13,7 +13,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!apiKey) return NextResponse.json({ error: "Voice brief is unavailable." }, { status: 503 });
   const caseRecord = await getCase(id);
   if (!caseRecord) return NextResponse.json({ error: "Case not found." }, { status: 404 });
-  if (!caseRecord.brief) return NextResponse.json({ error: "Review brief is not ready." }, { status: 409 });
+  if (!caseRecord.brief) return NextResponse.json({ error: "The review brief is still being written." }, { status: 409 });
 
   const voiceId = process.env.ELEVENLABS_VOICE_ID ?? "JBFqnCBsd6RMkjVDRZzb";
   try {

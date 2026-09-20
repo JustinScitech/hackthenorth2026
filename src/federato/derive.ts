@@ -58,7 +58,7 @@ export function deriveFacts(row: Record<string, unknown>, plan: Plan, asOf: Date
       if (when < start.getTime() || when > asOf.getTime()) return sum;
       return sum + amounts.reduce((total, key) => total + Number(claim[key]), 0);
     }, 0);
-    set("lossValue", lossLowerBound > 100_000 ? lossLowerBound : null, `${roots.claims}: verified dated incurred amounts establish only a lower bound of $${lossLowerBound.toLocaleString("en-US")} in the five years ending ${asOf.toISOString().slice(0, 10)}. Policy-linked claims do not establish complete account history; missing or invalid dates and amounts cannot establish a pass.`);
+    set("lossValue", lossLowerBound > 100_000 ? lossLowerBound : null, `${roots.claims}: verified dated incurred amounts establish only a lower bound of $${lossLowerBound.toLocaleString("en-US")} in the five years ending ${asOf.toISOString().slice(0, 10)}. Policy-linked claims cover only part of the account history; a pass needs complete, dated, valid amounts.`);
   }
   const currency = roots.currency ? readValues(row, roots.currency)[0] : undefined;
   if (roots.currency && currency !== "USD") {

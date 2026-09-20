@@ -1,7 +1,9 @@
 import { readValues, type Concept, type Mapping } from "./schema";
 
 export type Criterion = { concept: Concept; factor: string; status: "target" | "acceptable" | "outside" | "unknown"; points: number; maximum: number; detail: string; source: string };
-export type RankedSubmission = { id: string; account: string; score: number; rawScore: number; recommendation: string; explanation: string; criteria: Criterion[]; missingData: string[]; evidenceNote?: string; lifecycleStatus?: string };
+export type ScoreAdjustment = { label: string; points: number; detail: string; source: string };
+/** `score` is the priority used for ranking; when public property records moved it, `baseScore` holds the appetite-only value and `adjustments` list every point. `rawScore` is the uncapped carrier match. */
+export type RankedSubmission = { id: string; account: string; score: number; rawScore: number; recommendation: string; explanation: string; criteria: Criterion[]; missingData: string[]; evidenceNote?: string; lifecycleStatus?: string; baseScore?: number; adjustments?: ScoreAdjustment[]; };
 export const guidelineVersion = "Federato HTN 2026 / 2025 sample commercial property appetite";
 const targetStates = ["OH", "PA", "MD", "CO", "CA", "FL"];
 const acceptableStates = [...targetStates, "NC", "SC", "GA", "VA", "UT"];
@@ -34,7 +36,7 @@ export function scoreSubmission(row: Record<string, unknown>, mapping: Mapping, 
   const construction = number(value("constructionPercent"));
   add("constructionPercent", "Construction mix", 10, construction === null || construction > 100 || construction === 50 ? "unknown" : construction > 50 ? "acceptable" : "outside", `More than 50% JM, non-combustible/steel, or masonry non-combustible is acceptable. Eligible share: ${construction === null ? "missing" : `${construction}%`}. Exactly 50% needs clarification; percentages must use 0-100 units.`);
   const loss = number(value("lossValue"));
-  add("lossValue", "Five-year loss value", 10, loss === null || loss === 100_000 ? "unknown" : loss < 100_000 ? "target" : "outside", `Five-year loss dollars under $100K required. Observed ${loss === null ? "missing" : `$${loss.toLocaleString("en-US")}`}. Exactly $100K needs clarification; loss counts do not establish loss value.`);
+  add("lossValue", "Five-year loss value", 10, loss === null || loss === 100_000 ? "unknown" : loss < 100_000 ? "target" : "outside", `Five-year loss dollars under $100K required. Observed ${loss === null ? "missing" : `$${loss.toLocaleString("en-US")}`}. Exactly $100K needs clarification; loss value comes from dollar figures, separate from the loss count.`);
   const missingData: string[] = [];
   const account = value("account");
   if (typeof account !== "string" || !account.trim()) missingData.push("account name");

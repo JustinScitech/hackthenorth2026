@@ -55,6 +55,15 @@ The carrier supplies thresholds, not weights. Submission type and line each have
 
 ## Validation and remaining limits
 
+### Case-flow alignment fixes
+
+- Blank/null intake appetite fields no longer erase explicitly labelled values in the original broker notes. Supplied intake values (including zero and false) retain precedence; later broker replies can supersede them. An unchecked completeness flag stays conservative and does not become confirmed history merely because a note says otherwise.
+- Public construction findings recognize Steel Frame and Joisted Masonry/JM as eligible categories without calling them combustible referrals. These findings do not establish an account-wide construction percentage or change the eight-factor score.
+- Case progress and extraction narration distinguish the eight appetite factors and five-year loss dollars from contextual three-year loss counts.
+- Regression coverage includes a real-worker case with blank intake fields and complete broker-supplied appetite evidence, along with updated browser expectations for the current UI.
+
+External enrichment remains an optional, separate research aid. These fixes do not invent carrier rules or introduce an undocumented ranking adjustment to claim the enrichment bonus.
+
 ### Source evidence audit, September 19, 2026
 
 A fresh read of all 158 submissions found 38 Property submissions and 120 other lines. The 27 linked Property submissions have valid building years, positive building TIVs, and USD policy currency. The API's "Steel Frame" label is now recognized as eligible steel construction; the missing alias previously made 16 submissions (five Property) unnecessarily unknown.

@@ -10,13 +10,13 @@ function sampleAppetite(id: string): CaseAppetite {
   return { business: "new", line: "property", premium: 85_000, constructionPercent: 75, lossValue: id === "follow-up" ? null : id === "retail" ? 125_000 : 0, lossHistoryComplete: id !== "follow-up", effective: `${year}-01-01`, expiration: `${year + 1}-01-01` };
 }
 
-type FormState = { insuredName: string; state: string; tiv: string; yearBuilt: string; losses: string; brokerNotes: string; publicSourceUrl: string };
-const emptyForm: FormState = { insuredName: "", state: "", tiv: "", yearBuilt: "", losses: "", brokerNotes: "", publicSourceUrl: "" };
+type FormState = { insuredName: string; state: string; tiv: string; yearBuilt: string; losses: string; address: string; brokerNotes: string; publicSourceUrl: string };
+const emptyForm: FormState = { insuredName: "", state: "", tiv: "", yearBuilt: "", losses: "", address: "", brokerNotes: "", publicSourceUrl: "" };
 const sampleCases: { id: string; label: string; form: FormState }[] = [
   {
     id: "clean", label: "California office - appetite match",
     form: {
-      insuredName: "Pacific Square Offices", state: "CA", tiv: "75000000", yearBuilt: "2012", losses: "0",
+      insuredName: "Pacific Square Offices", state: "CA", tiv: "75000000", yearBuilt: "2012", losses: "0", address: "350 Mission St, San Francisco, CA 94105",
       brokerNotes: "Commercial property submission for Pacific Square Offices in California. The oldest building was constructed in 2012. Complete five-year loss dollars and construction mix are supplied in the form.",
       publicSourceUrl: "",
     },
@@ -24,7 +24,7 @@ const sampleCases: { id: string; label: string; form: FormState }[] = [
   {
     id: "colorado", label: "Colorado fabrication - acceptable risk",
     form: {
-      insuredName: "Front Range Fabrication", state: "CO", tiv: "3200000", yearBuilt: "2008", losses: "0",
+      insuredName: "Front Range Fabrication", state: "CO", tiv: "3200000", yearBuilt: "2008", losses: "0", address: "1600 Broadway, Denver, CO 80202",
       brokerNotes: "Commercial property submission for Front Range Fabrication in Colorado. The building was constructed in 2008, is owner occupied and sprinklered, and had no losses in the past three years.",
       publicSourceUrl: "",
     },
@@ -32,7 +32,7 @@ const sampleCases: { id: string; label: string; form: FormState }[] = [
   {
     id: "warehouse", label: "New Jersey warehouse - territory and age referrals",
     form: {
-      insuredName: "Garden State Distribution", state: "NJ", tiv: "6800000", yearBuilt: "1974", losses: "1",
+      insuredName: "Garden State Distribution", state: "NJ", tiv: "6800000", yearBuilt: "1974", losses: "1", address: "1 Center St, Newark, NJ 07102",
       brokerNotes: "Commercial property submission for Garden State Distribution in New Jersey. The warehouse was built in 1974, has $6.8 million in total insured value, and reported one loss in the past three years.",
       publicSourceUrl: "",
     },
@@ -40,7 +40,7 @@ const sampleCases: { id: string; label: string; form: FormState }[] = [
   {
     id: "retail", label: "Pennsylvania retail - loss referral",
     form: {
-      insuredName: "Keystone Market Group", state: "PA", tiv: "4100000", yearBuilt: "1999", losses: "4",
+      insuredName: "Keystone Market Group", state: "PA", tiv: "4100000", yearBuilt: "1999", losses: "4", address: "1500 Market St, Philadelphia, PA 19102",
       brokerNotes: "Commercial property submission for Keystone Market Group in Pennsylvania. The retail building was constructed in 1999 and reported four losses in the past three years.",
       publicSourceUrl: "",
     },
@@ -48,7 +48,7 @@ const sampleCases: { id: string; label: string; form: FormState }[] = [
   {
     id: "follow-up", label: "New York restaurant - broker follow-up",
     form: {
-      insuredName: "Canal Street Kitchen", state: "NY", tiv: "1750000", yearBuilt: "", losses: "",
+      insuredName: "Canal Street Kitchen", state: "NY", tiv: "1750000", yearBuilt: "", losses: "", address: "200 Canal St, New York, NY 10013",
       brokerNotes: "Commercial property submission for Canal Street Kitchen in New York. The restaurant occupies a single leased building. The broker has not yet supplied the construction year or recent loss history.",
       publicSourceUrl: "",
     },
@@ -161,6 +161,7 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
           yearBuilt: form.yearBuilt ? Number(form.yearBuilt) : null,
           losses: form.losses ? Number(form.losses) : null, brokerNotes: form.brokerNotes,
           publicSourceUrl: form.publicSourceUrl.trim() || null,
+          address: form.address.trim() || null,
           appetite,
         }),
       });
@@ -207,7 +208,7 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
           </div>
         </div>
         <div className="form-section">
-          <div className="form-section-title"><h2>Carrier appetite evidence</h2><p>All amounts are USD. Leave unknown fields blank; do not substitute loss counts for five-year loss dollars.</p></div>
+          <div className="form-section-title"><h2>Carrier appetite evidence</h2><p>All amounts are USD. Leave unknown fields blank. Five-year loss dollars are a separate figure from the loss count above.</p></div>
           <label>Business type<select value={appetite.business ?? ""} onChange={(event) => setAppetite({ ...appetite, business: event.target.value === "new" ? "new" : event.target.value === "renewal" ? "renewal" : null })}><option value="">Unknown</option><option value="new">New business</option><option value="renewal">Renewal business</option></select></label>
           <label>Line of business<input value={appetite.line ?? ""} onChange={(event) => setAppetite({ ...appetite, line: event.target.value || null })} placeholder="property" /></label>
           {([{ key: "premium", label: "Total premium (USD)" }, { key: "constructionPercent", label: "Eligible construction percent (by building count)" }, { key: "lossValue", label: "Five-year loss value (USD)" }] as const).map(({ key, label }) => <label key={key}>{label}<input type="number" min="0" max={key === "constructionPercent" ? 100 : undefined} step="any" value={appetite[key] ?? ""} onChange={(event) => setAppetite({ ...appetite, [key]: event.target.value === "" ? null : Number(event.target.value) })} /></label>)}
@@ -218,6 +219,8 @@ export function IntakeForm({ prefillSample = false }: { prefillSample?: boolean 
         <div className="form-section">
           <div className="form-section-title"><h2>Broker submission</h2><p>Paste the broker's notes. Unstructured text is fine; the agent extracts what it can and asks for the rest.</p></div>
           <label>Submission text<textarea required minLength={10} maxLength={20000} rows={8} value={form.brokerNotes} onChange={(event) => update("brokerNotes", event.target.value)} placeholder="Paste the broker's submission details here..." /></label>
+          <label>Property address <span className="optional">Optional</span><input maxLength={200} value={form.address} onChange={(event) => update("address", event.target.value)} placeholder="1600 Broadway, Denver, CO 80202" /></label>
+          <p className="subtle">With an address the agent pulls the public record: flood zone, wildfire history, seismicity, ten years of weather, fire protection and neighbours, EPA sites, the census tract, drought, and disaster declarations.</p>
           <label>Public source URL <span className="optional">Optional</span><input type="url" maxLength={2000} value={form.publicSourceUrl} onChange={(event) => update("publicSourceUrl", event.target.value)} placeholder="https://example.com/property" /></label>
         </div>
         <div className="form-footer">

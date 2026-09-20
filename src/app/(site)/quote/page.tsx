@@ -9,7 +9,7 @@ export default function QuotePage() {
       <h1>Get an insurance estimate</h1>
       <p className="lede">Describe what you need for tenant or car insurance. The assistant reads your message, asks only for what is missing, and explains every question and every factor in the price. An advisor confirms the final quote.</p>
       <QuoteAssistant />
-      <p className="demo-note">Demo rate tables only. Nothing here binds coverage. Basic auto insurance in British Columbia, Saskatchewan, and Manitoba comes from the public insurer.</p>
+      <p className="demo-note">Demo rate tables; binding stays with the insurer. Basic auto insurance in British Columbia, Saskatchewan, and Manitoba comes from the public insurer.</p>
     </main>
   );
 }

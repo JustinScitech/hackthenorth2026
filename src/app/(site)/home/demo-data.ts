@@ -41,7 +41,7 @@ export const RISK_SIGNALS: RiskSignal[] = [
     source: "E7 exterior photos · roof view",
     finding: "Roof records require review",
     reasoning:
-      "The reference photos inform the roof plant and sawtooth atrium geometry. They do not establish roof age, membrane condition, or maintenance. Astra requests current records in this simulated assessment.",
+      "The reference photos inform the roof plant and sawtooth atrium geometry. Roof age, membrane condition, and maintenance come from current records, which Astra requests in this simulated assessment.",
   },
   {
     id: "fire",
@@ -54,7 +54,7 @@ export const RISK_SIGNALS: RiskSignal[] = [
     source: "Illustrative protection scenario",
     finding: "Protection certificate requested",
     reasoning:
-      "The animated hydrant and sprinkler route demonstrate how Astra could trace protection evidence through a multi-storey property. Equipment positions and coverage are illustrative, not verified E7 fire-protection information.",
+      "The animated hydrant and sprinkler route demonstrate how Astra could trace protection evidence through a multi-storey property. Equipment positions and coverage are illustrative.",
   },
   {
     id: "flood",
@@ -67,7 +67,7 @@ export const RISK_SIGNALS: RiskSignal[] = [
     source: "Illustrative campus water scenario",
     finding: "Drainage & elevations to verify",
     reasoning:
-      "The slider illustrates water accumulation near the paved entry and service area. It is not a flood map, elevation survey, or assigned flood zone for E7. Astra would request site elevations and drainage records.",
+      "The slider illustrates water accumulation near the paved entry and service area. A flood map, elevation survey, and assigned flood zone for E7 would come from site records, which Astra would request.",
   },
   {
     id: "construction",
@@ -93,7 +93,7 @@ export const RISK_SIGNALS: RiskSignal[] = [
     source: "Campus photos · connected-building review",
     finding: "Connected-building exposure review",
     reasoning:
-      "Enclosed links and the shared E5–E7 atrium create connected-building questions for an underwriter. Astra would request compartmentation, occupancy, and shared-services evidence rather than infer a hazard from a photograph.",
+      "Enclosed links and the shared E5–E7 atrium create connected-building questions for an underwriter. Astra would request compartmentation, occupancy, and shared-services evidence before drawing a conclusion from a photograph.",
   },
   {
     id: "business",
@@ -119,7 +119,7 @@ export const RISK_SIGNALS: RiskSignal[] = [
     source: "Synthetic five-year loss-run example",
     finding: "Demo evidence linked to property",
     reasoning:
-      "These loss records are fictional examples used to demonstrate evidence linking. No claims history for the University of Waterloo has been accessed or inferred.",
+      "These loss records are fictional examples used to demonstrate evidence linking. The University of Waterloo's real claims history stays entirely separate from this demo.",
   },
 ];
 export const WORKFLOW = [
@@ -140,7 +140,7 @@ export const WORKFLOW = [
     label: "Enrichment",
     title: "The property is only the beginning.",
     description:
-      "Site context adds the details a submission cannot tell you on its own.",
+      "Site context adds the details a submission leaves out.",
     time: "00:01",
     items: [
       ["Published floor area", "242,000 sq ft"],

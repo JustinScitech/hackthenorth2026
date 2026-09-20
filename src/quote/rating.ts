@@ -5,7 +5,7 @@ import type { AutoQuoteInput, QuoteEstimate, QuoteFactor, QuoteQuestion, QuoteRe
  * end to end; they are not filed rates, and the output is always an estimate
  * range plus a next step, never a bound policy.
  */
-export const DISCLAIMER = "This is an estimate from a demo rate table, not a binding quote. A licensed advisor confirms the final premium and coverage.";
+export const DISCLAIMER = "This estimate comes from a demo rate table. A licensed advisor confirms the final premium and coverage before anything is bound.";
 
 export const provinces: Record<string, { name: string; tenant: number; auto: number; publicAuto: boolean }> = {
   AB: { name: "Alberta", tenant: 1.1, auto: 1.15, publicAuto: false },
@@ -152,7 +152,7 @@ export function quoteAuto(input: AutoQuoteInput): QuoteResult {
   const coverage = input.coverage ?? "standard";
   const coverageFactor = { liability_only: 0.55, standard: 1, full: 1.2 }[coverage];
   annual *= coverageFactor;
-  state.factors.push({ label: "Coverage level", effect: coverageFactor > 1 ? "increases" : coverageFactor < 1 ? "decreases" : "neutral", detail: coverage === "full" ? "Full coverage with collision and comprehensive." : coverage === "liability_only" ? "Liability only; damage to your own car is not covered." : "Standard coverage." });
+  state.factors.push({ label: "Coverage level", effect: coverageFactor > 1 ? "increases" : coverageFactor < 1 ? "decreases" : "neutral", detail: coverage === "full" ? "Full coverage with collision and comprehensive." : coverage === "liability_only" ? "Liability only; repairs to your own car come out of pocket." : "Standard coverage." });
   if (input.winterTires === true) { annual *= 0.95; state.factors.push({ label: "Winter tires", effect: "decreases", detail: "Winter tire discount." }); }
   return finish("auto", state, annual, ["province", "driverAge", "vehicleYear"]);
 }

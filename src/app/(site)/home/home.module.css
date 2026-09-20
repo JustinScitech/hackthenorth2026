@@ -6,7 +6,7 @@
  */
 
 /* ─── Stage frame ─── */
-.sceneStage { position: relative; min-width: 0; margin-left: -47px; margin-top: 24px; height: 625px; }
+.sceneStage { position: relative; min-width: 0; margin-top: 24px; height: 625px; }
 .sceneTopline { position: absolute; top: 14px; left: 60px; right: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 3; }
 .sceneTopline > span:first-child { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 500; color: var(--ink); }
 .sceneTopline > span:first-child small { font-weight: 400; color: var(--mute); }
@@ -90,7 +90,7 @@
 .analysisHud > span:last-child { font-family: var(--font-display); font-size: 12px; color: var(--ink); }
 .analysisHud small { display: block; font-family: var(--font-sans); font-size: 10.5px; color: var(--mute); margin-top: 2px; }
 .cameraBar { position: absolute; bottom: 4px; left: 50px; right: 11px; z-index: 8; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-.cameraBar > div { display: flex; gap: 2px; border: 1px solid var(--rule-strong); background: var(--panel); border-radius: 6px; padding: 2px; }
+.cameraBar > div { display: flex; flex-wrap: wrap; max-width: 100%; justify-content: center; gap: 2px; border: 1px solid var(--rule-strong); background: var(--panel); border-radius: 6px; padding: 2px; }
 .cameraBar button { font-size: 10px; font-weight: 500; color: var(--body); padding: 5px 9px; border: 0; border-radius: 6px; background: transparent; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
 .cameraBar button:hover { background: var(--paper-soft); color: var(--ink); }
 .cameraBar .cameraSelected { background: var(--ink); color: var(--on-ink); }
@@ -104,8 +104,10 @@
   position: absolute;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 8px 4px 4px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 1px solid var(--rule-strong);
   border-radius: 6px;
   background: var(--panel);
@@ -114,16 +116,16 @@
   box-shadow: var(--panel-shadow);
   opacity: 0;
   visibility: hidden;
-  transform: translate(-50%, -120%) scale(0.9);
+  transform: translate(-50%, -50%) scale(0.9);
   transition: opacity 0.5s, transform 0.5s, background 0.2s, border-color 0.2s;
   pointer-events: none;
   z-index: 3;
   white-space: nowrap;
 }
-.markerVisible { opacity: 1; visibility: visible; transform: translate(-50%, -120%) scale(1); pointer-events: auto; }
-.markerIcon { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 6px; background: var(--ink); color: var(--on-ink); }
-.markerText { display: none; }
-.markerLabeled .markerText { display: block; }
+.markerVisible { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+.markerIcon { display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border-radius: 4px; background: var(--ink); color: var(--on-ink); font-family: var(--font-mono); font-size: 11px; }
+.markerText { display: none; position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); width: max-content; max-width: 180px; white-space: normal; text-align: left; padding: 8px 10px; background: var(--paper-card); border: 1px solid var(--rule-strong); border-radius: 6px; box-shadow: var(--panel-shadow); pointer-events: none; }
+.riskMarker[data-label-side="left"] .markerText { left: auto; right: calc(100% + 8px); }
 .markerText strong { display: block; font-family: var(--font-display); font-size: 11px; font-weight: 500; }
 .markerText small { display: none; color: var(--mute); font-size: 10px; margin-top: 2px; }
 .markerStem { position: absolute; top: 100%; left: 50%; height: 18px; width: 1px; background: var(--ink); opacity: 0.6; }
@@ -131,7 +133,7 @@
 .markerAttention { border-color: var(--attention); }
 .markerAttention .markerIcon { background: var(--attention); color: #fff; }
 .markerAttention .markerStem, .markerAttention .markerStem:after { background: var(--attention); }
-.markerExpanded, .riskMarker:focus-visible { z-index: 8; border-color: var(--ink); transform: translate(-50%, -120%) scale(1.035); }
+.markerExpanded, .riskMarker:focus-visible { z-index: 8; border-color: var(--ink); transform: translate(-50%, -50%) scale(1.035); }
 .markerExpanded .markerText, .markerExpanded .markerText small, .riskMarker:focus-visible .markerText, .riskMarker:focus-visible .markerText small { display: block; }
 
 /* ─── Underwriting snapshot ─── */
@@ -421,6 +423,21 @@
   .astraNode > img { width: 18px; height: 18px; }
   .decisionPanel { width: auto; }
   .siteName { max-width: 125px; }
+}
+.sceneStage:not(.sceneExpanded) { margin-left: 0; margin-right: 0; }
+.sceneStage:not(.sceneExpanded) .sceneTopline { left: 0; right: 0; gap: 16px; }
+.sceneStage:not(.sceneExpanded) .sceneViewport { inset: 145px -20px 65px; }
+.sceneStage:not(.sceneExpanded) .inspectionLenses { left: 0; right: 0; gap: 6px; }
+.sceneStage:not(.sceneExpanded) .analysisHud { left: 0; }
+.sceneStage:not(.sceneExpanded) .sceneTools { top: 165px; right: 0; }
+.sceneStage:not(.sceneExpanded) .cameraBar { left: 0; right: 0; bottom: 0; row-gap: 8px; }
+.sceneStage:not(.sceneExpanded) .cameraBar > small { flex-basis: 100%; margin-left: 0; }
+@media (max-width: 700px) {
+  .sceneStage:not(.sceneExpanded):not(.sceneInspecting) { height: 590px; margin-top: 40px; }
+  .sceneStage:not(.sceneExpanded) .inspectionLenses { gap: 3px; }
+  .sceneStage:not(.sceneExpanded) .sceneViewport { inset: 145px -16px 90px; }
+  .sceneStage.sceneInspecting:not(.sceneExpanded) .sceneViewport { bottom: auto; height: 360px; }
+  .sceneStage:not(.sceneExpanded) .cameraBar > small { text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   .sceneStage *, .sceneStage *::before, .sceneStage *::after { animation: none !important; transition: none !important; }

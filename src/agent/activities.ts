@@ -1,5 +1,5 @@
 import { BROKER_UPDATE_SEPARATOR, buildFacts, evaluateFacts } from "./analysis";
-import { brokerAppetite, caseAppetiteSchema } from "../lib/case-appetite";
+import { mergeCaseAppetite } from "../lib/case-appetite";
 import { addAudit, db, getCase } from "../lib/db";
 import { extractNotes } from "./model";
 import { getText } from "../lib/storage";
@@ -8,6 +8,8 @@ import type { Facts } from "../lib/types";
 import { captureAgentError, logAgentEvent, recordAnalysisMetrics, recordDecisionMetric, recordExtractionMetrics } from "./monitoring";
 import { browsePublicSource } from "./public-source";
 import { evidenceFindings } from "./enrichment";
+import { gatherPropertyContext } from "./property-context";
+import { applyContextAdjustment, assessPropertyContext } from "./context-findings";
 
 export async function researchPublicSource(caseId: string): Promise<void> {
   const caseRecord = await getCase(caseId);
@@ -33,6 +35,32 @@ export async function researchPublicSource(caseId: string): Promise<void> {
   }
 }
 
+/** Pulls the public record for the property address, once per case. Every dataset answers on its own, so a partial result is still saved. */
+export async function researchPropertyContext(caseId: string): Promise<void> {
+  const caseRecord = await getCase(caseId);
+  if (!caseRecord) throw new Error(`Case ${caseId} not found`);
+  if (!caseRecord.address) {
+    await addAudit(caseId, "property_context_skipped", { reason: "No property address supplied" }, `context-skipped:${caseId}`);
+    return;
+  }
+  if (caseRecord.propertyContext) return;
+  await addAudit(caseId, "property_context_started", { address: caseRecord.address }, `context-started:${caseId}`);
+  try {
+    const context = await gatherPropertyContext(caseRecord.address);
+    await db.query("UPDATE cases SET property_context = $2, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(context)]);
+    const ok = context.sources.filter((source) => source.status === "ok").length;
+    if (!context.geocoded) {
+      await addAudit(caseId, "property_context_failed", { reason: "The address could not be geocoded" }, `context-failed:${caseId}`);
+      return;
+    }
+    await addAudit(caseId, "property_context_completed", { matched: context.geocoded.matchedAddress, ok, total: context.sources.length, unavailable: context.sources.filter((source) => source.status === "unavailable").map((source) => source.id) }, `context:${caseId}`);
+    logAgentEvent("property_context_completed", { caseId, ok, total: context.sources.length });
+  } catch (error) {
+    captureAgentError(error);
+    await addAudit(caseId, "property_context_failed", { reason: error instanceof Error ? error.message.slice(0, 160) : "Unknown error" }, `context-failed:${caseId}`);
+  }
+}
+
 export async function extractCase(caseId: string): Promise<void> {
   const caseRecord = await getCase(caseId);
   if (!caseRecord) throw new Error(`Case ${caseId} not found`);
@@ -52,7 +80,7 @@ export async function extractCase(caseId: string): Promise<void> {
       revision: caseRecord.analysisRevision,
     }, `${provider}:${event}:${caseId}:${caseRecord.analysisRevision}:${attempt.model}`);
   });
-  const appetite = caseAppetiteSchema.parse({ ...brokerAppetite(texts[0]), ...caseRecord.appetite, ...brokerAppetite(texts.slice(1).join("\n")) });
+  const appetite = mergeCaseAppetite(texts[0], caseRecord.appetite, texts.slice(1).join("\n"));
   const facts = buildFacts({ ...caseRecord, appetite }, extraction.extracted);
   if (caseRecord.yearBuilt === null && facts.yearBuilt.value !== null) { facts.yearBuilt.source = `Broker text via ${extraction.fieldSources.yearBuilt}`; facts.yearBuilt.confidence = extraction.confidence.yearBuilt; }
   if (caseRecord.losses === null && facts.losses.value !== null) { facts.losses.source = `Broker text via ${extraction.fieldSources.losses}`; facts.losses.confidence = extraction.confidence.losses; }
@@ -84,6 +112,12 @@ export async function checkCase(caseId: string): Promise<{ needsBroker: boolean 
     const evidence = evidenceFindings(caseRecord.facts as Facts, caseRecord.publicEvidence, caseRecord.publicEvidence.signals);
     result.findings.push(...evidence);
     if (evidence.some((finding) => finding.result === "refer")) result.brief += " The public source raises a point to verify before deciding.";
+  }
+  if (caseRecord.propertyContext?.geocoded) {
+    const assessment = assessPropertyContext(caseRecord.propertyContext);
+    result.findings.push(...assessment.findings);
+    result.appetiteResult = applyContextAdjustment(result.appetiteResult, assessment);
+    if (assessment.note) result.brief += ` ${assessment.note}`;
   }
   const status = result.question ? "waiting_for_broker" : "review_ready";
   await db.query(

@@ -12,6 +12,10 @@ export const caseAppetiteSchema = z.object({
   expiration: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null),
 });
 export type CaseAppetite = z.infer<typeof caseAppetiteSchema>;
+export function mergeCaseAppetite(originalNotes: string, intake: Partial<CaseAppetite> | null | undefined, brokerReplies = ""): CaseAppetite {
+  const supplied = Object.fromEntries(Object.entries(intake ?? {}).filter(([, value]) => value !== null && value !== undefined));
+  return caseAppetiteSchema.parse({ ...brokerAppetite(originalNotes), ...supplied, ...brokerAppetite(brokerReplies) });
+}
 export const caseMapping: Mapping = {
   account: "account", business: "business", line: "line", state: "state", tiv: "tiv", premium: "premium",
   year: "year", constructionPercent: "constructionPercent", lossValue: "lossValue", effective: "effective", expiration: "expiration",
@@ -38,4 +42,4 @@ export function brokerAppetite(text: string): Partial<CaseAppetite> {
   return result as Partial<CaseAppetite>;
 }
 
-export const brokerAppetiteInstructions = "Supply missing appetite fields on separate lines: Business type: new or renewal; Line of business: property; Premium: dollar amount; Eligible construction percent: 0-100; Five-year loss value: dollar amount; Five-year history complete: yes or no; Effective date: YYYY-MM-DD; Expiration date: YYYY-MM-DD. Dollar amounts must be USD. Loss counts do not establish five-year loss dollars.";
+export const brokerAppetiteInstructions = "Supply missing appetite fields on separate lines: Business type: new or renewal; Line of business: property; Premium: dollar amount; Eligible construction percent: 0-100; Five-year loss value: dollar amount; Five-year history complete: yes or no; Effective date: YYYY-MM-DD; Expiration date: YYYY-MM-DD. Dollar amounts must be USD. Five-year loss dollars are a separate figure from the loss count.";

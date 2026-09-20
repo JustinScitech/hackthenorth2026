@@ -2,11 +2,14 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowSquareOut, Check, Clock, FileText, ListChecks, PaperPlaneTilt, ShieldCheck, WarningCircle, X } from "@phosphor-icons/react/dist/ssr";
+import { ArrowSquareOut, Check, Clock, FileText, ListChecks, MapPin, PaperPlaneTilt, ShieldCheck, WarningCircle, X } from "@phosphor-icons/react/dist/ssr";
 import type { AuditEvent, CaseRecord, CaseStatus, Fact, JobStatus } from "@/lib/types";
 import { Mark } from "./logo";
 import { Status } from "./status";
 import { VoiceBrief } from "./voice-brief";
+import { AgentChat, type ChatTurn } from "./agent-chat";
+import { CasePdfExport } from "./case-pdf-export";
+import { CaseReportEditor } from "./case-report-editor";
 import { summarizeSubmission } from "@/federato/presentation";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
@@ -32,6 +35,30 @@ function Findings({ caseRecord }: { caseRecord: CaseRecord }) {
         <div><strong>{finding.label}</strong><p>{finding.detail}</p><span className="annotation">source: {finding.source}</span></div>
       </div>
     ))}</div>
+  </section>;
+}
+
+/** The public record behind the address: every dataset with its one-line reading and a link, then the points it moved. */
+function PropertyContextSection({ context, result }: { context: CaseRecord["propertyContext"]; result: CaseRecord["appetiteResult"] }) {
+  if (!context) return null;
+  const adjustments = result?.adjustments ?? [];
+  const moved = adjustments.reduce((sum, item) => sum + item.points, 0);
+  return <section className="detail-section" aria-labelledby="context-title">
+    <div className="section-heading"><h2 id="context-title">Public property records</h2><MapPin size={16} aria-hidden="true" /></div>
+    {context.geocoded
+      ? <p className="subtle">{context.geocoded.matchedAddress}{context.geocoded.countyName ? ` · ${context.geocoded.countyName}` : ""} · <a className="text-link" href={context.geocodeUrl} target="_blank" rel="noopener noreferrer">Census geocoder</a></p>
+      : <p className="notice">The address “{context.address}” could not be placed on the map, so no public records were pulled.</p>}
+    {context.sources.length > 0 && <ul className="context-list">
+      {context.sources.map((source) => <li key={source.id} className={source.status === "ok" ? undefined : "is-unavailable"}>
+        <strong>{source.label}</strong>
+        <span>{source.summary}</span>
+        {source.status === "ok" && source.url && <a className="text-link" href={source.url} target="_blank" rel="noopener noreferrer">Source</a>}
+      </li>)}
+    </ul>}
+    {adjustments.length > 0 && <div className="context-adjustments">
+      <p className="subtle">Priority moved {moved >= 0 ? "+" : ""}{moved} from {result?.baseScore} to {result?.score}. Point values are application choices, listed so they can be checked.</p>
+      <ul>{adjustments.map((item) => <li key={item.label}><span className={`points ${item.points >= 0 ? "is-up" : "is-down"}`}>{item.points >= 0 ? "+" : ""}{item.points}</span><strong>{item.label}</strong><span>{item.detail}</span></li>)}</ul>
+    </div>}
   </section>;
 }
 
@@ -88,51 +115,46 @@ const eventLabels: Record<string, string> = {
   public_research_started: "Public source visit started",
   public_research_skipped: "Public research skipped", public_research_completed: "Public source reviewed",
   public_research_failed: "Public research unavailable", guideline_check_started: "Checking carrier appetite",
+  property_context_started: "Looking up public property records", property_context_completed: "Public property records gathered",
+  property_context_skipped: "Public records skipped", property_context_failed: "Public records unavailable",
   analysis_completed: "Guidelines checked",
   broker_response_received: "Broker response received", broker_follow_up_due: "Broker follow-up due",
   approved: "Review approved", declined: "Review declined", job_failed: "Analysis failed",
 };
 
 function traceDetail(event: AuditEvent): string | null {
-  if (/^(?:gemini|openai)_model_/.test(event.eventType)) {
-    const model = String(event.detail.model ?? "Model");
-    if (event.eventType.endsWith("_started")) return model;
-    if (event.eventType.endsWith("_completed")) return `${model} · ${(Number(event.detail.durationMs ?? 0) / 1000).toFixed(1)}s`;
-    return `${model}${event.detail.errorCode ? ` · HTTP ${event.detail.errorCode}` : " · invalid or empty response"}`;
-  }
   if (event.eventType === "model_extraction_started") {
-    const providers = Array.isArray(event.detail.providers) ? event.detail.providers.join(" and ") : "Model";
-    return `Calling ${providers} for year built and recent loss count.`;
+    return "Reading broker notes and cross-checking supplied facts.";
   }
   if (event.eventType === "extraction_completed") {
-    const attempts = Array.isArray(event.detail.attempts) ? event.detail.attempts as { source: string; model: string; status: string; durationMs: number; errorCode?: number; attemptCount?: number }[] : [];
-    const completed = attempts.filter((attempt) => attempt.status === "completed");
-    const failed = attempts.filter((attempt) => attempt.status === "failed");
-    const source = completed.length
-      ? `${completed.map((attempt) => `${attempt.source} ${attempt.model} (${(attempt.durationMs / 1000).toFixed(1)}s${attempt.attemptCount && attempt.attemptCount > 1 ? `, ${attempt.attemptCount} attempts` : ""})`).join(", ")} with parser cross-check`
-      : failed.length ? `${failed.map((attempt) => `${attempt.source}${attempt.errorCode ? ` (HTTP ${attempt.errorCode})` : ""}`).join(" and ")} unavailable; parser fallback` : "Parser only; no model configured";
-    const missing = Array.isArray(event.detail.missing) && event.detail.missing.length ? ` · Missing: ${event.detail.missing.join(", ")}` : "";
-    const applied = event.detail.appliedSources as { yearBuilt?: string; losses?: string } | undefined;
-    const used = applied ? ` · Used: year ${applied.yearBuilt}, losses ${applied.losses}` : "";
-    return `${attempts.length ? source : (Array.isArray(event.detail.sources) ? event.detail.sources.join(", ") : "Broker submission")}${used}${missing}`;
+    const attempts = Array.isArray(event.detail.attempts) ? event.detail.attempts as { status: string }[] : [];
+    const completed = attempts.some((attempt) => attempt.status === "completed");
+    const failed = attempts.some((attempt) => attempt.status === "failed");
+    const source = completed ? "Broker facts extracted with parser cross-check."
+      : failed ? "Model extraction unavailable; parser fallback used." : "Parser only; no model configured";
+    const missing = Array.isArray(event.detail.missing) && event.detail.missing.length ? ` Missing: ${event.detail.missing.join(", ")}.` : "";
+    return source + missing;
   }
   if (event.eventType === "analysis_completed") {
     if (typeof event.detail.pass !== "number") return String(event.detail.status ?? "Analysis complete").replaceAll("_", " ");
     return `Guideline checks · ${event.detail.pass} passed · ${event.detail.refer} referred · ${event.detail.unknown} unknown`;
   }
   if (event.eventType === "public_research_skipped") return String(event.detail.reason ?? "Public research was skipped");
+  if (event.eventType === "property_context_skipped" || event.eventType === "property_context_failed") return String(event.detail.reason ?? "");
+  if (event.eventType === "property_context_completed") return `${event.detail.ok} of ${event.detail.total} public datasets answered for ${event.detail.matched}`;
   if (event.eventType === "public_research_completed") {
     const signals = Array.isArray(event.detail.signals) ? event.detail.signals as string[] : [];
     return signals.length ? `Public source saved as evidence · ${signals.length} signal${signals.length === 1 ? "" : "s"}: ${signals.join(", ")}` : "Public source saved as evidence";
   }
-  if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; no message was sent";
+  if (event.eventType === "broker_follow_up_due") return "24-hour wait elapsed; the case is still waiting on the broker";
   return null;
 }
 
 function AnalysisTrace({ audit, working }: { audit: AuditEvent[]; working: boolean }) {
+  const visibleEvents = audit.filter((event) => !/^(?:gemini|openai)_model_/.test(event.eventType));
   return <section className={`analysis-trace${working ? " is-working" : ""}`} aria-label="Activity trace">
-    <div className="trace-header"><span><ListChecks size={16} /> Activity trace <small>{audit.length} recorded steps</small></span></div>
-    <ol className="trace-list">{audit.map((event) => <li key={event.id}>
+    <div className="trace-header"><span><ListChecks size={16} /> Activity trace <small>{visibleEvents.length} recorded steps</small></span></div>
+    <ol className="trace-list">{visibleEvents.map((event) => <li key={event.id}>
       <div className="trace-heading"><strong>{eventLabels[event.eventType] ?? event.eventType.replaceAll("_", " ")}</strong><time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time></div>
       {traceDetail(event) && <p>{traceDetail(event)}</p>}
     </li>)}</ol>
@@ -181,13 +203,10 @@ const list = (items: unknown[]) => items.map((item) => FACT_NAMES[String(item)] 
 
 /** What the agent is looking for at this stage, so the reader knows what matters before the results land. */
 function stageFocus(caseRecord: CaseRecord): string {
-  const given = [caseRecord.yearBuilt !== null ? "Year built" : null, caseRecord.losses !== null ? "Loss count" : null].filter((name): name is string => name !== null);
   switch (caseRecord.status) {
-    case "received": return "Four facts decide appetite for this risk: state, insured value, year built and loss history. First job is to pin each one down and note where it came from.";
-    case "extracting": return given.length === 2
-      ? "All four facts were entered on the form. I'm still reading the broker's notes to confirm them and catch anything the notes contradict."
-      : `State and insured value came in structured. ${given.length ? `${given[0]} was given too. ` : ""}Year built and loss count are what brokers most often leave out or bury in prose, so that's what I'm reading for.`;
-    case "checking": return "Each fact is tested against the demo appetite: territory, the insured-value cap, building age and loss count. A referral means an underwriter should look, not that the risk is declined.";
+    case "received": return "Eight factors determine appetite: submission type, line of business, primary risk state, insured value, premium, building age, construction mix, and five-year loss dollars. Account name and policy dates provide required context.";
+    case "extracting": return "Reading broker notes alongside supplied intake fields, recording sources, and flagging conflicts. Loss counts are context; the five-year loss dollars and complete account history come from the broker's figures.";
+    case "checking": return "Checking all eight carrier appetite factors and required account context. Missing evidence requires clarification; appetite exceptions require underwriter review. Public-source findings are separate from the appetite score.";
     default: return "";
   }
 }
@@ -196,32 +215,36 @@ function stageFocus(caseRecord: CaseRecord): string {
 function narrate(event: AuditEvent): { text: string; why?: string } | null {
   const detail = event.detail;
   if (/_model_started$/.test(event.eventType)) return { text: "Taking a second read of the notes" };
-  if (/_model_completed$/.test(event.eventType)) return { text: `Second read finished in ${seconds(detail.durationMs)}`, why: "I don't take either read on trust: the two have to agree before a value is used, and where they don't, that becomes a finding." };
+  if (/_model_completed$/.test(event.eventType)) return { text: `Second read finished in ${seconds(detail.durationMs)}`, why: "The two reads have to agree before a value is used. Where they differ, that becomes a finding." };
   if (/_model_failed$/.test(event.eventType)) return { text: "Second read came back empty", why: "Carrying on with the first read alone. Anything taken from prose will carry lower confidence, and I'll say so." };
   switch (event.eventType) {
     case "case_created": return { text: "Logged the submission", why: "Recorded the broker's notes and the form values as the case's source of truth. Everything below points back to them." };
-    case "extraction_started": return { text: "Reading the broker's notes", why: "Looking for the two facts that drive the age and loss-history rules: when the building went up, and how many losses in the last three years." };
+    case "extraction_started": return { text: "Reading the broker's notes", why: "Extracting construction year and contextual loss counts, alongside explicitly supplied appetite fields. Five-year loss dollars and account-history completeness are separate requirements." };
     case "model_extraction_started": return { text: "Extracting the broker facts", why: "Two independent reads of the same notes: one catches figures the other misses, and disagreement between them is itself a finding." };
     case "extraction_completed": {
       const missing = Array.isArray(detail.missing) ? detail.missing : [];
       const conflicts = Number(detail.conflicts ?? 0);
-      if (missing.length) return { text: `Facts settled, except ${list(missing)}`, why: `The appetite rules can't be applied without ${missing.length > 1 ? "them" : "it"}, so rather than guess I'll pause and ask the broker.` };
-      return { text: "All four facts in hand", why: conflicts ? `${conflicts} value${conflicts === 1 ? "" : "s"} came back different from the two readers. That gets flagged as a referral rather than silently resolved.` : "Sources agree. Each value is stored with where it came from and how confident I am in it." };
+      if (missing.length) return { text: `Extraction complete; not supplied: ${list(missing)}`, why: "The next step checks all eight appetite factors and required account context to determine which missing information needs broker clarification." };
+      return { text: "Extraction complete", why: conflicts ? `${conflicts} value${conflicts === 1 ? "" : "s"} came back different from the two readers. That gets flagged as a referral.` : "Extracted values retain their sources and confidence. The guideline check determines whether the required appetite evidence is complete." };
     }
     case "public_research_started": return { text: "Visiting the public source the broker linked", why: "Looking for construction type, roof condition and neighbouring hazards. Notes rarely mention those, and they change the risk picture." };
     case "public_research_completed": {
       const signals = Array.isArray(detail.signals) ? detail.signals as string[] : [];
-      return { text: "Public page saved as evidence", why: signals.length ? `Worth weighing against the submission: ${signals.join(", ")}.` : "Nothing on the page raised a signal. It stays on file as context." };
+      return { text: "Public page saved as evidence", why: signals.length ? `Worth weighing against the submission: ${signals.join(", ")}.` : "The page is on file as context and leaves the picture unchanged." };
     }
     case "public_research_skipped": return { text: "No public research this time", why: String(detail.reason ?? "No source was supplied.") };
     case "public_research_failed": return { text: "Public source unreachable", why: "Proceeding on the submission alone and recording the gap in the trace." };
-    case "guideline_check_started": return { text: "Checking the demo appetite", why: "Territory, insured-value cap, building age and loss count each come back pass, refer or unknown. Unknowns are questions, not verdicts." };
+    case "property_context_started": return { text: "Pulling the public record on the address", why: "Flood zone, wildfire history, seismicity, ten years of weather, fire protection and neighbours, EPA sites, the census tract, drought, and disaster declarations, all from public datasets." };
+    case "property_context_completed": return { text: `${detail.ok} of ${detail.total} public datasets answered`, why: "Each one becomes a cited finding, and the hazards move the priority score by a stated number of points." };
+    case "property_context_skipped": return { text: "No public record lookup", why: String(detail.reason ?? "No address was supplied.") };
+    case "property_context_failed": return { text: "Public record lookup fell short", why: String(detail.reason ?? "Continuing on the submission alone.") };
+    case "guideline_check_started": return { text: "Checking the demo appetite", why: "Territory, insured-value cap, building age and loss count each come back pass, refer or unknown. An unknown is a question for the broker." };
     case "analysis_completed": {
       const refer = Number(detail.refer ?? 0), pass = Number(detail.pass ?? 0), unknown = Number(detail.unknown ?? 0);
-      return { text: `${pass} passed · ${refer} referred · ${unknown} unknown`, why: detail.status === "waiting_for_broker" ? "One answer depends on the broker, so I'm pausing and writing the question." : refer ? "Referrals are the part worth your time. The brief leads with them." : "Nothing needs escalation. Writing the brief for your review." };
+      return { text: `${pass} passed · ${refer} referred · ${unknown} unknown`, why: detail.status === "waiting_for_broker" ? "One answer depends on the broker, so I'm pausing and writing the question." : refer ? "Referrals are the part worth your time. The brief leads with them." : "Everything passed. Writing the brief for your review." };
     }
     case "broker_response_received": return { text: "Broker replied", why: "Re-reading the notes with the new information. Anything that changed is checked again from scratch." };
-    case "broker_follow_up_due": return { text: "Follow-up window elapsed", why: "No message was sent; this is a reminder that the case is still waiting on the broker." };
+    case "broker_follow_up_due": return { text: "Follow-up window elapsed", why: "A reminder that the case is still waiting on the broker." };
     case "job_failed": return { text: "Analysis stopped", why: String(detail.reason ?? "Something went wrong. The trace has the detail.") };
     default: return null;
   }
@@ -268,7 +291,7 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
       {STAGES.map((stage, index) => <li key={stage.label} data-state={index < current ? "done" : index === current ? "active" : "todo"}><span className="working-step" aria-hidden="true">{index < current && <Check size={10} weight="bold" />}</span>{stage.label}</li>)}
     </ol>
     {stalled
-      ? <p className="working-focus working-stalled">This case is in the queue and will start automatically as soon as the analysis service is free. Nothing is needed from you; this page keeps checking on its own.</p>
+      ? <p className="working-focus working-stalled">This case is in the queue and will start automatically as soon as the analysis service is free. This page keeps checking on its own, so you can sit tight.</p>
       : <p className="working-focus">{stageFocus(caseRecord)}</p>}
     {thoughts.length > 0 && <ol className="thinking" aria-label="What the agent is doing">
       {thoughts.map((entry, index) => <li key={entry.id} className={index === thoughts.length - 1 ? "is-current" : undefined}>
@@ -280,20 +303,24 @@ function AgentWorking({ caseRecord, audit, jobStatus }: { caseRecord: CaseRecord
 }
 
 
-export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision }: {
+export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailable, response, setResponse, reason, setReason, submitting, onResponse, onDecision, onReportSaved }: {
   id: string; caseRecord: CaseRecord; audit: AuditEvent[]; jobStatus: JobStatus; error: string | null; voiceAvailable: boolean;
   response: string; setResponse: (value: string) => void;
   reason: string; setReason: (value: string) => void; submitting: boolean;
   onResponse: () => void; onDecision: (kind: ActionKind) => void;
+  onReportSaved: () => void;
 }) {
   const working = isProcessing(caseRecord, jobStatus);
   useElapsedSeconds(id, working);
+  const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
   return <main className="shell shell-narrow conversation">
     <div className="case-toolbar">
       <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><Link href="/cases">Cases</Link><span className="sep">/</span><span className="current">{caseRecord.insuredName}</span></p>
+      <CasePdfExport id={id} conversation={chatTurns.map(({ role, text, edited }) => ({ role, text, edited }))} />
       <span className="case-id-label">case {id.slice(0, 8)}</span>
       <Status value={caseRecord.status} />
     </div>
+    <CaseReportEditor key={`${id}:${caseRecord.analysisRevision}`} caseRecord={caseRecord} audit={audit} working={["received", "extracting", "checking"].includes(caseRecord.status)} onSaved={onReportSaved} />
     {error && <div className="alert" role="alert"><WarningCircle size={17} aria-hidden="true" />{error}</div>}
     <div className="conversation-message request-message">
       <div className="message-avatar requester-avatar"><FileText size={16} aria-hidden="true" /></div>
@@ -306,16 +333,18 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {working ? <AgentWorking caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} /> : <JobProgress caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} />}
         {caseRecord.status === "failed" && <div className="alert"><WarningCircle size={17} aria-hidden="true" />{caseRecord.error ?? "Analysis failed."}</div>}
         {caseRecord.brief ? <p className="brief">{caseRecord.brief}</p> : !working && <p className="brief">Analysis is in progress.</p>}
-        {caseRecord.appetiteResult && <section className="detail-section" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
+        {caseRecord.appetiteResult && <section className="detail-section appetite-recommendation" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100{caseRecord.appetiteResult.adjustments?.length ? ` (appetite ${caseRecord.appetiteResult.baseScore}, public records ${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score) >= 0 ? "+" : ""}${caseRecord.appetiteResult.score - (caseRecord.appetiteResult.baseScore ?? caseRecord.appetiteResult.score)})` : ""}</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
         {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} working={working} />
         {caseRecord.facts && <section className="detail-section" aria-labelledby="facts-title"><div className="section-heading"><h2 id="facts-title">Extracted facts</h2><FileText size={16} aria-hidden="true" /></div><div className="fact-list"><FactRow label="State" fact={caseRecord.facts.state} /><FactRow label="Total insured value" fact={caseRecord.facts.tiv} format={(value) => `$${value.toLocaleString()}`} /><FactRow label="Year built" fact={caseRecord.facts.yearBuilt} /><FactRow label="Loss count" fact={caseRecord.facts.losses} /></div></section>}
         <Findings caseRecord={caseRecord} />
+        <PropertyContextSection context={caseRecord.propertyContext} result={caseRecord.appetiteResult} />
         {caseRecord.publicEvidence && <section className="detail-section" aria-labelledby="evidence-title"><div className="section-heading"><h2 id="evidence-title">Public-source evidence</h2><ArrowSquareOut size={16} aria-hidden="true" /></div><p className="brief">{caseRecord.publicEvidence.excerpt}</p><div className="source-line"><a className="text-link" href={caseRecord.publicEvidence.url} target="_blank" rel="noopener noreferrer">{caseRecord.publicEvidence.title || caseRecord.publicEvidence.url}</a><span>External source; verify before relying on it.</span></div></section>}
       </div>
     </div>
     <div className="conversation-action"><CaseActions caseRecord={caseRecord} response={response} setResponse={setResponse} reason={reason} setReason={setReason} submitting={submitting} onResponse={onResponse} onDecision={onDecision} /></div>
-    <p className="demo-note">New analyses use the supplied 2025 commercial property appetite. A review decision does not quote or bind coverage.</p>
+    {!working && <div className="conversation-action"><AgentChat id={id} voiceAvailable={voiceAvailable} turns={chatTurns} setTurns={setChatTurns} /></div>}
+    <p className="demo-note">New analyses use the supplied 2025 commercial property appetite. Quoting and binding stay with the carrier.</p>
   </main>;
 }

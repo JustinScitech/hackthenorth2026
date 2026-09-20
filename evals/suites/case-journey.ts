@@ -1,5 +1,5 @@
 import { BROKER_UPDATE_SEPARATOR, buildFacts, evaluateFacts, parseBrokerNotes, type Intake } from "../../src/agent/analysis";
-import { brokerAppetite, caseAppetiteSchema } from "../../src/lib/case-appetite";
+import { mergeCaseAppetite } from "../../src/lib/case-appetite";
 import type { CaseStatus } from "../../src/lib/types";
 import { attempt, same, type CaseResult, type Suite } from "../runner";
 
@@ -18,7 +18,7 @@ const intake = (overrides: Partial<Omit<Intake, "appetite">> = {}): Omit<Intake,
 
 /** Mirrors extractCase + checkCase: appetite from the first text, then replies override; the year comes from the joined text. */
 function analyze(item: Case, texts: string[]) {
-  const appetite = caseAppetiteSchema.parse({ ...brokerAppetite(texts[0]), ...brokerAppetite(texts.slice(1).join("\n")) });
+  const appetite = mergeCaseAppetite(texts[0], undefined, texts.slice(1).join("\n"));
   const facts = buildFacts({ ...item.intake, appetite }, parseBrokerNotes(texts.join(BROKER_UPDATE_SEPARATOR)));
   const result = evaluateFacts(facts);
   return { facts, result, status: (result.question ? "waiting_for_broker" : "review_ready") as CaseStatus };

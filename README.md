@@ -6,6 +6,8 @@ Cases and Federato triage share the supplied **2025 sample appetite guidelines**
 
 ## Federato challenge triage
 
+After ranking, **Download slides** exports an editable PowerPoint deck of the displayed results (top-ranked by default; all evaluated records after **Show all results**). The deck includes scope, scoring caveats, recommended actions, and factor evidence. Exact technical source paths remain in speaker notes rather than crowding the slides. Findings stay together where possible, and long content continues onto additional slides. **Print / save PDF** remains available separately. Slide export runs locally in the browser and does not send records to an external slide service.
+
 Open `/triage` and select **Rank live submissions**, or run `npm run triage`. Set `FEDERATO_CLIENT_ID` and `FEDERATO_CLIENT_SECRET` in `.env` to enable this live integration. The agent discovers the live schema, builds reference-aware queries, paginates the selected resource, and ranks records with factor-level explanations. This flow runs independently of the local case database.
 
 The live planner prefers `Submission` and supplements missing evidence only from a uniquely linked Policy with matching insured, line, and effective date. Unmatched, ambiguous, and incomplete submissions remain visible. All lifecycle statuses are included and displayed. See [the challenge gap assessment](docs/federato-gap-assessment.md) for implemented requirements, scoring assumptions, configuration, live verification, and remaining gaps.
@@ -16,7 +18,7 @@ The live planner prefers `Submission` and supplements missing evidence only from
 
 ## Interface
 
-The product is branded **Astra Risk**; the logo files live in `public/brand`. The site has a marketing homepage at `/`, in-site docs and an API reference at `/docs`, and the workspace under `/overview`, `/cases`, `/cases/new`, `/quotes`, `/triage`, and `/settings`. The UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default; switch to light in **Settings** or with the sun/moon button in the header. The choice is saved in the browser.
+The product is branded **Astra Risk**; the logo files live in `public/brand`. The site has a marketing homepage at `/`, in-site docs and an API reference at `/docs`, and the workspace under `/overview`, `/cases`, `/cases/new`, `/quotes`, `/triage`, and `/settings`. The UI follows the documentation-style design system in [docs/DESIGN.md](docs/DESIGN.md): a sidebar plus content layout, cool-green surfaces, translucent green annotations, and a small shadow hierarchy. Dark mode is the default; switch to light in **Settings**, in the account dialog behind your avatar, or with the sun/moon button in the header. The choice is saved in the browser.
 
 ## Stack
 
@@ -24,9 +26,10 @@ The product is branded **Astra Risk**; the logo files live in `public/brand`. Th
 - PostgreSQL or Tiger Data: case records, durable jobs, retries, and audit events
 - MongoDB: broker submissions, replies, and public evidence (local container or Atlas)
 - Optional Gemini and OpenAI APIs: independent structured extraction from unstructured broker notes, resolved by agreement with a deterministic parser; the parser alone works without keys
+- Public property records (no keys): with a property address, the worker geocodes it through the US Census geocoder and asks a dozen open datasets at once: FEMA NFHL flood zone, GloFAS river discharge and ten years of daily weather and elevation from Open-Meteo, USGS seismicity, NIFC wildfire-perimeter history, OpenStreetMap fire stations, hydrants, neighbouring hazards and the building, EPA ECHO regulated facilities, the US Drought Monitor, and OpenFEMA disaster declarations (the Census ACS tract needs a free `CENSUS_API_KEY`). Each becomes a cited finding, and the hazards move the priority score by a stated, bounded number of points listed beside the appetite score (`src/agent/context-sources.ts`, `context-findings.ts`)
 - Optional Browserbase: visit an explicitly supplied public source, read year built, construction, size, sprinklers, and flood zone from the page, and turn each into a cited finding that corroborates, contradicts, or adds to the broker facts
 - Optional Sentry: error monitoring, agent traces, structured logs, per-model-call AI spans, and job, analysis, and eval metrics from the worker, web app, and browser, read back into the overview dashboard; every event is scrubbed of submission text
-- Optional ElevenLabs: spoken underwriter review brief
+- Optional ElevenLabs: spoken underwriter review brief, and a voice conversation with the agent on the case page (speech-to-text in, speech back out)
 
 ## Code layout
 

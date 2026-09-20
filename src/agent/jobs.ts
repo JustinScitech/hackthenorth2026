@@ -11,13 +11,13 @@ const LEASE_SECONDS = 900;
 const FOLLOW_UP_HOURS = 24;
 
 // Each activity becomes an `agent.activity` span when SENTRY_DSN is set; otherwise these are the plain functions.
-const { checkCase, extractCase, failCase, finalizeDecision, recordBrokerFollowUp, recordBrokerResponse, researchPublicSource } = monitorActivities(activityModule);
+const { checkCase, extractCase, failCase, finalizeDecision, recordBrokerFollowUp, recordBrokerResponse, researchPublicSource, researchPropertyContext } = monitorActivities(activityModule);
 
 async function scheduleFollowUp(caseId: string) {
   const record = await getCase(caseId);
   if (record?.status !== "waiting_for_broker") return;
   await enqueueJob(caseId, "broker_follow_up", `followup:${caseId}:${record.analysisRevision}:1`,
-    { revision: record.analysisRevision, reminderNumber: 1 }, new Date(Date.now() + FOLLOW_UP_HOURS * 3_600_000));
+    { revision: record.analysisRevision, reminderNumber: 1 }, FOLLOW_UP_HOURS * 3_600_000);
 }
 
 async function runJob(job: Job) {
@@ -28,6 +28,7 @@ async function runJob(job: Job) {
     if (!["received", "extracting", "checking"].includes(record.status)) return;
     await extractCase(job.case_id);
     await researchPublicSource(job.case_id);
+    await researchPropertyContext(job.case_id);
     await checkCase(job.case_id);
     await scheduleFollowUp(job.case_id);
   } else if (job.kind === "broker_response") {
@@ -45,7 +46,7 @@ async function runJob(job: Job) {
     if (record.status !== "waiting_for_broker" || record.analysisRevision !== revision || !reminderNumber) return;
     await recordBrokerFollowUp(job.case_id, revision, reminderNumber);
     await enqueueJob(job.case_id, "broker_follow_up", `followup:${job.case_id}:${revision}:${reminderNumber + 1}`,
-      { revision, reminderNumber: reminderNumber + 1 }, new Date(Date.now() + FOLLOW_UP_HOURS * 3_600_000));
+      { revision, reminderNumber: reminderNumber + 1 }, FOLLOW_UP_HOURS * 3_600_000);
   }
 }
 

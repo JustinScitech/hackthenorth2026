@@ -8,7 +8,7 @@ test("public pages are accessible and protected pages require sign-in", async ({
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Underwriting that");
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Documentation" }).click();
   await expect(page).toHaveURL(/\/docs$/);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("API reference");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("How to use Astra Risk");
   await page.goto("/cases");
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("button", { name: /Google/ })).toBeDisabled();
@@ -29,7 +29,7 @@ test("overview, case list, search, and navigation use real session and case data
   await page.goto("/overview");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Agent quality" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Agent quality" }).getByText("Past 30 days", { exact: false })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Agent quality" }).getByText(/^Past 30 days · local case and audit records/)).toBeVisible();
   await expect(page.getByRole("link", { name: /Cases/ }).first()).toBeVisible();
   await page.goto("/cases");
   await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
@@ -47,13 +47,16 @@ test("workspace matches the landing palette across desktop and mobile", async ({
   await page.goto("/overview");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(page.locator(".sidebar .brand-text")).toContainText("AstraRisk");
-  expect(await page.locator("body").evaluate((body) => getComputedStyle(body).backgroundColor)).toBe("rgb(246, 245, 241)");
-  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(83, 71, 184)");
+  expect(await page.locator("body").evaluate((body) => getComputedStyle(body).backgroundColor)).toBe("rgb(243, 239, 228)");
+  expect(await page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(28, 30, 27)");
   await page.screenshot({ path: testInfo.outputPath("overview-desktop.png"), fullPage: true });
 
   await page.goto("/settings");
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
-  await expect.poll(() => page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(177, 167, 240)");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.goto("/overview");
+  await expect.poll(() => page.locator(".nav-link[aria-current='page']").evaluate((link) => getComputedStyle(link).color)).toBe("rgb(236, 231, 217)");
+  await page.goto("/settings");
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Light" }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -153,7 +156,11 @@ test("case trace shows live progress and broker and underwriter actions", async 
   const actions: Record<string, unknown>[] = [];
   await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
     case: { id, insuredName: "Trace Test Office", state: "NY", tiv: 2400000, status, brief: status === "extracting" ? null : "Review completed.", question: "What year was it built?", decision: "Approved after review.", facts: null, findings: null, publicEvidence: null, createdAt: new Date().toISOString() },
-    audit: [{ id: "1", eventType: "gemini_model_started", detail: { model: "gemini-3.8-flash" }, createdAt: new Date().toISOString() }],
+    audit: [
+      { id: "0", eventType: "model_extraction_started", detail: { providers: ["Gemini"] }, createdAt: new Date().toISOString() },
+      { id: "1", eventType: "gemini_model_started", detail: { model: "gemini-3.8-flash" }, createdAt: new Date().toISOString() },
+      ...(status === "extracting" ? [] : [{ id: "2", eventType: "extraction_completed", detail: { attempts: [{ source: "Gemini", model: "gemini-3.8-flash", status: "completed" }], appliedSources: { yearBuilt: "Broker text via Gemini", losses: "Gemini" } }, createdAt: new Date().toISOString() }]),
+    ],
     jobStatus: "RUNNING", voiceAvailable: false,
   }) }));
   await page.route(`**/api/cases/${id}/actions`, async (route) => {
@@ -163,10 +170,14 @@ test("case trace shows live progress and broker and underwriter actions", async 
     await route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' });
   });
   await page.goto(`/cases/${id}`);
-  await expect(page.getByRole("status")).toContainText("Extracting with gemini-3.8-flash");
-  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Gemini model started");
+  await expect(page.getByRole("status")).toContainText("Astra is extracting the broker facts");
+  await expect(page.getByRole("status")).toContainText("Loss counts are context; the five-year loss dollars");
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Model extraction started");
+  await expect(page.getByRole("region", { name: "Activity trace" })).not.toContainText(/gemini|openai|flash/i);
   status = "waiting_for_broker";
   await page.reload();
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Facts extracted");
+  await expect(page.getByRole("region", { name: "Activity trace" })).not.toContainText(/gemini|openai|flash/i);
   await page.getByLabel("Broker response").fill("Built in 2012 and fully sprinklered.");
   await page.getByRole("button", { name: "Add response and resume" }).click();
   await expect(page.getByRole("heading", { name: "Underwriter decision" })).toBeVisible();
@@ -254,7 +265,11 @@ test("authenticated APIs enforce origin, input, and case state", async ({ authen
 
 test("sign-out revokes the authenticated session", async ({ authenticatedPage: page }) => {
   await page.goto("/overview");
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("navigation", { name: "Preferences" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Account and settings" }).click();
+  const account = page.getByRole("dialog");
+  await expect(account.getByRole("group", { name: "Theme" })).toBeVisible();
+  await account.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
   await page.goto("/cases");
   await expect(page).toHaveURL(/\/sign-in$/);
@@ -327,4 +342,47 @@ test("a retried decision action returns success without duplicating the decision
   } finally {
     await db.end();
   }
+});
+
+test("case page chat sends a question and shows the agent's reply", async ({ authenticatedPage: page }) => {
+  const id = randomUUID();
+  let asked: { text?: string; history?: unknown; voice?: boolean } | null = null;
+  await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+    case: { id, insuredName: "Garden State Distribution", state: "NJ", tiv: 6800000, yearBuilt: 1974, losses: 1, status: "review_ready", brief: "Two referrals: territory and building age.", facts: null, findings: null, publicEvidence: null, extractionConflicts: [], question: null, decision: null, error: null, analysisRevision: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    audit: [], jobStatus: "COMPLETED", voiceAvailable: false,
+  }) }));
+  await page.route(`**/api/cases/${id}/chat`, async (route) => {
+    asked = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ question: asked?.text, spoken: false, reply: "Building age is the one to start with: 1974 sits past the appetite cut-off.", model: "test-model", audio: "AAAA" }) });
+  });
+  await page.goto(`/cases/${id}`);
+  await expect(page.getByRole("heading", { name: "Ask the agent" })).toBeVisible();
+  await page.getByLabel("Your question").fill("Which check should I start with?");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Building age is the one to start with")).toBeVisible();
+  expect(asked).toMatchObject({ text: "Which check should I start with?", history: [], voice: false });
+  // Spoken replies play on their own; the only control is a small speaker button, never the browser's player.
+  await expect(page.getByRole("button", { name: /Play reply|Stop/ })).toBeVisible();
+  await expect(page.locator("audio")).toHaveCount(0);
+});
+
+test("voice mode opens a hands-free conversation with the transcript alongside", async ({ authenticatedPage: page }) => {
+  const id = randomUUID();
+  await page.context().grantPermissions(["microphone"]);
+  await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+    case: { id, insuredName: "Garden State Distribution", state: "NJ", tiv: 6800000, yearBuilt: 1974, losses: 1, status: "review_ready", brief: "Two referrals: territory and building age.", facts: null, findings: null, publicEvidence: null, extractionConflicts: [], question: null, decision: null, error: null, analysisRevision: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    audit: [], jobStatus: "COMPLETED", voiceAvailable: true,
+  }) }));
+  await page.route(`**/api/cases/${id}/chat`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ question: "Where did the year built come from?", spoken: true, reply: "The broker notes.", model: "test-model", audio: null }) }));
+  await page.goto(`/cases/${id}`);
+  await page.getByRole("button", { name: "Voice" }).click();
+  const dialog = page.getByRole("dialog", { name: "Voice conversation with the agent" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("status")).toHaveText(/Listening|Thinking/);
+  await expect(dialog.getByText("Say something about the case")).toBeVisible();
+  if (process.env.VOICE_SHOT) { await page.waitForTimeout(800); await page.screenshot({ path: process.env.VOICE_SHOT }); }
+  await dialog.getByRole("button", { name: "Mute microphone" }).click();
+  await expect(dialog.getByRole("status")).toHaveText(/Muted|Thinking/);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
 });
