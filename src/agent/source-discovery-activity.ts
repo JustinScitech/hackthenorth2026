@@ -18,7 +18,7 @@ export async function discoverCaseSources(caseRecord: CaseRecord, search?: Searc
   }
   await addAudit(caseId, "source_discovery_started", { insuredName: caseRecord.insuredName, state: caseRecord.state }, `discovery-started:${caseId}`);
   try {
-    const candidates = await discoverPublicSources({ insuredName: caseRecord.insuredName, state: caseRecord.state, address: caseRecord.address }, search);
+    const candidates = await discoverPublicSources({ insuredName: caseRecord.insuredName, state: caseRecord.state ?? "", address: caseRecord.address }, search);
     await db.query("UPDATE cases SET source_candidates = $2, updated_at = now() WHERE id = $1", [caseId, JSON.stringify(candidates)]);
     await addAudit(caseId, "source_discovery_completed", { candidates: candidates.map(({ url, confidence }) => ({ url, confidence })) }, `discovery:${caseId}`);
     logAgentEvent("source_discovery_completed", { caseId, candidates: candidates.length });

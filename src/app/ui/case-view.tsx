@@ -11,7 +11,7 @@ import { AgentChat, type ChatTurn } from "./agent-chat";
 import { CasePdfExport } from "./case-pdf-export";
 import { CaseReportEditor } from "./case-report-editor";
 import { SourcePicker } from "./source-picker";
-import { summarizeSubmission } from "@/federato/presentation";
+import { NextStepPanel } from "./next-step";
 
 /** The worker is still on this case: nothing final has landed yet, so the page should visibly move. */
 function isProcessing(caseRecord: CaseRecord, jobStatus: JobStatus) {

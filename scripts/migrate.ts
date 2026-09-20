@@ -100,6 +100,19 @@ async function main() {
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS source_candidates jsonb;
     ALTER TABLE case_jobs DROP CONSTRAINT IF EXISTS case_jobs_kind_check;
     ALTER TABLE case_jobs ADD CONSTRAINT case_jobs_kind_check CHECK (kind IN ('analyze', 'broker_response', 'decision', 'broker_follow_up', 'research'));
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS origin jsonb;
+    ALTER TABLE cases ALTER COLUMN state DROP NOT NULL;
+    ALTER TABLE cases ALTER COLUMN tiv DROP NOT NULL;
+    CREATE TABLE IF NOT EXISTS triage_reports (
+      id uuid PRIMARY KEY,
+      resource text NOT NULL,
+      generated_at timestamptz NOT NULL,
+      total integer NOT NULL,
+      evaluated integer NOT NULL,
+      report jsonb NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS triage_reports_generated_at_idx ON triage_reports(generated_at DESC);
   `);
   const { runMigrations } = await getMigrations(auth.options);
   await runMigrations();
