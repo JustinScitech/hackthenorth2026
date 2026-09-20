@@ -41,7 +41,7 @@ export function buildAgentReportSections(record: CaseRecord, audit: AuditEvent[]
 
   const submission = [
     `Insured: ${record.insuredName}`, `Location: ${record.state} property`,
-    `Total insured value: $${record.tiv.toLocaleString("en-US")}`,
+    `Total insured value: ${record.tiv === null ? "pending from the broker" : `$${record.tiv.toLocaleString("en-US")}`}`,
     `Submitted: ${timestamp(record.createdAt)}`, `Last updated: ${timestamp(record.updatedAt)}`,
   ];
   if (record.yearBuilt !== null) submission.push(`Submitted year built: ${record.yearBuilt}`);

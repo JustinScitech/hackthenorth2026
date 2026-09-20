@@ -3,16 +3,20 @@ import { queueFixture, routeQueue } from "./queue-fixture";
 
 test("the queue explains each submission, exports it, and opens it as a case the agent works", async ({ authenticatedPage: page }) => {
   test.setTimeout(90_000);
-  await routeQueue(page, { status: 200, body: queueFixture([{ id: 1, account: "New property", patch: { premium: null } }]) });
+  // A fresh id each run: the queue offers "Open case" instead of "Open as case" once a submission has a case.
+  const id = 100_000 + Math.floor(Math.random() * 900_000);
+  await routeQueue(page, { status: 200, body: queueFixture([{ id, account: "New property", patch: { premium: null } }]) });
   await page.goto("/triage");
   await page.getByRole("button", { name: "Rank the live queue" }).first().click();
   await expect(page.getByRole("heading", { name: "New property" })).toBeVisible();
-  await expect(page.getByText("Good match for review")).toBeVisible();
+  await expect(page.locator(".queue-row").first().locator(".disposition").first()).toHaveText("Needs information");
+  await expect(page.getByText(/One answer decides it: total premium/)).toBeVisible();
+  await expect(page.getByText(/this becomes Target/)).toBeVisible();
   await expect(page.getByRole("region", { name: "Queue review status" })).toContainText("Ready for review does not mean approved");
-  await page.getByText("Review checklist · 0 exceptions · 0 evidence gaps").click();
-  await expect(page.getByText("No unresolved appetite checks.", { exact: false })).toBeVisible();
-  await expect(page.getByText("New property matches the supplied carrier guidelines on the available information.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Print / save PDF" })).toBeVisible();
+  await page.getByText("Review checklist · 0 exceptions · 1 evidence gaps").click();
+  await expect(page.getByText("Confirm the total premium and currency", { exact: false })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /Observed new\./ })).toBeVisible();
+  await page.locator(".tool-menu > summary").click();
   await page.evaluate(() => { window.print = () => { (window as Window & { __printCalled?: boolean }).__printCalled = true; }; });
   await page.getByRole("button", { name: "Print / save PDF" }).click();
   await expect.poll(() => page.evaluate(() => (window as Window & { __printCalled?: boolean }).__printCalled)).toBe(true);
@@ -21,7 +25,7 @@ test("the queue explains each submission, exports it, and opens it as a case the
   await expect((await download).suggestedFilename()).toMatch(/^federato-triage-top-\d{4}-\d{2}-\d{2}\.pptx$/);
   await page.getByRole("button", { name: "Open as case" }).click();
   await expect(page).toHaveURL(/\/cases\/[0-9a-f-]{36}$/);
-  await expect(page.getByText(/Opened from the Federato queue: Submission 1, ranked 1 of 1/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`Opened from the Federato queue: Submission ${id}, ranked 1 of 1`))).toBeVisible();
   await expect(page.getByRole("heading", { name: "Broker information needed" })).toBeVisible({ timeout: 40_000 });
   await expect(page.getByRole("heading", { name: "Where this stands" })).toBeVisible();
   await expect(page.getByText(/total premium/).first()).toBeVisible();

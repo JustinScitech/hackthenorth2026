@@ -6,6 +6,7 @@ import { ArrowRight, ArrowsClockwise, DownloadSimple, FolderPlus, Info, ListNumb
 import { dispositionOrder, nextStep, type Disposition, type NextStep } from "@/federato/disposition";
 import { caseFromSubmission } from "@/federato/open-case";
 import { resourceLabels } from "@/federato/presentation";
+import { buildReviewPlan, summarizeQueue } from "@/federato/review-plan";
 import type { StoredTriageReport } from "@/federato/reports";
 import type { RankedSubmission } from "@/federato/scoring";
 import { loadCases } from "./load-cases";
@@ -108,6 +109,7 @@ export function Queue() {
   const visible = inLine.filter((row) => bucket === "all" || row.step.disposition === bucket);
   const countIn = (disposition: BucketFilter) => disposition === "all" ? inLine.length : inLine.filter((row) => row.step.disposition === disposition).length;
   const labels = report ? resourceLabels(report.resource) : null;
+  const health = report ? summarizeQueue(report.ranked) : null;
 
   return <main className="shell triage-page queue-page">
     <p className="breadcrumb"><Link href="/overview">Commercial property</Link><span className="sep">/</span><span className="current">Queue</span></p>
@@ -142,10 +144,15 @@ export function Queue() {
         {dispositionOrder.map((disposition) => <button key={disposition} type="button" className={`chip chip-${dispositionSlug[disposition]}`} aria-pressed={bucket === disposition} onClick={() => setBucket(disposition)}>{disposition} <b>{countIn(disposition)}</b></button>)}
       </div>
       <p className="lede queue-summary">{summaryLine(inLine, line)}</p>
+      {health && <section className="queue-health" aria-label="Queue review status">
+        <dl><div><dt>Ready for review</dt><dd>{health.ready}</dd></div><div><dt>Needs information</dt><dd>{health.incomplete}</dd></div><div><dt>Appetite exceptions</dt><dd>{health.exceptions}</dd></div></dl>
+        <p className="subtle">Across all evaluated records. {health.withEvidenceGaps} also have evidence gaps, including records with exceptions. Ready for review does not mean approved.</p>
+      </section>}
       {!visible.length && <div className="card"><p className="empty-state">{rows.length ? "Nothing matches these filters." : "The API returned an empty queue."}</p></div>}
       <ol className="queue-list" aria-label="Ranked submissions">
         {visible.map((row) => {
           const { item, step } = row;
+          const plan = buildReviewPlan(item);
           const caseId = opened.get(item.id);
           const lifecycle = item.lifecycleStatus && item.lifecycleStatus !== "unknown" ? ` · ${item.lifecycleStatus}` : "";
           return <li className="queue-row" key={item.id}>
@@ -155,12 +162,15 @@ export function Queue() {
               <p className="queue-why">{step.why}</p>
               <p className="queue-action"><strong>Next:</strong> {step.action}</p>
               {step.disposition === "Needs information" && step.questions.length <= 3 && <ul className="queue-questions">{step.questions.map((question) => <li key={question.item}><strong>{question.item}</strong>: {question.source}</li>)}</ul>}
-              <details className="queue-details">
-                <summary>{step.questions.length > 3 ? `Where each answer comes from, evidence and sources` : "Evidence and sources"}</summary>
-                {step.questions.length > 3 && <ul className="queue-questions">{step.questions.map((question) => <li key={question.item}><strong>{question.item}</strong>: {question.source}</li>)}</ul>}
+              <details className="queue-details review-plan">
+                <summary>Review checklist · {plan.exceptions} exceptions · {plan.gaps} evidence gaps</summary>
+                <div className="review-plan-body">
+                <p className="subtle">{plan.assessed} of {plan.total} appetite factors can be assessed from supplied data. This measures availability, not independent verification or approval.</p>
+                {plan.tasks.length ? <ol className="review-tasks">{plan.tasks.map((task) => <li key={task.factor}><span className="review-task-head"><strong>{task.factor}</strong><span className={`disposition ${task.kind === "exception" ? "disposition-outside" : "disposition-needs"}`}>{task.kind === "exception" ? "exception" : "evidence gap"}</span></span><p>{task.action}</p><small>{task.reason}{task.source ? ` Source: ${task.source}.` : ""}</small></li>)}</ol> : <p>No unresolved appetite checks.</p>}
                 <p className="subtle">{item.evidenceNote}</p>
                 <div className="triage-table-wrap"><table className="triage-table"><thead><tr><th>Factor</th><th>Result</th><th>Points</th><th>Evidence and rule</th></tr></thead><tbody>{item.criteria.map((criterion) => <tr key={criterion.factor}><th scope="row">{criterion.factor}</th><td>{criterion.status}</td><td>{criterion.points}/{criterion.maximum}</td><td>{criterion.detail}<small>Source: {criterion.source}</small></td></tr>)}</tbody></table></div>
                 <p className="subtle">{item.explanation}</p>
+                </div>
               </details>
             </div>
             <div className="queue-side">

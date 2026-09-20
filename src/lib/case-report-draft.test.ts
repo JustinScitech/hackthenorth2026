@@ -7,6 +7,7 @@ const record: CaseRecord = {
   id: "11111111-1111-4111-8111-111111111111", insuredName: "Northline Fabrication", state: "CO", tiv: 6_250_000,
   yearBuilt: 2008, losses: 1, sourceKey: "sample", publicSourceUrl: "https://example.org/property",
   publicEvidence: { title: "Property record", url: "https://example.org/property", excerpt: "Built in 2008.", signals: [{ kind: "yearBuilt", value: 2008, quote: "Constructed in 2008." }] },
+  address: null, propertyContext: null, origin: null,
   extractionConflicts: [], status: "approved", facts: {
     state: { value: "CO", source: "Intake", confidence: 1 }, tiv: { value: 6_250_000, source: "Intake", confidence: 1 },
     yearBuilt: { value: 2008, source: "Broker notes", confidence: 0.9 }, losses: { value: 1, source: "Broker notes", confidence: 0.8 },

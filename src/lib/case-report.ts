@@ -131,7 +131,7 @@ export async function createCaseReportPdf(caseRecord: CaseRecord, audit: AuditEv
   section("Submission");
   row("Insured", caseRecord.insuredName);
   row("Location", `${caseRecord.state} property`);
-  row("Total insured value", `$${caseRecord.tiv.toLocaleString("en-US")}`);
+  row("Total insured value", caseRecord.tiv === null ? "Pending from the broker" : `$${caseRecord.tiv.toLocaleString("en-US")}`);
   row("Submitted", date(caseRecord.createdAt));
   row("Last updated", date(caseRecord.updatedAt));
   if (caseRecord.yearBuilt !== null) row("Submitted year built", String(caseRecord.yearBuilt));

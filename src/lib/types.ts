@@ -38,6 +38,9 @@ export type PublicEvidence = { url: string; title: string; excerpt: string; sign
 export type ReportSection = { id: string; title: string; body: string };
 export type ReportDraft = { sections: ReportSection[]; analysisRevision: number; editedBy: string; updatedAt: string };
 
+/** Where a case came from when it was opened from the live Federato queue. */
+export type CaseOrigin = { system: "federato"; resource: string; id: string; rank: number; of: number; rankedAt: string; lifecycleStatus?: string; evidenceNote?: string };
+
 export type CaseRecord = {
   id: string;
   insuredName: string;
