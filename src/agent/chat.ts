@@ -49,6 +49,12 @@ export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[]): strin
     lines.push(`Appetite result: match score ${result.rawScore}/100, priority score ${result.score}/100. ${result.recommendation} ${result.explanation}`);
   }
   if (caseRecord.publicEvidence) lines.push(`Public source (${caseRecord.publicEvidence.url}): ${caseRecord.publicEvidence.excerpt}`);
+  if (caseRecord.propertyContext?.geocoded) {
+    lines.push(`Property address: ${caseRecord.propertyContext.geocoded.matchedAddress}`);
+    lines.push("Public property records:");
+    for (const source of caseRecord.propertyContext.sources) lines.push(`- ${source.label}: ${source.summary}`);
+  }
+  if (caseRecord.appetiteResult?.adjustments?.length) lines.push(`Priority adjustments from public records (appetite-only score ${caseRecord.appetiteResult.baseScore}): ${caseRecord.appetiteResult.adjustments.map((item) => `${item.label} ${item.points > 0 ? "+" : ""}${item.points}`).join("; ")}`);
   if (caseRecord.brief) lines.push(`Review brief: ${caseRecord.brief}`);
   if (caseRecord.question) lines.push(`Open question for the broker: ${caseRecord.question}`);
   if (caseRecord.decision) lines.push(`Underwriter decision (${caseRecord.status}): ${caseRecord.decision}`);

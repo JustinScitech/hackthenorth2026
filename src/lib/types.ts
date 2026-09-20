@@ -1,5 +1,6 @@
 import type { CaseAppetite } from "./case-appetite";
 import type { RankedSubmission } from "../federato/scoring";
+import type { PropertyContext } from "../agent/property-context";
 
 export type CaseStatus =
   | "received"
@@ -45,7 +46,9 @@ export type CaseRecord = {
   appetiteResult?: RankedSubmission | null;
   sourceKey: string;
   publicSourceUrl: string | null;
+  address: string | null;
   publicEvidence: PublicEvidence | null;
+  propertyContext: PropertyContext | null;
   extractionConflicts: string[];
   status: CaseStatus;
   facts: Facts | null;

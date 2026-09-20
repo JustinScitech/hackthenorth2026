@@ -91,6 +91,8 @@ async function main() {
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS appetite_result jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS public_evidence jsonb;
     ALTER TABLE cases ADD COLUMN IF NOT EXISTS extraction_conflicts jsonb NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS address text;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS property_context jsonb;
   `);
   const { runMigrations } = await getMigrations(auth.options);
   await runMigrations();

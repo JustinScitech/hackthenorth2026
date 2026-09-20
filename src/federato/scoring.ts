@@ -1,7 +1,9 @@
 import { readValues, type Concept, type Mapping } from "./schema";
 
 export type Criterion = { concept: Concept; factor: string; status: "target" | "acceptable" | "outside" | "unknown"; points: number; maximum: number; detail: string; source: string };
-export type RankedSubmission = { id: string; account: string; score: number; rawScore: number; recommendation: string; explanation: string; criteria: Criterion[]; missingData: string[]; evidenceNote?: string; lifecycleStatus?: string };
+export type ScoreAdjustment = { label: string; points: number; detail: string; source: string };
+/** `score` is the priority used for ranking; when public property records moved it, `baseScore` holds the appetite-only value and `adjustments` list every point. `rawScore` is the uncapped carrier match. */
+export type RankedSubmission = { id: string; account: string; score: number; rawScore: number; recommendation: string; explanation: string; criteria: Criterion[]; missingData: string[]; evidenceNote?: string; lifecycleStatus?: string; baseScore?: number; adjustments?: ScoreAdjustment[]; };
 export const guidelineVersion = "Federato HTN 2026 / 2025 sample commercial property appetite";
 const targetStates = ["OH", "PA", "MD", "CO", "CA", "FL"];
 const acceptableStates = [...targetStates, "NC", "SC", "GA", "VA", "UT"];

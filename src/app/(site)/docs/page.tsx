@@ -52,7 +52,7 @@ export default function DocsPage() {
           <li><strong>Pick a sample or start blank.</strong> The sample menu has five ready-made submissions: an acceptable risk, territory and age referrals, a loss referral, a case that needs broker follow-up, and one with full appetite evidence. Use them to see each outcome without typing anything.</li>
           <li><strong>Fill in the insured.</strong> Name, state, total insured value, and, if you have them, the oldest building year and historical loss count.</li>
           <li><strong>Add carrier appetite evidence</strong> where you know it: new or renewal business, line, premium, eligible construction percentage, five-year loss dollars, and policy dates. Leave anything unknown blank. The agent asks the broker for it.</li>
-          <li><strong>Paste the broker&apos;s notes.</strong> Unstructured text is fine. Optionally add a public URL about the property and the agent will visit it for extra evidence.</li>
+          <li><strong>Add the property address</strong> if you have it, and the agent pulls a dozen public datasets on the location. <strong>Paste the broker&apos;s notes.</strong> Unstructured text is fine. Optionally add a public URL about the property and the agent will visit it for extra evidence.</li>
           <li>Select <strong>Start analysis</strong>.</li>
         </ol>
         <p>The case page opens straight away and updates on its own. While the agent works you see which stage it is on, what it is looking for, and a running commentary of what it just did and why that matters. A typical case takes under a minute.</p>
@@ -67,6 +67,7 @@ export default function DocsPage() {
           <tr><td>Extracted facts</td><td>State, insured value, year built, and loss count, each with where it came from and how confident the agent is. Facts are read twice by independent methods, and a disagreement between the reads becomes a finding of its own.</td></tr>
           <tr><td>Carrier appetite checks</td><td>Eight checks: primary risk state, total insured value, building age, total premium, submission type, line of business, construction mix, and five-year loss value. Each is <strong>pass</strong>, <strong>refer</strong>, or <strong>unknown</strong>, with the evidence and rule behind it.</td></tr>
           <tr><td>Public-source evidence</td><td>A cited excerpt from the URL you supplied, shown as context for you to verify.</td></tr>
+          <tr><td>Public property records</td><td>With a property address, the agent pulls the public record: FEMA flood zone, wildfire history, USGS seismicity, ten years of weather and the elevation from Open-Meteo, fire stations, hydrants and neighbouring hazards from OpenStreetMap, EPA-regulated sites, the Census tract, US Drought Monitor, and federal disaster declarations. Each becomes a cited finding, and the hazards move the priority score by a stated number of points, listed line by line beside the appetite score.</td></tr>
         </tbody></table>
         <p>A <strong>refer</strong> means an underwriter should take a look. An <strong>unknown</strong> is a question for the broker.</p>
 
@@ -107,7 +108,7 @@ export default function DocsPage() {
         <h2 id="limits">Where the lines are</h2>
         <ul>
           <li>Every estimate is a demo range and every case ends with a human decision. Quoting and binding stay with the carrier.</li>
-          <li>Public research goes to the one URL you supply. Page text comes back as evidence for you to verify.</li>
+          <li>Public research goes to the one URL you supply and to open government datasets for the address you give. Every figure comes back with a link to the record it was read from.</li>
           <li>Follow-up questions are written for you to send; the agent stays off email and messaging.</li>
           <li>On the estimate page, only the facts the assistant understood are kept.</li>
           <li>The activity trace records what the agent did and when, in the agent&apos;s own words on the page.</li>

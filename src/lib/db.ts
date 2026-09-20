@@ -48,6 +48,8 @@ function mapCase(row: Record<string, unknown>): CaseRecord {
     appetiteResult: row.appetite_result as CaseRecord["appetiteResult"],
     publicSourceUrl: row.public_source_url as string | null,
     publicEvidence: row.public_evidence as CaseRecord["publicEvidence"],
+    address: (row.address as string | null) ?? null,
+    propertyContext: (row.property_context as CaseRecord["propertyContext"]) ?? null,
     extractionConflicts: (row.extraction_conflicts as string[] | null) ?? [],
     status: row.status as CaseRecord["status"], facts: row.facts as CaseRecord["facts"],
     findings: row.findings as CaseRecord["findings"], brief: row.brief as string | null,

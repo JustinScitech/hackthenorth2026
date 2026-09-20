@@ -21,6 +21,7 @@ const createSchema = z.object({
   appetite: caseAppetiteSchema.optional(),
   brokerNotes: z.string().trim().min(10).max(20_000),
   publicSourceUrl: z.url().max(2000).nullable(),
+  address: z.string().trim().min(5).max(200).nullable().optional(),
 });
 
 export async function GET(request: Request) {
@@ -59,8 +60,8 @@ export async function POST(request: Request) {
     try {
       await client.query("BEGIN");
       await client.query(
-        "INSERT INTO cases (id, insured_name, state, tiv, year_built, losses, source_key, public_source_url, appetite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-        [id, parsed.data.insuredName, parsed.data.state, parsed.data.tiv, parsed.data.yearBuilt, parsed.data.losses, sourceKey, parsed.data.publicSourceUrl, parsed.data.appetite ? JSON.stringify(parsed.data.appetite) : null],
+        "INSERT INTO cases (id, insured_name, state, tiv, year_built, losses, source_key, public_source_url, address, appetite) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+        [id, parsed.data.insuredName, parsed.data.state, parsed.data.tiv, parsed.data.yearBuilt, parsed.data.losses, sourceKey, parsed.data.publicSourceUrl, parsed.data.address ?? null, parsed.data.appetite ? JSON.stringify(parsed.data.appetite) : null],
       );
       await enqueueJob(id, "analyze", `analyze:${id}:0`, {}, 0, client);
       await client.query(

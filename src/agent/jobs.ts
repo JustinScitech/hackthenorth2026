@@ -11,7 +11,7 @@ const LEASE_SECONDS = 900;
 const FOLLOW_UP_HOURS = 24;
 
 // Each activity becomes an `agent.activity` span when SENTRY_DSN is set; otherwise these are the plain functions.
-const { checkCase, extractCase, failCase, finalizeDecision, recordBrokerFollowUp, recordBrokerResponse, researchPublicSource } = monitorActivities(activityModule);
+const { checkCase, extractCase, failCase, finalizeDecision, recordBrokerFollowUp, recordBrokerResponse, researchPublicSource, researchPropertyContext } = monitorActivities(activityModule);
 
 async function scheduleFollowUp(caseId: string) {
   const record = await getCase(caseId);
@@ -28,6 +28,7 @@ async function runJob(job: Job) {
     if (!["received", "extracting", "checking"].includes(record.status)) return;
     await extractCase(job.case_id);
     await researchPublicSource(job.case_id);
+    await researchPropertyContext(job.case_id);
     await checkCase(job.case_id);
     await scheduleFollowUp(job.case_id);
   } else if (job.kind === "broker_response") {
