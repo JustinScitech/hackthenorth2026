@@ -95,27 +95,17 @@ const eventLabels: Record<string, string> = {
 };
 
 function traceDetail(event: AuditEvent): string | null {
-  if (/^(?:gemini|openai)_model_/.test(event.eventType)) {
-    const model = String(event.detail.model ?? "Model");
-    if (event.eventType.endsWith("_started")) return model;
-    if (event.eventType.endsWith("_completed")) return `${model} · ${(Number(event.detail.durationMs ?? 0) / 1000).toFixed(1)}s`;
-    return `${model}${event.detail.errorCode ? ` · HTTP ${event.detail.errorCode}` : " · invalid or empty response"}`;
-  }
   if (event.eventType === "model_extraction_started") {
-    const providers = Array.isArray(event.detail.providers) ? event.detail.providers.join(" and ") : "Model";
-    return `Calling ${providers} for year built and recent loss count.`;
+    return "Reading broker notes and cross-checking supplied facts.";
   }
   if (event.eventType === "extraction_completed") {
-    const attempts = Array.isArray(event.detail.attempts) ? event.detail.attempts as { source: string; model: string; status: string; durationMs: number; errorCode?: number; attemptCount?: number }[] : [];
-    const completed = attempts.filter((attempt) => attempt.status === "completed");
-    const failed = attempts.filter((attempt) => attempt.status === "failed");
-    const source = completed.length
-      ? `${completed.map((attempt) => `${attempt.source} ${attempt.model} (${(attempt.durationMs / 1000).toFixed(1)}s${attempt.attemptCount && attempt.attemptCount > 1 ? `, ${attempt.attemptCount} attempts` : ""})`).join(", ")} with parser cross-check`
-      : failed.length ? `${failed.map((attempt) => `${attempt.source}${attempt.errorCode ? ` (HTTP ${attempt.errorCode})` : ""}`).join(" and ")} unavailable; parser fallback` : "Parser only; no model configured";
-    const missing = Array.isArray(event.detail.missing) && event.detail.missing.length ? ` · Missing: ${event.detail.missing.join(", ")}` : "";
-    const applied = event.detail.appliedSources as { yearBuilt?: string; losses?: string } | undefined;
-    const used = applied ? ` · Used: year ${applied.yearBuilt}, losses ${applied.losses}` : "";
-    return `${attempts.length ? source : (Array.isArray(event.detail.sources) ? event.detail.sources.join(", ") : "Broker submission")}${used}${missing}`;
+    const attempts = Array.isArray(event.detail.attempts) ? event.detail.attempts as { status: string }[] : [];
+    const completed = attempts.some((attempt) => attempt.status === "completed");
+    const failed = attempts.some((attempt) => attempt.status === "failed");
+    const source = completed ? "Broker facts extracted with parser cross-check."
+      : failed ? "Model extraction unavailable; parser fallback used." : "Parser only; no model configured";
+    const missing = Array.isArray(event.detail.missing) && event.detail.missing.length ? ` Missing: ${event.detail.missing.join(", ")}.` : "";
+    return source + missing;
   }
   if (event.eventType === "analysis_completed") {
     if (typeof event.detail.pass !== "number") return String(event.detail.status ?? "Analysis complete").replaceAll("_", " ");
@@ -131,9 +121,10 @@ function traceDetail(event: AuditEvent): string | null {
 }
 
 function AnalysisTrace({ audit, working }: { audit: AuditEvent[]; working: boolean }) {
+  const visibleEvents = audit.filter((event) => !/^(?:gemini|openai)_model_/.test(event.eventType));
   return <section className={`analysis-trace${working ? " is-working" : ""}`} aria-label="Activity trace">
-    <div className="trace-header"><span><ListChecks size={16} /> Activity trace <small>{audit.length} recorded steps</small></span></div>
-    <ol className="trace-list">{audit.map((event) => <li key={event.id}>
+    <div className="trace-header"><span><ListChecks size={16} /> Activity trace <small>{visibleEvents.length} recorded steps</small></span></div>
+    <ol className="trace-list">{visibleEvents.map((event) => <li key={event.id}>
       <div className="trace-heading"><strong>{eventLabels[event.eventType] ?? event.eventType.replaceAll("_", " ")}</strong><time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time></div>
       {traceDetail(event) && <p>{traceDetail(event)}</p>}
     </li>)}</ol>
@@ -304,7 +295,7 @@ export function CaseView({ id, caseRecord, audit, jobStatus, error, voiceAvailab
         {working ? <AgentWorking caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} /> : <JobProgress caseRecord={caseRecord} audit={audit} jobStatus={jobStatus} />}
         {caseRecord.status === "failed" && <div className="alert"><WarningCircle size={17} aria-hidden="true" />{caseRecord.error ?? "Analysis failed."}</div>}
         {caseRecord.brief ? <p className="brief">{caseRecord.brief}</p> : !working && <p className="brief">Analysis is in progress.</p>}
-        {caseRecord.appetiteResult && <section className="detail-section" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
+        {caseRecord.appetiteResult && <section className="detail-section appetite-recommendation" aria-label="Appetite recommendation"><h2>{summarizeSubmission(caseRecord.appetiteResult).title}</h2><p>Match score: {caseRecord.appetiteResult.rawScore}/100 · Priority score: {caseRecord.appetiteResult.score}/100</p><p>{summarizeSubmission(caseRecord.appetiteResult).action}</p></section>}
         {!caseRecord.appetiteResult && caseRecord.findings && <p className="notice">Legacy analysis: these saved findings predate the shared carrier appetite evaluator. Create a new review with complete appetite evidence before relying on them.</p>}
         {voiceAvailable && caseRecord.brief && <VoiceBrief id={id} />}
         <AnalysisTrace audit={audit} working={working} />

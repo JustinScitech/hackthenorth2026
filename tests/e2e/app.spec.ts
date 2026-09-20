@@ -156,7 +156,11 @@ test("case trace shows live progress and broker and underwriter actions", async 
   const actions: Record<string, unknown>[] = [];
   await page.route(`**/api/cases/${id}`, async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
     case: { id, insuredName: "Trace Test Office", state: "NY", tiv: 2400000, status, brief: status === "extracting" ? null : "Review completed.", question: "What year was it built?", decision: "Approved after review.", facts: null, findings: null, publicEvidence: null, createdAt: new Date().toISOString() },
-    audit: [{ id: "1", eventType: "gemini_model_started", detail: { model: "gemini-3.8-flash" }, createdAt: new Date().toISOString() }],
+    audit: [
+      { id: "0", eventType: "model_extraction_started", detail: { providers: ["Gemini"] }, createdAt: new Date().toISOString() },
+      { id: "1", eventType: "gemini_model_started", detail: { model: "gemini-3.8-flash" }, createdAt: new Date().toISOString() },
+      ...(status === "extracting" ? [] : [{ id: "2", eventType: "extraction_completed", detail: { attempts: [{ source: "Gemini", model: "gemini-3.8-flash", status: "completed" }], appliedSources: { yearBuilt: "Broker text via Gemini", losses: "Gemini" } }, createdAt: new Date().toISOString() }]),
+    ],
     jobStatus: "RUNNING", voiceAvailable: false,
   }) }));
   await page.route(`**/api/cases/${id}/actions`, async (route) => {
@@ -168,9 +172,12 @@ test("case trace shows live progress and broker and underwriter actions", async 
   await page.goto(`/cases/${id}`);
   await expect(page.getByRole("status")).toContainText("Astra is extracting the broker facts");
   await expect(page.getByRole("status")).toContainText("Loss counts provide context but do not establish five-year loss dollars");
-  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Gemini model started");
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Model extraction started");
+  await expect(page.getByRole("region", { name: "Activity trace" })).not.toContainText(/gemini|openai|flash/i);
   status = "waiting_for_broker";
   await page.reload();
+  await expect(page.getByRole("region", { name: "Activity trace" })).toContainText("Facts extracted");
+  await expect(page.getByRole("region", { name: "Activity trace" })).not.toContainText(/gemini|openai|flash/i);
   await page.getByLabel("Broker response").fill("Built in 2012 and fully sprinklered.");
   await page.getByRole("button", { name: "Add response and resume" }).click();
   await expect(page.getByRole("heading", { name: "Underwriter decision" })).toBeVisible();
