@@ -3,10 +3,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Briefcase, CaretRight, List, ListNumbers, Moon, Plus, Receipt, SignOut, Sliders, SquaresFour, Sun, Tray, X } from "@phosphor-icons/react/dist/ssr";
+import { BookOpen, Briefcase, Gear, List, ListNumbers, Moon, Plus, Receipt, SquaresFour, Sun, Tray, X } from "@phosphor-icons/react/dist/ssr";
 import { useTheme } from "./theme";
 import { Mark, Wordmark } from "./logo";
-import { authClient } from "@/lib/auth-client";
+import { AccountModal, avatarInitial } from "./account-modal";
 
 function Brand() {
   return <Wordmark href="/overview" />;
@@ -33,10 +33,9 @@ function NavLink({ href, active, children, external = false }: { href: string; a
 export function AppFrame({ children, user }: { children: ReactNode; user: { name: string; email: string } }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-  const [signOutError, setSignOutError] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
 
-  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => { setOpen(false); setAccountOpen(false); }, [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -48,18 +47,7 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
   const isNewCase = pathname === "/cases/new";
   const isCases = pathname.startsWith("/cases") && !isNewCase;
 
-  async function signOut() {
-    setSigningOut(true); setSignOutError(false);
-    try {
-      const result = await authClient.signOut();
-      if (result.error) { setSignOutError(true); return; }
-      window.location.assign("/sign-in");
-    } catch {
-      setSignOutError(true);
-    } finally {
-      setSigningOut(false);
-    }
-  }
+  const accountButton = { "aria-haspopup": "dialog" as const, "aria-expanded": accountOpen, onClick: () => setAccountOpen(true), title: "Account and settings" };
 
   return (
     <div className="app-frame" data-nav-open={open ? "true" : "false"}>
@@ -78,15 +66,14 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
           <NavLink href="/quotes" active={pathname.startsWith("/quotes")}><Receipt size={17} />Quotes</NavLink>
           <NavLink href="/triage" active={pathname.startsWith("/triage")}><ListNumbers size={17} />Federato triage<span className="nav-badge">live</span></NavLink>
         </nav>
-        <div className="nav-divider" />
-        <nav className="nav-group" aria-label="Preferences">
-          <NavLink href="/settings" active={pathname.startsWith("/settings")}><Sliders size={17} />Settings<CaretRight className="chevron" size={14} /></NavLink>
-        </nav>
         <div className="sidebar-bottom">
           <NavLink href="/docs" active={false}><BookOpen size={17} />Docs and API reference</NavLink>
           <NavLink href="/" active={false}><Mark size={17} />Home</NavLink>
-          <div className="sidebar-user"><span className="avatar" aria-hidden="true">{(user.name || user.email).slice(0, 1).toUpperCase()}</span><span className="sidebar-user-details"><strong>{user.name || user.email}</strong><small>{user.email}</small></span><button className="icon-button" type="button" onClick={() => void signOut()} disabled={signingOut} aria-label="Sign out" title="Sign out"><SignOut size={16} /></button></div>
-          {signOutError && <p className="sidebar-auth-error" role="alert">Could not sign out. Try again.</p>}
+          <button className="sidebar-user" type="button" aria-label="Account and settings" {...accountButton}>
+            <span className="avatar" aria-hidden="true">{avatarInitial(user)}</span>
+            <span className="sidebar-user-details"><strong>{user.name || user.email}</strong><small>{user.email}</small></span>
+            <Gear className="gear" size={16} />
+          </button>
         </div>
       </aside>
       <button className="sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setOpen(false)} tabIndex={-1} />
@@ -94,6 +81,7 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
         <header className="topbar">
           <Brand />
           <div className="topbar-actions">
+            <button className="icon-button avatar-button" type="button" aria-label="Account and settings" {...accountButton}>{avatarInitial(user)}</button>
             <ThemeQuickToggle />
             <button className="icon-button" type="button" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="app-sidebar" onClick={() => setOpen((value) => !value)}>
               {open ? <X size={18} /> : <List size={18} />}
@@ -102,6 +90,7 @@ export function AppFrame({ children, user }: { children: ReactNode; user: { name
         </header>
         {children}
       </div>
+      <AccountModal user={user} open={accountOpen} onClose={() => setAccountOpen(false)} />
     </div>
   );
 }
