@@ -11,7 +11,7 @@ test("eligible public construction labels do not create false referrals", () => 
     const findings = evidenceFindings(facts, { url: "https://example.com", title: "Property", excerpt }, extractEvidenceSignals(excerpt));
     const finding = findings.find((item) => item.id === "evidence_constructionType");
     assert.equal(finding?.result, "pass", type);
-    assert.match(finding?.detail ?? "", /does not establish the required mix/);
+    assert.match(finding?.detail ?? "", /required mix comes from the full building schedule/);
     assert.ok(finding?.detail.includes(excerpt));
     assert.ok(!finding?.detail.includes("Non-combustible construction reported"));
   }
