@@ -1,7 +1,8 @@
+import { counterfactuals } from "./counterfactual";
 import { deriveFacts } from "./derive";
 import type { DataClient, Query } from "./client";
 import { planQuery, readValues, type Mapping, type Plan, type Schema } from "./schema";
-import { guidelineVersion, scoreSubmission } from "./scoring";
+import { guidelineVersion, scoreSubmission, type RankedSubmission } from "./scoring";
 
 type Trace = { reason: string; query: Query; returned: number; total: number }[];
 
@@ -64,7 +65,7 @@ export async function runTriage(client: DataClient, options: { resource?: string
     }
   }
   options.signal?.throwIfAborted();
-  const ranked = [...records.values()].map((row) => {
+  const ranked = [...records.values()].map((row): RankedSubmission & { evidenceNote: string; lifecycleStatus: string } => {
     let scoringPlan = plan;
     let scoringRow = row;
     let evidenceNote = plan.resource === "Submission" ? "No verified unique linked policy; unavailable appetite evidence remains unknown." : "Policy resource selected explicitly or no Submission resource is available.";
@@ -95,7 +96,7 @@ export async function runTriage(client: DataClient, options: { resource?: string
       criterion.source = derived.sources[criterion.concept] ?? criterion.source;
       if (criterion.concept === "lossValue" && criterion.status === "unknown" && derived.lossLowerBound !== null) criterion.detail += ` Observed policy claims total at least $${derived.lossLowerBound.toLocaleString("en-US")}; complete five-year account history is unverified.`;
     }
-    return { ...result, evidenceNote, lifecycleStatus: typeof row.status === "string" ? row.status : "unknown" };
+    return { ...result, evidenceNote, lifecycleStatus: typeof row.status === "string" ? row.status : "unknown", counterfactuals: counterfactuals(derived.row, derived.mapping, plan.id, asOf) };
   });
   // Verified matches first, then open answers, then exceptions; within a tier the score orders the queue.
   const tier = (item: typeof ranked[number]) => item.criteria.some((criterion) => criterion.status === "outside") ? 2 : item.missingData.length ? 1 : 0;

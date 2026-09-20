@@ -21,8 +21,8 @@ function factLine<T>(label: string, item: Fact<T> | undefined, format: (value: T
   return `${label}: ${item.value === null ? "unknown" : format(item.value)} (${item.source}, ${Math.round(item.confidence * 100)}% confidence)`;
 }
 
-/** Everything the agent knows about the case, as plain lines the model can read. */
-export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[]): string {
+/** Everything the agent knows about the case, as plain lines the model can read. `precedent` is the similar-case lines from similar-cases.ts, when there are any. */
+export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[], precedent: string[] = []): string {
   const submitted = [caseRecord.state ?? "primary state pending", caseRecord.tiv === null ? "total insured value pending" : `${money(caseRecord.tiv)} total insured value`];
   if (caseRecord.yearBuilt !== null) submitted.push(`built ${caseRecord.yearBuilt}`);
   if (caseRecord.losses !== null) submitted.push(`${caseRecord.losses} losses reported on the form`);
@@ -54,10 +54,12 @@ export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[]): strin
     lines.push("Public property records:");
     for (const source of caseRecord.propertyContext.sources) lines.push(`- ${source.label}: ${source.summary}`);
   }
+  if (caseRecord.appetiteResult?.counterfactuals?.length) lines.push("What would change the outcome (appetite only; one factor at a time):", ...caseRecord.appetiteResult.counterfactuals.map((item) => `- ${item.sentence}`));
   if (caseRecord.appetiteResult?.adjustments?.length) lines.push(`Priority adjustments from public records (appetite-only score ${caseRecord.appetiteResult.baseScore}): ${caseRecord.appetiteResult.adjustments.map((item) => `${item.label} ${item.points > 0 ? "+" : ""}${item.points}`).join("; ")}`);
   if (caseRecord.brief) lines.push(`Review brief: ${caseRecord.brief}`);
   if (caseRecord.question) lines.push(`Open question for the broker: ${caseRecord.question}`);
   if (caseRecord.decision) lines.push(`Underwriter decision (${caseRecord.status}): ${caseRecord.decision}`);
+  lines.push(...precedent);
   if (caseRecord.error) lines.push(`Analysis error: ${caseRecord.error}`);
   if (audit.length) lines.push(`Recent activity: ${audit.slice(-8).map((event) => `${event.eventType.replaceAll("_", " ")} at ${new Date(event.createdAt).toISOString()}`).join("; ")}`);
   return lines.filter((line): line is string => line !== null).join("\n");
@@ -69,9 +71,9 @@ export function caseBriefing(caseRecord: CaseRecord, audit: AuditEvent[]): strin
  * quota (429) is skipped for the next one, because a conversation should keep going during a demo
  * even when one model's free-tier allowance for the day is spent.
  */
-export async function answerCaseQuestion(caseRecord: CaseRecord, audit: AuditEvent[], history: ChatTurn[], question: string): Promise<{ reply: string; model: string }> {
+export async function answerCaseQuestion(caseRecord: CaseRecord, audit: AuditEvent[], history: ChatTurn[], question: string, precedent: string[] = []): Promise<{ reply: string; model: string }> {
   if (!process.env.GEMINI_API_KEY) throw Object.assign(new Error("No chat model is configured"), { status: 503 });
-  const system = `${CHAT_PROMPT}\n\nCase record:\n${caseBriefing(caseRecord, audit)}`;
+  const system = `${CHAT_PROMPT}\n\nCase record:\n${caseBriefing(caseRecord, audit, precedent)}`;
   const turns = history.slice(-HISTORY_LIMIT);
   // Gemini wants the conversation to open with the user, so a leading agent turn is dropped.
   while (turns[0]?.role === "agent") turns.shift();

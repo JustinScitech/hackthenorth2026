@@ -436,6 +436,14 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .appetite-recommendation p { margin: 0; line-height: 1.6; }
 .appetite-recommendation p:first-of-type { color: var(--muted); font-size: 14px; }
 .appetite-recommendation p:last-child { padding-top: 14px; border-top: 1px solid var(--border); }
+.what-would-change { padding-top: 14px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
+.what-would-change h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.what-would-change ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.what-would-change li { display: grid; gap: 2px; padding-left: 14px; border-left: 2px solid var(--accent); font-size: 14px; line-height: 1.55; color: var(--text-secondary); }
+.what-would-change li strong { color: var(--text); font-size: 13.5px; }
+.what-would-change > .subtle { font-size: 13px; }
+.queue-changes { margin: 0; padding-left: 18px; max-width: 92ch; color: var(--text-secondary); font-size: 13.5px; line-height: 1.65; }
+.queue-changes strong { font-weight: 600; color: var(--text); }
 .action-section { background: var(--card-bg); border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: 20px 24px; }
 .action-section .section-heading { margin-bottom: 12px; }
 .action-section p { margin: 0 0 16px; font-size: 14.5px; color: var(--text-secondary); }
@@ -869,6 +877,17 @@ body:has(.account-dialog[open]) { overflow: hidden; }
 .context-adjustments li { display: grid; grid-template-columns: 44px minmax(120px, 180px) 1fr; gap: 10px; align-items: baseline; font-size: 13.5px; }
 .context-adjustments li span:last-child { color: var(--text-secondary); }
 .context-adjustments .points { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---------- Similar past cases (case) ---------- */
+.precedent-list { list-style: none; margin: 0; padding: 0 20px 6px; display: grid; }
+.precedent-list li { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--border-soft); font-size: 13.5px; }
+.precedent-list li p { margin: 0; color: var(--text-secondary); }
+.precedent-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.precedent-head .text-link { font-family: var(--font-display); font-size: 16px; font-weight: 500; }
+.precedent-meta { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.precedent-head .status { margin-left: auto; }
+.precedent-decision { font-style: italic; }
+.precedent-list .annotation { width: fit-content; margin-top: 4px; }
 .context-adjustments .points.is-down { color: var(--amber-ink); }
 .context-adjustments .points.is-up { color: var(--accent-ink); }
 @media (max-width: 640px) { .context-list li, .context-adjustments li { grid-template-columns: 1fr; gap: 2px; } }

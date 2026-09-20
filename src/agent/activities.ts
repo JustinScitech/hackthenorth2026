@@ -4,6 +4,7 @@ import { addAudit, db, getCase } from "../lib/db";
 import { extractNotes } from "./model";
 import { getText } from "../lib/storage";
 import { putMongoEvidence } from "../lib/mongo";
+import { indexCaseMemory } from "./similar-cases";
 import type { Facts } from "../lib/types";
 import { captureAgentError, logAgentEvent, recordAnalysisMetrics, recordDecisionMetric, recordExtractionMetrics } from "./monitoring";
 import { browsePublicSource } from "./public-source";
@@ -158,6 +159,7 @@ export async function checkCase(caseId: string, signal?: AbortSignal): Promise<{
   }, `analysis:${caseId}:${caseRecord.analysisRevision}`);
   recordAnalysisMetrics(result.findings, Boolean(result.question));
   logAgentEvent("analysis_completed", { caseId, revision: caseRecord.analysisRevision, status, refer: result.findings.filter((finding) => finding.result === "refer").length });
+  await indexCaseMemory(caseId);
   return { needsBroker: Boolean(result.question) };
 }
 
@@ -224,6 +226,7 @@ export async function finalizeDecision(caseId: string, actionId: string): Promis
   } finally {
     client.release();
   }
+  await indexCaseMemory(caseId);
 }
 
 export async function failCase(caseId: string, reason: string): Promise<void> {

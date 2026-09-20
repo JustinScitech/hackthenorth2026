@@ -1,6 +1,8 @@
 import type { DataClient, Query } from "../../src/federato/client";
 import { runTriage } from "../../src/federato/triage";
 import { buildSummaryMarkdown, summarizeSubmission } from "../../src/federato/presentation";
+import { planQuery } from "../../src/federato/schema";
+import { scoreSubmission } from "../../src/federato/scoring";
 import type { CaseResult, Suite } from "../runner";
 
 /**
@@ -79,8 +81,15 @@ export const rankingSuite: Suite = {
     });
     add("plain-language summaries agree with the recommendation", summariesAgree, "summary status disagrees with bucket");
     add("the trace explains every page request", report.trace.length === 2 && report.trace.every((step) => step.reason.length > 0 && step.returned > 0), JSON.stringify(report.trace.map((step) => step.returned)));
+    const plain = new Map(rows.map((row) => [String(row.id), scoreSubmission(row, planQuery(schema).mapping, "id", asOf)]));
+    add("attaching counterfactuals leaves every score, raw score and recommendation unchanged", report.ranked.every((item) => { const direct = plain.get(item.id)!; return direct.score === item.score && direct.rawScore === item.rawScore && direct.recommendation === item.recommendation; }), "a ranked score differs from scoring the row directly");
+    const hasGap = (item: (typeof report.ranked)[number]) => item.criteria.some((criterion) => criterion.status === "outside" || criterion.status === "unknown");
+    add("counterfactuals exist exactly for records with an appetite gap and never lower the score", report.ranked.every((item) => ((item.counterfactuals ?? []).length > 0) === hasGap(item) && (item.counterfactuals ?? []).every((entry) => entry.projectedScore >= item.score)), report.ranked.filter((item) => ((item.counterfactuals ?? []).length > 0) !== hasGap(item)).map((item) => item.id).join(","), "A missing account name is required context, not an appetite factor, so it gets no counterfactual; every outside or unknown factor does.");
+    add("summaries carry what would change a record", report.ranked.every((item) => summarizeSubmission(item).whatWouldChange.length === (item.counterfactuals ?? []).length), "summary whatWouldChange disagrees with counterfactuals");
     const markdown = buildSummaryMarkdown(report);
     add("downloadable summary lists every top record without raw scoring internals", report.topSubmissions.every((item) => markdown.includes(`. ${item.account}`)) && !markdown.includes("rawScore") && !/capped at/.test(markdown) && markdown.includes("stay with the underwriter"), "summary markdown is incomplete or leaks internals");
+    const fullMarkdown = buildSummaryMarkdown({ ...report, topSubmissions: report.ranked });
+    add("the full summary explains what would change every record with a gap", report.ranked.every((item) => (item.counterfactuals ?? []).every((entry) => fullMarkdown.includes(entry.condition))) && !/What would change it/.test(markdown), "a counterfactual is missing from the markdown, or a passing record got one");
     return results;
   },
 };
